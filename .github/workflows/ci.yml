@@ -1,0 +1,36 @@
+# Every push proves the same things a contributor (human or agent) must prove locally.
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: council
+          POSTGRES_PASSWORD: local-development-only
+          POSTGRES_DB: council_next
+        ports: ["55439:5432"]
+        options: >-
+          --health-cmd "pg_isready -U council" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Architecture boundaries, generated contracts and migrations in sync, types, rules.
+      - run: npm run verify
+      # Real PostgreSQL: migrations, constraints, concurrency, receipts, change feed.
+      - run: npm run test:integration
+      - run: npm run build:web
+  native:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      # Pure rules, shared cross-language vectors and the local store. The live-API test skips here.
+      - run: swift test --package-path apps/ios/CouncilCore

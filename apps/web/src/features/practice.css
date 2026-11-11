@@ -1,0 +1,425 @@
+.practice-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+.domain-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.domain-chips button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 99px;
+  border-color: var(--line-2);
+  color: var(--text-2);
+}
+.domain-chips button.selected {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+}
+.focus-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+.columns.practice {
+  grid-template-columns: minmax(360px, 5fr) minmax(0, 7fr);
+}
+
+/* Cockpit */
+.practice-cockpit .panel-content {
+  gap: 12px;
+}
+.scope {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: var(--fs-sm);
+}
+.scope .sep {
+  color: var(--text-4);
+}
+.scope .crumb {
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  color: var(--text);
+}
+.scope .crumb.strong {
+  font-weight: 600;
+  padding-left: 0;
+}
+.scope select {
+  height: 24px;
+  border-color: transparent;
+  background-color: transparent;
+  padding-left: 6px;
+  color: var(--text);
+}
+.scope select:hover {
+  background-color: var(--surface-2);
+}
+.timer-stage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 16px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+}
+.timer-stage.live {
+  border-color: var(--line-3);
+}
+.timer-face {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.timer-face small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timer-face .timer-digits {
+  padding: 0;
+  font: 300 38px / 1.05 var(--mono);
+  letter-spacing: -0.05em;
+}
+.timer-face.idle .timer-digits {
+  color: var(--text-4);
+}
+.timer-stage.live .timer-face small::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  vertical-align: 1px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.timer-controls {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.timer-controls .primary {
+  height: 32px;
+  padding: 0 16px;
+}
+.practice-cockpit .capture-text {
+  min-height: 64px;
+}
+.progress-timeline {
+  display: flex;
+  flex-direction: column;
+}
+.progress-timeline > div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.progress-timeline > div:last-child {
+  border-bottom: 0;
+}
+.progress-timeline aside {
+  font: var(--fs-xs) var(--mono);
+  color: var(--text-3);
+  padding-top: 1px;
+}
+.progress-timeline p {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.progress-timeline small {
+  font-size: var(--fs-micro);
+  color: var(--text-4);
+}
+
+/* Map */
+.practice-map .panel-content {
+  gap: 10px;
+}
+.activity-list > button {
+  gap: 12px;
+  padding: 8px 8px;
+  border-radius: var(--r);
+  border-bottom-color: transparent;
+}
+.activity-list > button.selected {
+  background: var(--surface-3);
+}
+.activity-list .row-main strong {
+  font-weight: 550;
+}
+.activity-list .bar {
+  width: 120px;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+.activity-list .bar i {
+  display: block;
+  height: 100%;
+  background: var(--text-2);
+}
+.activity-list .mono {
+  width: 64px;
+  text-align: right;
+  font-size: var(--fs-sm);
+}
+.add-row {
+  align-self: flex-start;
+  color: var(--text-3);
+}
+.problem-map {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(0, 3fr);
+  gap: 14px;
+  min-height: 100%;
+}
+.problem-list,
+.solution-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.problem-list {
+  padding-right: 14px;
+  border-right: 1px solid var(--line);
+}
+.problem-map .label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+.problem-map .label button {
+  height: 22px;
+  padding: 0 6px;
+  font: var(--fs-xs) var(--font);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.problem-list .article-list > button.resolved strong,
+.problem-list .article-list > button.discarded strong {
+  color: var(--text-3);
+}
+.solution-tree {
+  display: flex;
+  flex-direction: column;
+}
+.solution-tree > div {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  padding: 4px 0 4px calc(var(--depth) * 18px);
+  border-radius: var(--r);
+}
+.solution-tree > div:not([style*="--depth: 0"])::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--depth) * 18px - 11px);
+  top: 0;
+  height: 19px;
+  width: 8px;
+  border-left: 1px solid var(--line-3);
+  border-bottom: 1px solid var(--line-3);
+  border-bottom-left-radius: 4px;
+}
+.solution-tree .node {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+}
+.solution-tree .node i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-2);
+  flex: none;
+}
+.solution-tree .node strong {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.solution-tree > div.active .node i {
+  background: var(--text);
+  border-color: var(--text);
+}
+.solution-tree > div.resolved .node i {
+  background: var(--live);
+  border-color: var(--live);
+}
+.solution-tree > div.discarded .node strong {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-4);
+}
+.solution-tree > div.discarded .node i {
+  border-color: var(--text-4);
+}
+.solution-tree > div.selected > .node {
+  background: var(--surface-3);
+}
+.solution-tree p {
+  order: 3;
+  width: 100%;
+  padding: 0 8px 4px 23px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: pre-wrap;
+}
+.solution-tree .row-tools {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.solution-tree > div:hover .row-tools,
+.solution-tree > div.selected .row-tools {
+  opacity: 1;
+}
+.practice-map .dense-list .day {
+  width: 40px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.practice-map .dense-list .cancelled {
+  opacity: 0.45;
+}
+.practice-map .dense-list .row-tools {
+  opacity: 0;
+}
+.practice-map .dense-list > div:hover .row-tools {
+  opacity: 1;
+}
+@media (max-width: 760px) {
+  .practice-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .problem-map {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .problem-list {
+    padding-right: 0;
+    border-right: 0;
+  }
+  .timer-stage {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Flat rows; only the chosen scope is filled. */
+.activity-list > button {
+  background: transparent;
+}
+.activity-list > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+.activity-list > button.selected {
+  background: var(--fill, var(--surface-3));
+}
+.timeline-empty {
+  padding: 18px 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-4);
+}
+
+/* Rhythm: fills the map with what the scope has actually been doing. */
+.rhythm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-2);
+}
+.rhythm > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.rhythm > header strong {
+  font-size: var(--fs);
+  font-weight: 600;
+}
+.heat-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.heat-caption small {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.heat-caption i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.heat-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+}
+.heat-grid i {
+  aspect-ratio: 1;
+  max-height: 16px;
+  border-radius: 3px;
+}
+.heat i[data-level="0"] {
+  background: var(--surface-3);
+}
+.heat i[data-level="1"] {
+  background: color-mix(in srgb, var(--text) 28%, var(--surface-3));
+}
+.heat i[data-level="2"] {
+  background: color-mix(in srgb, var(--text) 50%, var(--surface-3));
+}
+.heat i[data-level="3"] {
+  background: color-mix(in srgb, var(--text) 75%, var(--surface-3));
+}
+.heat i[data-level="4"] {
+  background: var(--text);
+}
+.heat-grid i.future {
+  background: transparent;
+}
+.heat-grid i.today {
+  outline: 1px solid var(--text-3);
+  outline-offset: 1px;
+}

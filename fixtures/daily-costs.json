@@ -1,0 +1,48 @@
+[
+  {
+    "name": "fixed does not accelerate after ten days",
+    "kind": "fixed",
+    "netCostMinor": "365000",
+    "plannedDays": 365,
+    "elapsedDays": 10,
+    "termMinor": "1000",
+    "currentMinor": "1000"
+  },
+  {
+    "name": "estimated uses elapsed days in current view",
+    "kind": "estimated",
+    "netCostMinor": "10000",
+    "plannedDays": 100,
+    "elapsedDays": 10,
+    "termMinor": "100",
+    "currentMinor": "1000"
+  },
+  {
+    "name": "not started",
+    "kind": "estimated",
+    "netCostMinor": "10000",
+    "plannedDays": 100,
+    "elapsedDays": 0,
+    "termMinor": "100",
+    "currentMinor": null
+  },
+  {
+    "name": "ended after recovery uses actual days",
+    "kind": "estimated",
+    "netCostMinor": "6000",
+    "plannedDays": 100,
+    "elapsedDays": 90,
+    "actualDays": 30,
+    "termMinor": "200",
+    "currentMinor": "200"
+  },
+  {
+    "name": "past expected expiry still accrues real days",
+    "kind": "estimated",
+    "netCostMinor": "10000",
+    "plannedDays": 100,
+    "elapsedDays": 200,
+    "termMinor": "100",
+    "currentMinor": "50"
+  }
+]

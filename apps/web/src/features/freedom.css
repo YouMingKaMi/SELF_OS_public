@@ -1,0 +1,242 @@
+.freedom {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.freedom-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+.freedom-hero {
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.freedom-hero > small {
+  display: block;
+  margin-bottom: 4px;
+}
+.freedom-hero > strong {
+  font: 600 44px / 1 var(--font);
+  letter-spacing: -0.02em;
+}
+.freedom-hero > span {
+  margin-left: 6px;
+  color: var(--text-2);
+}
+.freedom-hero > p {
+  margin-top: 10px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.freedom-hero b {
+  color: var(--text);
+  font-weight: 600;
+}
+.freedom-progress {
+  position: relative;
+  height: 6px;
+  margin-top: 14px;
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+.freedom-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #d9ac4f, #6f97dc);
+}
+.freedom-progress em {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font: var(--fs-xs) var(--mono);
+  font-style: normal;
+  color: var(--text-3);
+}
+.freedom-line {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.freedom-line b {
+  color: var(--text);
+}
+.freedom-effect {
+  margin-top: 8px;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.freedom-effect.up {
+  color: var(--live);
+}
+.freedom-effect.down {
+  color: var(--danger);
+}
+.freedom-effect small {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.freedom-whatif {
+  display: flex;
+  gap: 8px;
+}
+.freedom-whatif input {
+  flex: 1;
+}
+.freedom-hint {
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.freedom-hint.big {
+  padding: 60px 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+}
+.freedom-gaps > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.freedom-gaps > div:last-child {
+  border-bottom: 0;
+}
+.freedom-gaps strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.freedom-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.freedom-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.freedom-settings label.check {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+.freedom-note {
+  display: block;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.freedom-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.freedom-legend i {
+  width: 10px;
+  height: 10px;
+  margin-left: 8px;
+  border-radius: 3px;
+}
+.freedom-legend .gold {
+  background: #d9ac4f;
+}
+.freedom-legend .blue {
+  background: #6f97dc;
+}
+.freedom-legend .none {
+  background: var(--surface-3);
+}
+.freedom-legend .past {
+  background: var(--line-2);
+}
+.freedom-axis {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-size: var(--fs-micro);
+  color: var(--text-4);
+}
+.freedom-axis span:first-child {
+  width: 18px;
+}
+.freedom-lights canvas {
+  display: block;
+}
+@media (max-width: 900px) {
+  .freedom {
+    grid-template-columns: 1fr;
+  }
+}
+.freedom-side .stats-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.freedom-volatile {
+  color: var(--text-3) !important;
+  font-size: var(--fs-xs) !important;
+}
+.freedom-volatile b {
+  color: #b9a3e6 !important;
+}
+.freedom-roles {
+  display: flex;
+  flex-direction: column;
+}
+.freedom-roles small.group {
+  padding: 8px 0 2px;
+  color: var(--text-3);
+}
+.freedom-roles > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+}
+.freedom-roles .row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+.freedom-roles .row-main > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.freedom-roles .segmented button {
+  height: 22px;
+  padding: 0 7px;
+  font-size: var(--fs-xs);
+}
+.freedom-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.freedom-legend .volatile {
+  background: rgba(167, 139, 218, 0.55);
+}
+.freedom-basis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}

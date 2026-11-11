@@ -1,0 +1,198 @@
+/* ── Journal: chronicle, raw material, ideas ── */
+.journal-capture .panel-content {
+  gap: 10px;
+}
+.capture-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.capture-meta strong {
+  font: 500 var(--fs-xs) var(--mono);
+  color: var(--text-2);
+}
+.journal-lines,
+.history-list {
+  display: flex;
+  flex-direction: column;
+}
+.journal-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0 6px 14px;
+  border-radius: var(--r-sm);
+}
+.journal-row::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 14px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+.journal-row:hover {
+  background: var(--surface-2);
+}
+.journal-row:hover::before {
+  background: var(--text-2);
+}
+.journal-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.journal-row .row-tools {
+  opacity: 0;
+  margin: -1px 2px 0 0;
+  transition: opacity 0.12s;
+}
+.journal-row:hover .row-tools,
+.journal-row:focus-within .row-tools {
+  opacity: 1;
+}
+.journal-row .pill {
+  margin-top: 2px;
+}
+.journal-row.completed .journal-text {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-4);
+}
+.journal-row.discarded .journal-text {
+  color: var(--text-4);
+}
+.journal-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  padding-right: 6px;
+}
+.journal-edit .form-actions {
+  justify-content: flex-end;
+}
+.journal-edit .form-actions .primary {
+  margin-left: 0;
+}
+.journal.raw .journal-text {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+.journal-review .day-block {
+  padding: 12px 0 8px;
+}
+.journal-review .day-block.current > header h3 {
+  color: var(--text);
+}
+.journal-review .day-block:not(.current) > header h3 {
+  color: var(--text-2);
+}
+.journal-review .day-block > header button:hover {
+  color: var(--text);
+}
+
+/* ── Documents: index on the left, the page on the right ── */
+.documents .document-index .panel-content {
+  padding: 10px 8px 8px;
+  gap: 8px;
+}
+.search-field {
+  width: 100%;
+  margin: 0 2px;
+  width: calc(100% - 4px);
+}
+.document-paper {
+  --measure: 700px;
+}
+.document-paper .prose {
+  margin: 0 auto;
+  width: 100%;
+  max-width: var(--measure);
+}
+.document-metadata {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  max-width: var(--measure);
+  width: 100%;
+  margin: 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.document-metadata select,
+.document-metadata input {
+  font-family: var(--font);
+  font-size: var(--fs-xs);
+}
+.article-title {
+  height: auto;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  max-width: var(--measure);
+  width: 100%;
+  margin: 0 auto;
+}
+.article-title:focus {
+  box-shadow: none;
+}
+.document-paper .editor-hint {
+  max-width: var(--measure);
+  width: 100%;
+  margin: 0 auto;
+}
+.markdown-editor {
+  flex: 1;
+  min-height: 360px;
+  max-width: var(--measure);
+  width: 100%;
+  margin: 0 auto;
+  padding: 14px 16px;
+  font: var(--fs) / 1.8 var(--mono);
+  background: var(--bg);
+  resize: none;
+}
+.document-paper .form-actions {
+  max-width: var(--measure);
+  width: 100%;
+  margin: 0 auto;
+}
+.document-paper .form-actions .primary {
+  margin-left: 0;
+}
+.document-paper .form-actions small {
+  margin: 0 0 0 auto;
+}
+.document-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: auto;
+  padding: 40px 0;
+  max-width: 340px;
+  text-align: center;
+}
+.document-empty h3 {
+  font-size: var(--fs-md);
+}
+.document-empty p {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.document-empty .primary {
+  margin-top: 6px;
+}

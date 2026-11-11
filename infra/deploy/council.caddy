@@ -1,0 +1,51 @@
+# SELF OS: one origin for the web app and its API, so the session cookie stays same-site.
+# The site address is filled in by deploy.sh from infra/deploy/site.env (not committed).
+https://COUNCIL_SITE {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+	handle /v1/* {
+		request_body {
+			max_size 4MB
+		}
+		# Event streams must not be buffered.
+		reverse_proxy 127.0.0.1:8790 {
+			flush_interval -1
+		}
+	}
+	handle {
+		root * /opt/council-next/web
+		@shell path / /index.html /sw.js
+		header @shell Cache-Control "no-cache"
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+	log {
+		output file /var/log/caddy/council-next.log {
+			roll_size 10mb
+			roll_keep 3
+		}
+		format filter {
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+			request>remote_ip delete
+			request>client_ip delete
+			request>uri query {
+				delete cursor
+			}
+		}
+	}
+}

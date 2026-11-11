@@ -1,0 +1,343 @@
+.home-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: none;
+}
+.home-quick-actions > span {
+  margin-right: 4px;
+  font: 500 var(--fs-micro) var(--mono);
+  letter-spacing: 0.14em;
+  color: var(--text-4);
+}
+.home-quick-actions button {
+  height: 28px;
+  border-radius: 99px;
+  padding: 0 12px 0 10px;
+}
+.home-quick-actions .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+.widget-catalog {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-3);
+  border-radius: var(--r-lg);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.widget-catalog small {
+  margin-left: auto;
+}
+
+/* Masonry: rows are 1px; each card's span is measured in Home.tsx. */
+.home-grid {
+  --home-gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1px;
+  grid-auto-flow: row dense;
+  column-gap: var(--home-gap);
+  align-items: start;
+  flex: none;
+}
+.home-widget {
+  min-width: 0;
+  padding-bottom: var(--home-gap);
+  cursor: default;
+}
+.home-widget.wide {
+  grid-column: span 2;
+}
+.home-widget[data-card="practice"].wide {
+  grid-column: span 2;
+}
+.home-widget .panel {
+  overflow: visible;
+  transition: border-color 0.15s;
+}
+.home-widget:hover .panel {
+  border-color: var(--line-2);
+}
+.home-widget .panel > header {
+  min-height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.home-widget .panel > header h2 {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.home-widget .panel > header button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  color: var(--text-4);
+}
+.home-widget:hover .panel > header button {
+  color: var(--text-2);
+}
+.home-widget .panel-content {
+  overflow: visible;
+  gap: 10px;
+}
+.home-widget.arranging {
+  cursor: grab;
+}
+.home-widget.arranging .panel {
+  border-style: dashed;
+  border-color: var(--line-3);
+}
+.widget-controls {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.widget-controls button {
+  height: 22px;
+  font-size: var(--fs-micro);
+}
+.home-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.home-figure strong {
+  font: 300 30px / 1.1 var(--mono);
+  letter-spacing: -0.05em;
+}
+.home-figure span {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.home-widget .panel-content > .primary,
+.home-widget .panel-content > button {
+  align-self: flex-start;
+}
+
+/* Practice card */
+.home-intro {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.home-practice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quick-start-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.quick-start-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+.home-practice .form-actions .primary {
+  margin-left: 0;
+}
+.home-session {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+}
+.session-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.session-label .status-dot {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.home-session h3 {
+  grid-column: 1;
+  font-size: var(--fs-md);
+  font-weight: 550;
+}
+.home-session .timer-digits {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font: 300 34px / 1 var(--mono);
+  letter-spacing: -0.05em;
+}
+.home-session .form-actions {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
+.home-session .form-actions .primary {
+  margin-left: 0;
+}
+
+/* Time card */
+.time-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.time-breakdown > div > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.time-breakdown strong {
+  font: 500 var(--fs-xs) var(--mono);
+}
+.time-track {
+  height: 3px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.time-track span {
+  display: block;
+  height: 100%;
+  background: var(--text);
+}
+
+/* Task cards */
+.home-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.home-task-count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.home-task-count strong {
+  font: 300 30px / 1.1 var(--mono);
+  letter-spacing: -0.05em;
+}
+.home-task-count span {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.home-task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  border-top: 1px solid var(--line);
+}
+.task-check {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  flex: none;
+  border: 1.5px solid var(--line-3);
+  border-radius: 50%;
+  color: transparent;
+}
+.task-check:hover:not(:disabled) {
+  color: var(--solid-text);
+  background: var(--solid);
+  border-color: var(--solid);
+}
+.task-check .icon {
+  width: 10px;
+  height: 10px;
+}
+.home-task-title {
+  flex: 1;
+  justify-content: space-between;
+  min-width: 0;
+  height: 30px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.home-task-title:hover:not(:disabled) {
+  background: none;
+}
+.home-task-title small {
+  font: var(--fs-micro) var(--mono);
+  color: var(--text-4);
+}
+.home-task-more {
+  align-self: flex-start;
+  margin-top: 4px;
+  border: 0;
+  padding: 0 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* Journal cards */
+.home-chronicle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.home-chronicle p {
+  position: relative;
+  padding-left: 12px;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.home-chronicle p::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 9px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+.home-chronicle p.muted {
+  padding: 0;
+  color: var(--text-3);
+}
+.home-chronicle p.muted::before {
+  display: none;
+}
+.home-widget textarea {
+  min-height: 56px;
+  background: var(--bg);
+}
+.home-widget .habit-line {
+  min-height: 38px;
+  border-bottom: 1px solid var(--line);
+}
+.home-widget .dense-list > button {
+  justify-content: space-between;
+}
+
+@container (max-width: 1000px) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 620px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-widget.wide,
+  .home-widget[data-card="practice"].wide {
+    grid-column: auto;
+  }
+  .quick-start-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

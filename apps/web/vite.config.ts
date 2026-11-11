@@ -1,0 +1,4 @@
+import {defineConfig} from 'vite';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+export default defineConfig({root:import.meta.dirname,plugins:[{name:'offline-shell',generateBundle(_,bundle){const files=['/',...Object.keys(bundle).filter(name=>name.endsWith('.js')||name.endsWith('.css')).map(name=>'/'+name)];const version=createHash('sha256').update(JSON.stringify(files)).digest('hex').slice(0,12);const source=readFileSync(new URL('./public/sw.js',import.meta.url),'utf8').replace('council-task-shell-v1','council-task-shell-'+version);this.emitFile({type:'asset',fileName:'sw.js',source:'const PRECACHE='+JSON.stringify(files)+';\n'+source});}}],server:{host:'127.0.0.1',port:8900,strictPort:true,proxy:{'/v1':{target:'http://127.0.0.1:'+(process.env.COUNCIL_API_PORT ?? '8899'),configure(proxy){proxy.on('proxyReq',request=>{request.setHeader('authorization',`Bearer ${process.env.COUNCIL_DEV_TOKEN ?? ''}`);});}}}},build:{outDir:'dist'}});

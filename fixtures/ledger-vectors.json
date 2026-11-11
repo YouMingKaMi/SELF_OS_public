@@ -1,0 +1,69 @@
+[
+  {
+    "name": "a one-off purchase belongs to its own day only",
+    "asOf": "2026-11-10",
+    "expense": { "title": "午饭", "day": "2026-11-07", "amountMinor": "3200", "mode": "immediate" },
+    "net": "3200",
+    "days": [
+      { "day": "2026-11-07", "term": "3200", "current": "3200" },
+      { "day": "2026-11-08", "term": "0", "current": "0" }
+    ],
+    "month": { "month": "2026-11", "term": "3200", "current": "3200" }
+  },
+  {
+    "name": "estimated use: planned term versus days used so far",
+    "asOf": "2026-01-10",
+    "expense": { "title": "键盘", "day": "2026-01-01", "amountMinor": "10000", "mode": "estimated", "startDay": "2026-01-01", "endDay": "2026-04-10" },
+    "net": "10000",
+    "days": [
+      { "day": "2025-12-31", "term": "0", "current": "0" },
+      { "day": "2026-01-05", "term": "100", "current": "1000" },
+      { "day": "2026-01-11", "term": "0", "current": "0" }
+    ],
+    "month": { "month": "2026-01", "term": "1000", "current": "10000" }
+  },
+  {
+    "name": "a fixed term never accelerates",
+    "asOf": "2026-01-10",
+    "expense": { "title": "年费", "day": "2026-01-01", "amountMinor": "365000", "mode": "fixed", "startDay": "2026-01-01", "endDay": "2026-12-31" },
+    "net": "365000",
+    "days": [{ "day": "2026-01-05", "term": "1000", "current": "1000" }],
+    "month": { "month": "2026-01", "term": "10000", "current": "10000" }
+  },
+  {
+    "name": "resale lowers the original net cost and use stops on the actual last day",
+    "asOf": "2026-03-01",
+    "expense": { "title": "显示器", "day": "2026-01-01", "amountMinor": "10000", "mode": "estimated", "startDay": "2026-01-01", "endDay": "2026-04-10", "endedDay": "2026-01-20", "recoveryMinor": "4000", "recoveryDay": "2026-02-15" },
+    "net": "6000",
+    "days": [
+      { "day": "2026-01-20", "term": "300", "current": "300" },
+      { "day": "2026-01-21", "term": "0", "current": "0" },
+      { "day": "2026-02-15", "term": "0", "current": "0" }
+    ],
+    "month": { "month": "2026-01", "term": "6000", "current": "6000" }
+  },
+  {
+    "name": "fractional daily shares are summed exactly and rounded once",
+    "asOf": "2026-01-03",
+    "expense": { "title": "三日票", "day": "2026-01-01", "amountMinor": "100", "mode": "estimated", "startDay": "2026-01-01", "endDay": "2026-01-03" },
+    "net": "100",
+    "days": [{ "day": "2026-01-02", "term": "33", "current": "33" }],
+    "month": { "month": "2026-01", "term": "100", "current": "100" }
+  },
+  {
+    "name": "nothing is charged before use starts",
+    "asOf": "2026-01-10",
+    "expense": { "title": "预购", "day": "2026-01-05", "amountMinor": "9000", "mode": "estimated", "startDay": "2026-02-01", "endDay": "2026-03-02" },
+    "net": "9000",
+    "days": [{ "day": "2026-01-10", "term": "0", "current": "0" }],
+    "month": { "month": "2026-01", "term": "0", "current": "0" }
+  },
+  {
+    "name": "amounts beyond double precision stay exact",
+    "asOf": "2026-01-02",
+    "expense": { "title": "大额", "day": "2026-01-01", "amountMinor": "900719925474099301", "mode": "fixed", "startDay": "2026-01-01", "endDay": "2026-01-02" },
+    "net": "900719925474099301",
+    "days": [{ "day": "2026-01-01", "term": "450359962737049651", "current": "450359962737049651" }],
+    "month": { "month": "2026-01", "term": "900719925474099301", "current": "900719925474099301" }
+  }
+]

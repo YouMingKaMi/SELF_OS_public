@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily verified backup of SELF OS
+
+[Timer]
+OnCalendar=*-*-* 04:20:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: council
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: council_next
+    ports: ['127.0.0.1:55439:5432']
+    volumes: ['council-next:/var/lib/postgresql']
+volumes:
+  council-next:

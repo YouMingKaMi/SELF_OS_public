@@ -1,0 +1,324 @@
+.tasks .task-panel .panel-content {
+  gap: 10px;
+}
+.tasks .search {
+  width: 150px;
+}
+.task-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.capture {
+  display: flex;
+  gap: 6px;
+}
+.capture input {
+  flex: 1;
+  height: 34px;
+  font-size: var(--fs);
+  background: var(--bg);
+}
+.capture button {
+  height: 34px;
+}
+.capture button span {
+  opacity: 0.55;
+}
+.new-schedule summary {
+  width: fit-content;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+}
+.new-schedule summary::-webkit-details-marker {
+  display: none;
+}
+.new-schedule summary::before {
+  content: "▸ ";
+  color: var(--text-4);
+}
+.new-schedule[open] summary::before {
+  content: "▾ ";
+}
+.new-schedule[open] {
+  padding: 8px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
+}
+.schedule-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.schedule-fields > label {
+  width: 100%;
+}
+.schedule-fields > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.schedule-fields .date-range {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+.schedule-fields .date-range > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.active-filter {
+  color: var(--text) !important;
+  background: var(--surface-3) !important;
+}
+.filter-note {
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+}
+.task-group {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6px;
+}
+.task-group h3 {
+  position: sticky;
+  top: -12px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px 5px;
+  background: var(--surface);
+  font: 500 var(--fs-xs) var(--mono);
+  color: var(--text-3);
+}
+.task-group h3 span {
+  color: var(--text-4);
+}
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 4px;
+  border-radius: var(--r);
+}
+.task-row:hover {
+  background: var(--surface-2);
+}
+.task-row.selected {
+  background: var(--surface-3);
+}
+.task-row .check {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  flex: none;
+  border: 1.5px solid var(--line-3);
+  border-radius: 50%;
+  font-size: 10px;
+  color: var(--solid-text);
+}
+.task-row .check:hover:not(:disabled) {
+  border-color: var(--text-2);
+  background: transparent;
+}
+.task-row .check.checked {
+  background: var(--solid);
+  border-color: var(--solid);
+}
+.task-content {
+  flex: 1;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 4px;
+  border: 0;
+  text-align: left;
+  color: var(--text);
+  font-size: var(--fs);
+}
+.task-content:hover:not(:disabled) {
+  background: transparent;
+}
+.task-content > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-content > span.done {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-4);
+}
+.task-content small {
+  flex: none;
+  font-size: var(--fs-micro);
+  color: var(--text-4);
+}
+.task-row .detail-arrow {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  color: var(--text-3);
+}
+.task-row:hover .detail-arrow,
+.task-row.selected .detail-arrow {
+  opacity: 1;
+}
+.task-list .empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 40px 0;
+}
+.task-list .empty h3 {
+  font-size: var(--fs);
+  color: var(--text-2);
+}
+.task-list .empty p {
+  font-size: var(--fs-xs);
+}
+
+/* Detail */
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.detail-body .pill {
+  width: fit-content;
+}
+.detail-body form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.detail-body form > label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+#task-title {
+  min-height: 64px;
+  font-size: var(--fs-md);
+  background: var(--bg);
+}
+.detail-body form .primary {
+  align-self: flex-end;
+}
+.detail-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.detail-body .undo {
+  align-self: flex-start;
+  border: 0;
+  color: var(--text-3);
+}
+.conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--warn) 6%, transparent);
+}
+.conflict h3 {
+  font-size: var(--fs-sm);
+}
+.conflict p {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.conflict blockquote {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--line-3);
+  display: flex;
+  justify-content: space-between;
+}
+.completion-info,
+.detail-foot {
+  display: flex;
+  justify-content: space-between;
+  font: var(--fs-micro) var(--mono);
+  color: var(--text-4);
+}
+
+/* Month overview */
+.task-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.task-calendar .weekday {
+  text-align: center;
+  font: var(--fs-micro) var(--mono);
+  color: var(--text-4);
+}
+.task-calendar button {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  height: 52px;
+  padding: 5px 7px 7px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text-3);
+}
+.task-calendar button > span {
+  font: var(--fs-micro) var(--mono);
+}
+.task-calendar button.busy {
+  color: var(--text);
+  border-color: var(--line-2);
+  background: var(--surface-2);
+}
+.task-calendar button.today > span {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: -2px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--solid);
+  color: var(--solid-text);
+}
+.task-calendar button.current {
+  outline: 1px solid var(--text-2);
+  outline-offset: 1px;
+}
+.task-calendar i {
+  display: flex;
+  gap: 3px;
+}
+.task-calendar b {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text);
+}
+.task-calendar b.done {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-3);
+}

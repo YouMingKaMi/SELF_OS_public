@@ -1,0 +1,228 @@
+.habit-list {
+  display: flex;
+  flex-direction: column;
+}
+.habit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 8px 8px;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r);
+  cursor: pointer;
+}
+.habit-section:last-child {
+  border-bottom: 0;
+}
+.habit-section:hover {
+  background: var(--surface-2);
+}
+.habit-section.selected {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--text);
+}
+.habit-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 30px;
+}
+.habit-section-heading .row-tools {
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.habit-section:hover .row-tools,
+.habit-section:focus-within .row-tools,
+.habit-section.selected .row-tools {
+  opacity: 1;
+}
+.habit-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.habit-ring {
+  --size: 20px;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--text) calc(var(--value) * 360deg),
+    var(--line-2) 0
+  );
+  -webkit-mask: radial-gradient(
+    circle,
+    transparent calc(var(--size) / 2 - 2.5px),
+    #000 calc(var(--size) / 2 - 2px)
+  );
+  mask: radial-gradient(
+    circle,
+    transparent calc(var(--size) / 2 - 2.5px),
+    #000 calc(var(--size) / 2 - 2px)
+  );
+}
+.habit-line.done .habit-ring {
+  -webkit-mask: none;
+  mask: none;
+  background: var(--solid)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m6 10.5 2.6 2.5L14 7.5' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 100% no-repeat;
+}
+:root[data-theme="light"] .habit-line.done .habit-ring {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m6 10.5 2.6 2.5L14 7.5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.habit-name {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.habit-name strong {
+  font-weight: 550;
+}
+.habit-name small {
+  font: var(--fs-micro) var(--mono);
+}
+.habit-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 62%;
+}
+.habit-controls button {
+  height: 26px;
+}
+.habit-controls input {
+  width: 58px;
+  height: 26px;
+  text-align: center;
+  font: 500 var(--fs-sm) var(--mono);
+  background: var(--bg);
+}
+.habit-controls .checked-button {
+  background: var(--surface-3);
+  border-color: var(--line-3);
+  color: var(--text);
+}
+
+.habit-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.habit-calendar .weekday {
+  padding-bottom: 2px;
+  text-align: center;
+  font: var(--fs-micro) var(--mono);
+  color: var(--text-4);
+}
+.habit-calendar button {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0;
+  height: 44px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text-3);
+}
+.habit-calendar button span {
+  font: var(--fs-micro) var(--mono);
+}
+.habit-calendar button small {
+  align-self: flex-end;
+  font: 500 var(--fs-sm) var(--mono);
+  color: inherit;
+}
+.habit-calendar button.recorded {
+  background: var(--surface-3);
+  border-color: var(--line-2);
+  color: var(--text-2);
+}
+.habit-calendar button.done {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--solid-text);
+}
+.habit-calendar button.current {
+  outline: 1px solid var(--text-2);
+  outline-offset: 1px;
+}
+.habit-calendar button.today span {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.weekdays {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.weekdays button.selected {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--solid-text);
+}
+
+/* Checklist items × days */
+.item-matrix {
+  margin-top: 18px;
+}
+.item-matrix-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.item-matrix-caption span {
+  color: var(--text-2);
+}
+.item-matrix-grid {
+  display: grid;
+  grid-template-columns: minmax(56px, max-content) repeat(var(--days), minmax(8px, 1fr)) 64px;
+  gap: 5px 4px;
+  align-items: center;
+}
+.item-matrix-grid > small {
+  font: var(--fs-micro) / 1 var(--mono);
+  color: var(--text-4);
+  text-align: center;
+}
+.item-matrix-grid > small.today {
+  color: var(--text);
+}
+.item-matrix-grid > strong {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8px;
+}
+.item-matrix-grid > i {
+  height: 16px;
+  border-radius: 4px;
+  background: var(--surface-3);
+}
+.item-matrix-grid > i.on {
+  background: var(--solid);
+}
+.item-matrix-grid > i.future {
+  opacity: 0.4;
+}
+.item-matrix-grid > em {
+  font: 500 var(--fs-sm) / 1 var(--font);
+  font-style: normal;
+  text-align: right;
+}
+.item-matrix-grid > em small {
+  font-size: var(--fs-micro);
+}

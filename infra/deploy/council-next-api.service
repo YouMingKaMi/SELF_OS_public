@@ -1,0 +1,31 @@
+[Unit]
+Description=SELF OS · sync API (paired devices)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=council
+Group=council
+WorkingDirectory=/opt/council-next/app
+EnvironmentFile=/etc/council-next/api.env
+ExecStart=/opt/council-next/node/bin/node --max-old-space-size=160 services/api/server.ts
+Restart=on-failure
+RestartSec=3
+# Hardening: the API writes nothing to disk; all state lives in PostgreSQL over the local socket.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+MemoryMax=320M
+
+[Install]
+WantedBy=multi-user.target

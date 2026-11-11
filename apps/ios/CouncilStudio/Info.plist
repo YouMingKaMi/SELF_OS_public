@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleDisplayName</key><string>SELF OS</string>
+<key>NSLocalNetworkUsageDescription</key><string>连接局域网里你自己运行的服务，同步资料。</string>
+<key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/><key>NSAllowsArbitraryLoads</key><true/></dict>
+<key>CouncilEndpoint</key><string>$(COUNCIL_ENDPOINT)</string>
+<key>UILaunchScreen</key><dict><key>UIColorName</key><string></string></dict>
+<key>UIUserInterfaceStyle</key><string>Dark</string>
+<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
+</dict></plist>

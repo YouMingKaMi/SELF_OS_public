@@ -1,0 +1,1547 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "SELF OS — sync API",
+    "version": "1.0.0",
+    "description": "Generated from packages/contracts/schema.ts; do not edit. One write path, one read path. v1 only gains optional fields. Development identity only: device pairing is not implemented."
+  },
+  "paths": {
+    "/v1/commands": {
+      "post": {
+        "operationId": "submitCommand",
+        "summary": "Create, replace or delete one entity. Idempotent per device and operationId.",
+        "security": [
+          {
+            "devBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-device-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Command"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted, or a conflict carrying the server copy. A conflict is a normal outcome, not an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The payload broke a schema or business rule; `error` is CODE or CODE:field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "OPERATION_REUSED or NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/changes": {
+      "get": {
+        "operationId": "listChanges",
+        "summary": "Entities changed after the cursor, each once at its latest state, in revision order.",
+        "security": [
+          {
+            "devBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{1,18}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page. Apply it and store nextCursor atomically.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Changes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "devBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Command": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "entityId",
+          "entityType",
+          "baseVersion",
+          "action",
+          "occurredAt"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entityType": {
+            "enum": [
+              "department",
+              "domain",
+              "activity",
+              "problem",
+              "solution",
+              "session",
+              "progress",
+              "task",
+              "checklist",
+              "checklistRun",
+              "habit",
+              "habitRule",
+              "habitLog",
+              "budget",
+              "category",
+              "expense",
+              "recurringExpense",
+              "wallet",
+              "asset",
+              "assetPrice",
+              "walletEntry",
+              "document",
+              "journal",
+              "idea",
+              "metric",
+              "metricLog",
+              "importantDay"
+            ]
+          },
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "action": {
+            "enum": [
+              "put",
+              "delete"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "type": "object",
+            "maxProperties": 40
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "put"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "data"
+              ]
+            }
+          }
+        ]
+      },
+      "Entity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "version",
+          "data",
+          "deleted",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "enum": [
+              "department",
+              "domain",
+              "activity",
+              "problem",
+              "solution",
+              "session",
+              "progress",
+              "task",
+              "checklist",
+              "checklistRun",
+              "habit",
+              "habitRule",
+              "habitLog",
+              "budget",
+              "category",
+              "expense",
+              "recurringExpense",
+              "wallet",
+              "asset",
+              "assetPrice",
+              "walletEntry",
+              "document",
+              "journal",
+              "idea",
+              "metric",
+              "metricLog",
+              "importantDay"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "data": {
+            "description": "Shape depends on `type`.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DepartmentData"
+              },
+              {
+                "$ref": "#/components/schemas/DomainData"
+              },
+              {
+                "$ref": "#/components/schemas/ActivityData"
+              },
+              {
+                "$ref": "#/components/schemas/ProblemData"
+              },
+              {
+                "$ref": "#/components/schemas/SolutionData"
+              },
+              {
+                "$ref": "#/components/schemas/SessionData"
+              },
+              {
+                "$ref": "#/components/schemas/ProgressData"
+              },
+              {
+                "$ref": "#/components/schemas/TaskData"
+              },
+              {
+                "$ref": "#/components/schemas/ChecklistData"
+              },
+              {
+                "$ref": "#/components/schemas/ChecklistRunData"
+              },
+              {
+                "$ref": "#/components/schemas/HabitData"
+              },
+              {
+                "$ref": "#/components/schemas/HabitRuleData"
+              },
+              {
+                "$ref": "#/components/schemas/HabitLogData"
+              },
+              {
+                "$ref": "#/components/schemas/BudgetData"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryData"
+              },
+              {
+                "$ref": "#/components/schemas/ExpenseData"
+              },
+              {
+                "$ref": "#/components/schemas/RecurringExpenseData"
+              },
+              {
+                "$ref": "#/components/schemas/WalletData"
+              },
+              {
+                "$ref": "#/components/schemas/AssetData"
+              },
+              {
+                "$ref": "#/components/schemas/AssetPriceData"
+              },
+              {
+                "$ref": "#/components/schemas/WalletEntryData"
+              },
+              {
+                "$ref": "#/components/schemas/DocumentData"
+              },
+              {
+                "$ref": "#/components/schemas/JournalData"
+              },
+              {
+                "$ref": "#/components/schemas/IdeaData"
+              },
+              {
+                "$ref": "#/components/schemas/MetricData"
+              },
+              {
+                "$ref": "#/components/schemas/MetricLogData"
+              },
+              {
+                "$ref": "#/components/schemas/ImportantDayData"
+              }
+            ]
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Receipt": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outcome",
+              "entity",
+              "revision"
+            ],
+            "properties": {
+              "outcome": {
+                "const": "accepted"
+              },
+              "entity": {
+                "$ref": "#/components/schemas/Entity"
+              },
+              "revision": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outcome",
+              "current"
+            ],
+            "properties": {
+              "outcome": {
+                "const": "conflict"
+              },
+              "current": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Entity"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Changes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "changes",
+          "nextCursor",
+          "hasMore"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "revision",
+                "entity"
+              ],
+              "properties": {
+                "revision": {
+                  "type": "string"
+                },
+                "entity": {
+                  "$ref": "#/components/schemas/Entity"
+                }
+              }
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "DepartmentData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a department (module: workspace).",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "features": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "DomainData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a domain (module: practice).",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "focused": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "goal": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "ActivityData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a activity (module: practice).",
+        "required": [
+          "domainId",
+          "name"
+        ],
+        "properties": {
+          "domainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live domain."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProblemData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a problem (module: practice).",
+        "required": [
+          "domainId",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "domainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live domain."
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live activity."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "active",
+              "resolved",
+              "discarded"
+            ]
+          },
+          "focused": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        }
+      },
+      "SolutionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a solution (module: practice).",
+        "required": [
+          "problemId",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "problemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live problem."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live solution."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "active",
+              "resolved",
+              "discarded"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000
+          }
+        }
+      },
+      "SessionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a session (module: practice).",
+        "required": [
+          "domainId",
+          "title",
+          "day",
+          "status"
+        ],
+        "properties": {
+          "domainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live domain."
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live activity."
+          },
+          "problemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live problem."
+          },
+          "solutionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live solution."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "elapsedSeconds": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "runningSince": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "paused",
+              "finished",
+              "cancelled"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "manual": {
+            "type": "boolean"
+          },
+          "segments": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "ProgressData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a progress (module: practice).",
+        "required": [
+          "domainId",
+          "day",
+          "body"
+        ],
+        "properties": {
+          "domainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live domain."
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live activity."
+          },
+          "problemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live problem."
+          },
+          "solutionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live solution."
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 100000
+          }
+        }
+      },
+      "TaskData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a task (module: tasks).",
+        "required": [
+          "title",
+          "status",
+          "scheduleKind"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "discarded"
+            ]
+          },
+          "scheduleKind": {
+            "enum": [
+              "unscheduled",
+              "recent",
+              "day",
+              "deadline",
+              "range"
+            ]
+          },
+          "scheduleDate": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "scheduleStart": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "scheduleEnd": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChecklistData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a checklist (module: tasks).",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "ChecklistRunData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a checklistRun (module: tasks).",
+        "required": [
+          "checklistId",
+          "day"
+        ],
+        "properties": {
+          "checklistId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live checklist."
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "checked": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "HabitData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a habit (module: habits).",
+        "required": [
+          "name",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "kind": {
+            "enum": [
+              "binary",
+              "quantity",
+              "checklist"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "optional",
+              "archived"
+            ]
+          },
+          "showHome": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "HabitRuleData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a habitRule (module: habits).",
+        "required": [
+          "habitId",
+          "effectiveFrom"
+        ],
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live habit."
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "target": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "weekdays": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "kind": {
+            "enum": [
+              "binary",
+              "quantity",
+              "checklist"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "HabitLogData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a habitLog (module: habits).",
+        "required": [
+          "habitId",
+          "day"
+        ],
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live habit."
+          },
+          "ruleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live habitRule."
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "hidden": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BudgetData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a budget (module: finance).",
+        "required": [
+          "month",
+          "amountMinor"
+        ],
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}$",
+            "description": "Integer minor units."
+          }
+        }
+      },
+      "CategoryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a category (module: finance).",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live category."
+          },
+          "necessary": {
+            "type": "boolean"
+          },
+          "defaultChildId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live category."
+          }
+        }
+      },
+      "ExpenseData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a expense (module: finance).",
+        "required": [
+          "title",
+          "day",
+          "amountMinor",
+          "mode"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^-?[0-9]{1,18}$",
+            "description": "Integer minor units."
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live category."
+          },
+          "subcategoryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live category."
+          },
+          "necessary": {
+            "type": "boolean"
+          },
+          "mode": {
+            "enum": [
+              "immediate",
+              "estimated",
+              "fixed"
+            ]
+          },
+          "startDay": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "endDay": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "endedDay": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "recoveryMinor": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}$",
+            "description": "Integer minor units."
+          },
+          "recoveryDay": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 10000
+          }
+        }
+      },
+      "RecurringExpenseData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a recurringExpense (module: finance).",
+        "required": [
+          "name",
+          "amountMinor"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}$",
+            "description": "Integer minor units."
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live category."
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WalletData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a wallet (module: treasury).",
+        "required": [
+          "name",
+          "category",
+          "currency"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "category": {
+            "enum": [
+              "cny",
+              "external",
+              "crypto",
+              "stock"
+            ]
+          },
+          "asset": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "unitPrice": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          },
+          "exchangeRate": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          }
+        }
+      },
+      "AssetData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a asset (module: treasury).",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "symbol": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "kind": {
+            "enum": [
+              "crypto",
+              "stock"
+            ]
+          },
+          "quoteId": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "manualPrice": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          },
+          "order": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "AssetPriceData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a assetPrice (module: treasury).",
+        "required": [
+          "assetId",
+          "at",
+          "price"
+        ],
+        "properties": {
+          "assetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live asset."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "price": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          }
+        }
+      },
+      "WalletEntryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a walletEntry (module: treasury).",
+        "required": [
+          "walletId",
+          "mode",
+          "quantity",
+          "at"
+        ],
+        "properties": {
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live wallet."
+          },
+          "assetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live asset."
+          },
+          "mode": {
+            "enum": [
+              "set",
+              "delta"
+            ]
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "unitPrice": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          },
+          "exchangeRate": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}(\\.[0-9]{1,12})?$"
+          }
+        }
+      },
+      "DocumentData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a document (module: documents).",
+        "required": [
+          "title",
+          "kind"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 1000000
+          },
+          "kind": {
+            "enum": [
+              "note",
+              "thought",
+              "monthly"
+            ]
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "domainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live domain."
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live activity."
+          },
+          "source": {
+            "enum": [
+              "unknown",
+              "original",
+              "ai",
+              "assisted",
+              "excerpt"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "JournalData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a journal (module: journal).",
+        "required": [
+          "kind",
+          "day",
+          "body"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "chronicle",
+              "raw"
+            ]
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 1000000
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "IdeaData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a idea (module: journal).",
+        "required": [
+          "body",
+          "day",
+          "status"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "discarded"
+            ]
+          }
+        }
+      },
+      "MetricData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a metric (module: metrics).",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "minimum": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 1000000000000
+          },
+          "maximum": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "MetricLogData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a metricLog (module: metrics).",
+        "required": [
+          "metricId",
+          "day"
+        ],
+        "properties": {
+          "metricId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live metric."
+          },
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "value": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 1000000000000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 10000
+          }
+        }
+      },
+      "ImportantDayData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a importantDay (module: calendar).",
+        "required": [
+          "name",
+          "calendar",
+          "repeat",
+          "intervalUnit"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "calendar": {
+            "enum": [
+              "solar",
+              "lunar"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "lunarYear": {
+            "type": "integer",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "lunarMonth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "lunarDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "leap": {
+            "type": "boolean"
+          },
+          "repeat": {
+            "enum": [
+              "once",
+              "weekly",
+              "monthly",
+              "yearly",
+              "custom"
+            ]
+          },
+          "interval": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "intervalUnit": {
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ]
+          },
+          "remindDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "dismissedDate": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 10000
+          }
+        }
+      }
+    }
+  }
+}

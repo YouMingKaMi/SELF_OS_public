@@ -1,0 +1,344 @@
+/* ── Metrics ── */
+.metric-list {
+  display: flex;
+  flex-direction: column;
+}
+.metric-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 76px auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 4px 4px 4px 8px;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--text-4);
+}
+.metric-row:last-child {
+  border-bottom: 0;
+}
+.metric-row.selected {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.metric-row .row-main {
+  align-items: flex-start;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+}
+.metric-row .row-main:hover {
+  background: none;
+}
+.metric-row .row-main strong {
+  font-weight: 550;
+}
+.metric-row .row-main small {
+  font: var(--fs-micro) var(--mono);
+}
+.metric-row input {
+  text-align: right;
+  font: 500 var(--fs-md) var(--mono);
+  background: var(--bg);
+}
+.spark {
+  display: block;
+  overflow: visible;
+}
+
+/* ── Important days ── */
+.countdown-grid {
+  display: flex;
+  flex-direction: column;
+}
+.countdown-card {
+  justify-content: space-between;
+  gap: 12px;
+  height: auto;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  text-align: left;
+  color: var(--text);
+}
+.countdown-card.selected {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--text);
+}
+.countdown-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.countdown-name strong {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.countdown-name small {
+  font: var(--fs-micro) var(--mono);
+}
+.countdown-days {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font: 500 22px var(--mono);
+  letter-spacing: -0.04em;
+  color: var(--text-2);
+}
+.countdown-days.soon {
+  color: var(--text);
+}
+.countdown-days small {
+  font: var(--fs-xs) var(--font);
+  letter-spacing: 0;
+}
+.day-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.day-hero strong {
+  font: 300 64px / 1 var(--mono);
+  letter-spacing: -0.06em;
+}
+.day-hero span {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 24px;
+  font-size: var(--fs-sm);
+}
+.detail-grid > span {
+  color: var(--text-3);
+}
+.detail-grid > strong {
+  font-weight: 500;
+}
+.day-note {
+  white-space: pre-wrap;
+  color: var(--text-2);
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* Calendar picker used in the important-day editor */
+.record-form > label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.date-picker {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+}
+.date-picker header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.date-picker header button {
+  width: 28px;
+  padding: 0;
+  border: 0;
+  font-size: 16px;
+}
+.calendar-week,
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendar-week span {
+  text-align: center;
+  font-size: var(--fs-micro);
+  color: var(--text-4);
+}
+.calendar-days button {
+  flex-direction: column;
+  gap: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+}
+.calendar-days button strong {
+  font: 500 var(--fs-sm) var(--mono);
+}
+.calendar-days button small {
+  font-size: 9px;
+}
+.calendar-days button.outside {
+  opacity: 0.3;
+}
+.calendar-days button.selected {
+  background: var(--solid);
+  color: var(--solid-text);
+}
+.calendar-days button.selected small {
+  color: inherit;
+}
+.date-picker p {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.date-range label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.record-form > .primary {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+.record-form > .muted-note {
+  grid-column: 1 / -1;
+}
+
+/* ── Checklists ── */
+.checklists .article-list > button {
+  position: relative;
+}
+.progress-bar {
+  display: block;
+  height: 2px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--text) calc(var(--value) * 100%),
+    var(--line-2) 0
+  );
+}
+.checklist-item {
+  justify-content: flex-start;
+  gap: 12px;
+  height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  font-size: var(--fs);
+  color: var(--text);
+}
+.checklist-item .box {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line-3);
+  border-radius: 5px;
+  font-size: 11px;
+}
+.checklist-item .box.checked {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--solid-text);
+}
+.checklist-item:has(.checked) {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-4);
+}
+
+/* Important days: one card per day, the countdown as the headline. */
+.days-toolbar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.day-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+.day-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+}
+.day-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.day-card h3 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.day-card > header button {
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  color: var(--text-4);
+  letter-spacing: 0.1em;
+}
+.day-card > header button:hover {
+  color: var(--text-2);
+}
+.day-count {
+  all: unset;
+  cursor: pointer;
+  margin: 26px 0 24px;
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+.day-count span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.day-count strong {
+  font: 600 34px / 1 var(--font);
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.day-card.soon .day-count strong {
+  color: var(--warn);
+}
+.day-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.day-card > footer {
+  padding-top: 12px;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.day-card-note {
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
