@@ -128,12 +128,14 @@ public enum TreasuryRules {
       return (recorded[assetId], false)
     }
     var unknown = 0
+    var known = 0
     var totals: [String: AssetTotal] = [:]
     for (assetId, byWallet) in held {
       let (price, isLive) = priceOf(assetId)
       let quantity = byWallet.values.reduce(Decimal(), +)
       let value = price.map { quantity * $0 }
       if value == nil && quantity != 0 { unknown += 1 }
+      if value != nil { known += 1 }
       totals[assetId] = AssetTotal(quantity: quantity, price: price, live: isLive, value: value, byWallet: byWallet)
     }
     var balances: [String: TreasuryBalance] = [:]
@@ -145,13 +147,15 @@ public enum TreasuryRules {
           if let p = totals[assetId]?.price, let v = value { value = v + byWallet[id]! * p } else { value = nil }
         }
         balances[id] = TreasuryBalance(quantity: nil, value: value)
+        if value == nil { unknown += 1 } else { known += 1 }
       } else {
-        if state.value == nil && state.quantity != nil { unknown += 1 }
+        // An empty wallet is not a known zero: it has no value until it is explicitly set.
+        if state.value == nil { unknown += 1 } else { known += 1 }
         balances[id] = TreasuryBalance(quantity: state.quantity, value: state.value)
       }
     }
-    let total = totalNow { priceOf($0).0 }
-    if let now, until == nil, let last = points.last, Decimal(last.amount) != total {
+    let total = known > 0 ? totalNow { priceOf($0).0 } : nil
+    if let now, until == nil, let total, let last = points.last, Decimal(last.amount) != total {
       points.append(TreasuryPoint(id: "now", at: now, amount: NSDecimalNumber(decimal: total).doubleValue, unknownWallets: unknown))
     }
     let anything = !plain.isEmpty || !held.isEmpty
