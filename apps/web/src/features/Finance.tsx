@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "./finance.css";
+import { WeChatPay } from "./WeChatPay.tsx";
 import {
   useEntities,
   put,
@@ -58,7 +59,34 @@ export function Finance() {
   const [editing, setEditing] = useState<Entity>();
   const [category, setCategory] = useState("");
   const [necessity, setNecessity] = useState("all");
+  const [reviewing, setReviewing] = useState(false);
+  const [wechatPay, setWeChatPay] = useState(false);
+  const [prompted, setPrompted] = useState(false);
+  const [purposeOnly, setPurposeOnly] = useState(false);
   const [budget, setBudget] = useState("1400");
+  const nextUnclassified = useMemo(
+    () =>
+      expenses.reduce<Entity | undefined>((latest, entry) => {
+        if (entry.data.categoryId || !entry.data.wechatMerchant) return latest;
+        if (!latest || str(entry, "day") > str(latest, "day")) return entry;
+        return latest;
+      }, undefined),
+    [expenses],
+  );
+  useEffect(() => {
+    if (
+      wechatPay ||
+      prompted ||
+      form ||
+      !nextUnclassified ||
+      !categories.length
+    )
+      return;
+    setPrompted(true);
+    setEditing(nextUnclassified);
+    setPurposeOnly(true);
+    setForm("expense");
+  }, [wechatPay, prompted, form, nextUnclassified, categories.length]);
   // Derived figures are recomputed only when their inputs change, not on every render.
   const asOf = today();
   const { filtered, monthly, total, cost, costTotal } = useMemo(() => {
@@ -67,8 +95,7 @@ export function Finance() {
         (!category ||
           e.data.categoryId === category ||
           e.data.subcategoryId === category) &&
-        (necessity === "all" ||
-          Boolean(e.data.necessary) === (necessity === "yes")),
+        (necessity === "all" || e.data.necessary === (necessity === "yes")),
     );
     const monthly = filtered.filter((e) => str(e, "day").startsWith(month));
     const zero = { n: 0n, d: 1n };
@@ -95,8 +122,16 @@ export function Finance() {
   );
   const budgetMinor = BigInt(str(budgetRecord, "amountMinor", "140000"));
   function open(type: typeof form, e?: Entity) {
+    setPurposeOnly(false);
     setEditing(e);
     setForm(type);
+  }
+  function toggleReview() {
+    if (!reviewing) {
+      setCategory("");
+      setNecessity("all");
+    }
+    setReviewing(!reviewing);
   }
   const name = (id: unknown) =>
     str(
@@ -114,7 +149,11 @@ export function Finance() {
             str(e, "title"),
             (Number(net(e)) / 100).toFixed(2),
             name(e.data.categoryId),
-            e.data.necessary ? "必要" : "非必要",
+            e.data.necessary === undefined
+              ? "待确认"
+              : e.data.necessary
+                ? "必要"
+                : "非必要",
           ]
             .map((v) => '"' + v.replaceAll('"', '""') + '"')
             .join(","),
@@ -132,6 +171,9 @@ export function Finance() {
     "日一二三四五六"[new Date(day + "T12:00:00Z").getUTCDay()];
   const necessary = monthly
     .filter((e) => e.data.necessary)
+    .reduce((n, e) => n + net(e), 0n);
+  const discretionary = monthly
+    .filter((e) => e.data.necessary === false)
     .reduce((n, e) => n + net(e), 0n);
   const percent =
     budgetMinor > 0n ? Number((total * 1000n) / budgetMinor) / 10 : 0;
@@ -157,10 +199,25 @@ export function Finance() {
     }))
     .filter((row) => row.sum !== 0n)
     .sort((a, b) => (b.sum > a.sum ? 1 : -1));
-  const unclassified = monthly
-    .filter((e) => !e.data.categoryId)
-    .reduce((n, e) => n + net(e), 0n);
+  const pending = expenses.filter(
+    (e) => !e.data.categoryId && str(e, "day").startsWith(month),
+  );
+  const unclassified = monthly.filter((e) => !e.data.categoryId);
+  const unclassifiedTotal = unclassified.reduce((n, e) => n + net(e), 0n);
+  const ledgerRows = reviewing ? pending : monthly;
   const top = byCategory[0]?.sum ?? 1n;
+  if (wechatPay) {
+    return (
+      <>
+        <Heading eyebrow="FINANCE · EVERYDAY" title="微信支付">
+          <button type="button" onClick={() => setWeChatPay(false)}>
+            返回账本
+          </button>
+        </Heading>
+        <WeChatPay />
+      </>
+    );
+  }
   return (
     <>
       <Heading
@@ -169,6 +226,9 @@ export function Finance() {
         description="左边是这个月的每一笔，右边是它们加起来的样子。"
       >
         <Month value={month} onChange={setMonth} />
+        <button type="button" onClick={() => setWeChatPay(true)}>
+          微信支付
+        </button>
         <button onClick={() => open("budget")}>月度预算</button>
         <button onClick={() => open("category")}>分类与默认</button>
         <button onClick={exportMonth}>导出本月</button>
@@ -179,37 +239,52 @@ export function Finance() {
       <div className="columns finance">
         <Panel
           className="ledger"
-          title={"账本 · " + monthly.length + " 笔"}
+          title={
+            (reviewing ? "待分类" : "账本") + " · " + ledgerRows.length + " 笔"
+          }
           aside={
-            <>
-              <select
-                aria-label="消费分类"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">全部用途</option>
-                {categories.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {name(e.data.parentId) !== "未分类"
-                      ? name(e.data.parentId) + " / "
-                      : ""}
-                    {str(e, "name")}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="必要性筛选"
-                value={necessity}
-                onChange={(e) => setNecessity(e.target.value)}
-              >
-                <option value="all">全部必要性</option>
-                <option value="yes">必要</option>
-                <option value="no">非必要</option>
-              </select>
-            </>
+            <div>
+              {(pending.length > 0 || reviewing) && (
+                <button
+                  type="button"
+                  aria-pressed={reviewing}
+                  onClick={toggleReview}
+                >
+                  {reviewing ? "返回账本" : "待分类 · " + pending.length}
+                </button>
+              )}
+              {!reviewing && (
+                <>
+                  <select
+                    aria-label="消费分类"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    <option value="">全部用途</option>
+                    {categories.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {name(e.data.parentId) !== "未分类"
+                          ? name(e.data.parentId) + " / "
+                          : ""}
+                        {str(e, "name")}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="必要性筛选"
+                    value={necessity}
+                    onChange={(e) => setNecessity(e.target.value)}
+                  >
+                    <option value="all">全部必要性</option>
+                    <option value="yes">必要</option>
+                    <option value="no">非必要</option>
+                  </select>
+                </>
+              )}
+            </div>
           }
         >
-          {[...new Set(monthly.map((e) => str(e, "day")))]
+          {[...new Set(ledgerRows.map((e) => str(e, "day")))]
             .sort()
             .reverse()
             .map((day) => (
@@ -219,14 +294,14 @@ export function Finance() {
                   <small>周{weekday(day)}</small>
                   <strong>
                     {money(
-                      monthly
+                      ledgerRows
                         .filter((e) => e.data.day === day)
                         .reduce((n, e) => n + net(e), 0n),
                     )}
                   </strong>
                 </header>
                 <div className="ledger-rows">
-                  {monthly
+                  {ledgerRows
                     .filter((e) => e.data.day === day)
                     .map((e) => (
                       <button
@@ -237,14 +312,16 @@ export function Finance() {
                         <span className="row-main">
                           <strong>{str(e, "title")}</strong>
                           <small>
-                            {name(e.data.categoryId)}
+                            {e.data.categoryId
+                              ? name(e.data.categoryId)
+                              : "待分类"}
                             {e.data.subcategoryId
                               ? " / " + name(e.data.subcategoryId)
                               : ""}
                             {e.data.mode !== "immediate" ? " · 长期使用" : ""}
                           </small>
                         </span>
-                        {!e.data.necessary && (
+                        {e.data.necessary === false && (
                           <span className="pill">非必要</span>
                         )}
                         <span
@@ -259,7 +336,11 @@ export function Finance() {
                 </div>
               </section>
             ))}
-          {!monthly.length && <Empty text="记录这个月的第一笔消费" />}
+          {!ledgerRows.length && (
+            <Empty
+              text={reviewing ? "本月账单已分类" : "记录这个月的第一笔消费"}
+            />
+          )}
         </Panel>
         <div className="stack">
           <section className="finance-summary">
@@ -293,7 +374,7 @@ export function Finance() {
               </div>
               <div className="budget-legend">
                 <span>必要 {money(necessary)}</span>
-                <span>非必要 {money(total - necessary)}</span>
+                <span>非必要 {money(discretionary)}</span>
                 <span>使用成本 {money(costTotal)}</span>
               </div>
             </div>
@@ -339,7 +420,10 @@ export function Finance() {
                     <button
                       key={c.id}
                       className={category === c.id ? "selected" : ""}
-                      onClick={() => setCategory(category === c.id ? "" : c.id)}
+                      onClick={() => {
+                        setReviewing(false);
+                        setCategory(category === c.id ? "" : c.id);
+                      }}
                     >
                       <span>{str(c, "name")}</span>
                       <i
@@ -355,22 +439,28 @@ export function Finance() {
                       </small>
                     </button>
                   ))}
-                  {unclassified !== 0n && (
-                    <button disabled>
-                      <span>未分类</span>
+                  {unclassified.length > 0 && (
+                    <button
+                      className={reviewing ? "selected" : ""}
+                      aria-pressed={reviewing}
+                      onClick={toggleReview}
+                    >
+                      <span>待分类</span>
                       <i
                         style={
                           {
                             "--value":
-                              Number((unclassified * 1000n) / top) / 1000,
+                              Number((unclassifiedTotal * 1000n) / top) / 1000,
                           } as React.CSSProperties
                         }
                       />
-                      <strong>{money(unclassified)}</strong>
+                      <strong>{money(unclassifiedTotal)}</strong>
                       <small />
                     </button>
                   )}
-                  {!byCategory.length && <Empty text="记账后显示用途分布" />}
+                  {!byCategory.length && !unclassified.length && (
+                    <Empty text="记账后显示用途分布" />
+                  )}
                 </div>
                 <Chart
                   label="每日实际净付款"
@@ -491,24 +581,46 @@ export function Finance() {
         </div>
       </div>
       {form && (
-        <div className="modal-backdrop">
-          <div className="modal">
+        <div
+          className={
+            purposeOnly
+              ? "modal-backdrop finance-purpose-backdrop"
+              : "modal-backdrop"
+          }
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="finance-dialog-title"
+          >
             <header>
-              <h2>
+              <h2 id="finance-dialog-title">
                 {form === "expense"
-                  ? "记一笔"
+                  ? editing
+                    ? editing.data.categoryId
+                      ? "编辑花销"
+                      : "补分类"
+                    : "记一笔"
                   : form === "category"
                     ? "分类与默认选项"
                     : form === "budget"
                       ? "月度预算"
                       : "固定支出"}
               </h2>
-              <button onClick={() => setForm(null)}>×</button>
+              <button
+                aria-label={purposeOnly ? "稍后" : "关闭"}
+                onClick={() => setForm(null)}
+              >
+                {purposeOnly ? "稍后" : "×"}
+              </button>
             </header>
             {form === "expense" ? (
               <ExpenseEditor
+                key={editing?.id ?? "new-expense"}
                 entity={editing}
                 categories={categories}
+                purposeOnly={purposeOnly}
                 onClose={() => setForm(null)}
               />
             ) : form === "budget" ? (
@@ -617,10 +729,12 @@ export function ExpenseEditor({
   entity,
   categories,
   onClose,
+  purposeOnly = false,
 }: {
   entity?: Entity;
   categories: Entity[];
   onClose: () => void;
+  purposeOnly?: boolean;
 }) {
   const first =
     categories.find((e) => !e.data.parentId && e.data.name === "餐饮") ??
@@ -643,6 +757,22 @@ export function ExpenseEditor({
     entity ? (Number(str(entity, "recoveryMinor", "0")) / 100).toFixed(2) : "",
   );
   const [error, setError] = useState("");
+  const [rememberMerchant, setRememberMerchant] = useState(false);
+  const originalTitle = str(entity, "title");
+  const savedRule = entity?.data.wechatMerchantRule;
+  const savedMerchant =
+    str(entity, "wechatMerchant") ||
+    (Array.isArray(savedRule) ? savedRule[0] : "");
+  const merchant =
+    savedMerchant ||
+    Array.from(originalTitle.trim().replace(/\s+/gu, " "))
+      .slice(0, 200)
+      .join("");
+  const title = String(draft.title).trim();
+  const renamed = title !== originalTitle;
+  const canSave = Boolean(
+    title && (!purposeOnly || draft.categoryId || renamed),
+  );
   const set = (key: string, value: Data[string]) =>
     setDraft((d) => ({ ...d, [key]: value }));
   return (
@@ -651,8 +781,24 @@ export function ExpenseEditor({
       onSubmit={(event) => {
         event.preventDefault();
         try {
-          const data: Data = { ...draft, amountMinor: minor(amount) };
-          if (recovery) data.recoveryMinor = minor(recovery);
+          if (!canSave) return;
+          const data: Data = { ...draft, title };
+          const remember = rememberMerchant && data.categoryId;
+          if (entity && merchant) {
+            if (remember || (!entity.data.categoryId && renamed))
+              data.wechatMerchant = merchant;
+            if (remember)
+              data.wechatMerchantRule = [
+                merchant,
+                String(data.subcategoryId || data.categoryId),
+                new Date().toISOString(),
+                title,
+              ];
+          }
+          if (!purposeOnly) {
+            data.amountMinor = minor(amount);
+            if (recovery) data.recoveryMinor = minor(recovery);
+          }
           for (const key of Object.keys(data))
             if (data[key] === "") delete data[key];
           perform(put("expense", data, entity).then(onClose));
@@ -661,33 +807,49 @@ export function ExpenseEditor({
         }
       }}
     >
+      {purposeOnly ? (
+        <div className="finance-review-summary">
+          <div>
+            <strong>{savedMerchant || originalTitle}</strong>
+            <small>{str(entity, "day")}</small>
+          </div>
+          <strong className="mono">
+            {money(str(entity, "amountMinor", "0"))}
+          </strong>
+        </div>
+      ) : null}
       <label>
-        消费内容
+        {purposeOnly || savedMerchant ? "账单名称" : "消费内容"}
         <input
           required
+          maxLength={500}
           value={String(draft.title)}
           onChange={(e) => set("title", e.target.value)}
         />
       </label>
-      <label>
-        日期
-        <input
-          type="date"
-          required
-          value={String(draft.day)}
-          onChange={(e) => set("day", e.target.value)}
-        />
-      </label>
-      <label>
-        金额（元）
-        <input
-          required
-          type="number"
-          step="0.01"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-      </label>
+      {!purposeOnly && (
+        <>
+          <label>
+            日期
+            <input
+              type="date"
+              required
+              value={String(draft.day)}
+              onChange={(e) => set("day", e.target.value)}
+            />
+          </label>
+          <label>
+            金额（元）
+            <input
+              required
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </label>
+        </>
+      )}
       <label>
         用途
         <select
@@ -698,7 +860,7 @@ export function ExpenseEditor({
               ...d,
               categoryId: e.target.value,
               subcategoryId: category?.data.defaultChildId ?? "",
-              necessary: category?.data.necessary ?? true,
+              necessary: category?.data.necessary ?? d.necessary,
             }));
           }}
         >
@@ -720,7 +882,9 @@ export function ExpenseEditor({
         >
           <option value="">不细分</option>
           {categories
-            .filter((e) => e.data.parentId === draft.categoryId)
+            .filter(
+              (e) => draft.categoryId && e.data.parentId === draft.categoryId,
+            )
             .map((e) => (
               <option key={e.id} value={e.id}>
                 {str(e, "name")}
@@ -731,93 +895,121 @@ export function ExpenseEditor({
       <label>
         必要性
         <select
-          value={draft.necessary ? "yes" : "no"}
-          onChange={(e) => set("necessary", e.target.value === "yes")}
+          value={
+            draft.necessary === undefined ? "" : draft.necessary ? "yes" : "no"
+          }
+          onChange={(e) =>
+            set(
+              "necessary",
+              e.target.value === "" ? undefined : e.target.value === "yes",
+            )
+          }
         >
+          <option value="">待确认</option>
           <option value="yes">必要</option>
           <option value="no">非必要</option>
         </select>
       </label>
-      <label>
-        消费方式
-        <select
-          value={String(draft.mode)}
-          onChange={(e) =>
-            setDraft((d) => ({
-              ...d,
-              mode: e.target.value,
-              ...(e.target.value === "immediate"
-                ? {}
-                : {
-                    startDay: d.startDay ?? today(),
-                    endDay: d.endDay ?? today(),
-                  }),
-            }))
-          }
-        >
-          <option value="immediate">当次消费</option>
-          <option value="estimated">预计长期使用</option>
-          <option value="fixed">固定期限</option>
-        </select>
-      </label>
-      {draft.mode !== "immediate" && (
+      {!purposeOnly && (
         <>
           <label>
-            开始使用
-            <input
-              required
-              type="date"
-              value={String(draft.startDay ?? "")}
-              onChange={(e) => set("startDay", e.target.value)}
-            />
+            消费方式
+            <select
+              value={String(draft.mode)}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  mode: e.target.value,
+                  ...(e.target.value === "immediate"
+                    ? {}
+                    : {
+                        startDay: d.startDay ?? today(),
+                        endDay: d.endDay ?? today(),
+                      }),
+                }))
+              }
+            >
+              <option value="immediate">当次消费</option>
+              <option value="estimated">预计长期使用</option>
+              <option value="fixed">固定期限</option>
+            </select>
           </label>
-          <label>
-            {draft.mode === "fixed" ? "固定到期日期" : "预计使用到"}
-            <input
-              required
-              type="date"
-              min={String(draft.startDay ?? "")}
-              value={String(draft.endDay ?? "")}
-              onChange={(e) => set("endDay", e.target.value)}
-            />
-          </label>
-          {entity && (
-            <details>
-              <summary>结束使用 / 出售</summary>
+          {draft.mode !== "immediate" && (
+            <>
               <label>
-                实际结束日期
+                开始使用
                 <input
+                  required
+                  type="date"
+                  value={String(draft.startDay ?? "")}
+                  onChange={(e) => set("startDay", e.target.value)}
+                />
+              </label>
+              <label>
+                {draft.mode === "fixed" ? "固定到期日期" : "预计使用到"}
+                <input
+                  required
                   type="date"
                   min={String(draft.startDay ?? "")}
-                  value={String(draft.endedDay ?? "")}
-                  onChange={(e) => set("endedDay", e.target.value)}
+                  value={String(draft.endDay ?? "")}
+                  onChange={(e) => set("endDay", e.target.value)}
                 />
               </label>
-              <label>
-                回收金额（元）
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={recovery}
-                  onChange={(e) => setRecovery(e.target.value)}
-                />
-              </label>
-              <label>
-                实际回收日期
-                <input
-                  type="date"
-                  value={String(draft.recoveryDay ?? "")}
-                  onChange={(e) => set("recoveryDay", e.target.value)}
-                />
-              </label>
-            </details>
+              {entity && (
+                <details>
+                  <summary>结束使用 / 出售</summary>
+                  <label>
+                    实际结束日期
+                    <input
+                      type="date"
+                      min={String(draft.startDay ?? "")}
+                      value={String(draft.endedDay ?? "")}
+                      onChange={(e) => set("endedDay", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    回收金额（元）
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={recovery}
+                      onChange={(e) => setRecovery(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    实际回收日期
+                    <input
+                      type="date"
+                      value={String(draft.recoveryDay ?? "")}
+                      onChange={(e) => set("recoveryDay", e.target.value)}
+                    />
+                  </label>
+                </details>
+              )}
+            </>
           )}
         </>
       )}
       {error && <p className="inline-error">{error}</p>}
-      <button className="primary">保存这笔记录</button>
       {entity && (
+        <label className="finance-remember-merchant">
+          <input
+            type="checkbox"
+            checked={rememberMerchant}
+            disabled={!draft.categoryId}
+            onChange={(event) => setRememberMerchant(event.target.checked)}
+          />
+          <span>
+            记住这个商户的用途
+            <small>下次同商户的微信支付会沿用这个账单名称和分类。</small>
+          </span>
+        </label>
+      )}
+      <button className="primary" disabled={!canSave}>
+        {purposeOnly ? "保存" : "保存这笔记录"}
+      </button>
+      {entity && !purposeOnly && (
         <button
           type="button"
           onClick={() => perform(remove(entity).then(onClose))}
@@ -916,7 +1108,8 @@ function LongTerm({
     money(
       round(
         inUse.reduce(
-          (total, e) => add(total, daily(e, asOf, currentBasis) ?? { n: 0n, d: 1n }),
+          (total, e) =>
+            add(total, daily(e, asOf, currentBasis) ?? { n: 0n, d: 1n }),
           { n: 0n, d: 1n },
         ),
       ),
@@ -936,10 +1129,20 @@ function LongTerm({
           <button onClick={() => open(e)}>
             <strong>{str(e, "title")}</strong>
           </button>
-          <span>{ended ? "已结束" : e.data.mode === "fixed" ? "固定期限" : "预计使用"}</span>
+          <span>
+            {ended
+              ? "已结束"
+              : e.data.mode === "fixed"
+                ? "固定期限"
+                : "预计使用"}
+          </span>
         </header>
         <div className="long-meter">
-          <i style={{ width: `${Math.min(100, (used / Math.max(1, planned)) * 100)}%` }} />
+          <i
+            style={{
+              width: `${Math.min(100, (used / Math.max(1, planned)) * 100)}%`,
+            }}
+          />
         </div>
         <small>
           {str(e, "startDay")} — {ended ? end : str(e, "endDay")} ·{" "}
@@ -965,17 +1168,24 @@ function LongTerm({
         ]}
       />
       {!current && (
-        <p className="muted-note">当月在用的长期物品；仍在用的按截至今天计算，已结束的保留结束时的数据。</p>
+        <p className="muted-note">
+          当月在用的长期物品；仍在用的按截至今天计算，已结束的保留结束时的数据。
+        </p>
       )}
       <div className="long-list">
         {view.shown.map(item)}
         {!view.shown.length && (
-          <Empty text={current ? "没有使用中的长期物品" : "这个月没有在用的长期物品"} />
+          <Empty
+            text={current ? "没有使用中的长期物品" : "这个月没有在用的长期物品"}
+          />
         )}
       </div>
       {view.hidden.length > 0 && (
         <>
-          <button className="ghost long-toggle" onClick={() => setHistory(!history)}>
+          <button
+            className="ghost long-toggle"
+            onClick={() => setHistory(!history)}
+          >
             {history ? "收起" : "展开"}已结束 · {view.hidden.length}
           </button>
           {history && <div className="long-list">{view.hidden.map(item)}</div>}

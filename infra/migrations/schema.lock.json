@@ -247,7 +247,9 @@
       "\"ended_day\"": "date",
       "\"recovery_minor\"": "bigint",
       "\"recovery_day\"": "date",
-      "\"note\"": "text"
+      "\"note\"": "text",
+      "\"wechat_merchant\"": "text",
+      "\"wechat_merchant_rule\"": "jsonb"
     },
     "foreignKeys": {
       "expense_entries_category_id_fk": "FOREIGN KEY (owner_id, \"category_id\") REFERENCES expense_categories(owner_id, id)",

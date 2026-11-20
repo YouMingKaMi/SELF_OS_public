@@ -27,6 +27,7 @@ jobs:
       - run: npm run verify
       # Real PostgreSQL: migrations, constraints, concurrency, receipts, change feed.
       - run: npm run test:integration
+      - run: npm run test:wechat
       - run: npm run build:web
   native:
     runs-on: macos-15
@@ -34,3 +35,4 @@ jobs:
       - uses: actions/checkout@v4
       # Pure rules, shared cross-language vectors and the local store. The live-API test skips here.
       - run: swift test --package-path apps/ios/CouncilCore
+      - run: xcodebuild -project apps/ios/CouncilStudio.xcodeproj -scheme CouncilStudio -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

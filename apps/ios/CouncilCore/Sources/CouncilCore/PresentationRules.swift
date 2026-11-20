@@ -99,6 +99,12 @@ public enum TaskRules {
     default: return true
     }
   }
+  public static func prerequisites(_ record: Record) -> [String] {
+    record.data["prerequisiteIds"]?.strings ?? []
+  }
+  public static func blockers(_ record: Record, byID: [String: Record]) -> [String] {
+    prerequisites(record).filter { byID[$0]?.text("status") != "completed" }
+  }
   public static func belongsToday(_ record: Record, day: String) -> Bool {
     guard record.text("status") == "pending" else { return false }
     let s = schedule(record)

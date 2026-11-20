@@ -582,7 +582,9 @@ public struct ExpenseFields: EntityFields {
   public var recoveryMinor: String?
   public var recoveryDay: String?
   public var note: String?
-  public init(title: String, day: String, amountMinor: String, categoryId: String? = nil, subcategoryId: String? = nil, necessary: Bool? = nil, mode: String, startDay: String? = nil, endDay: String? = nil, endedDay: String? = nil, recoveryMinor: String? = nil, recoveryDay: String? = nil, note: String? = nil) {
+  public var wechatMerchant: String?
+  public var wechatMerchantRule: [String]?
+  public init(title: String, day: String, amountMinor: String, categoryId: String? = nil, subcategoryId: String? = nil, necessary: Bool? = nil, mode: String, startDay: String? = nil, endDay: String? = nil, endedDay: String? = nil, recoveryMinor: String? = nil, recoveryDay: String? = nil, note: String? = nil, wechatMerchant: String? = nil, wechatMerchantRule: [String]? = nil) {
     self.title = title
     self.day = day
     self.amountMinor = amountMinor
@@ -596,6 +598,8 @@ public struct ExpenseFields: EntityFields {
     self.recoveryMinor = recoveryMinor
     self.recoveryDay = recoveryDay
     self.note = note
+    self.wechatMerchant = wechatMerchant
+    self.wechatMerchantRule = wechatMerchantRule
   }
   public init?(_ record: Record) {
     guard record.type == Self.entityType,
@@ -617,6 +621,8 @@ public struct ExpenseFields: EntityFields {
     self.recoveryMinor = record.data["recoveryMinor"]?.stringValue
     self.recoveryDay = record.data["recoveryDay"]?.stringValue
     self.note = record.data["note"]?.stringValue
+    self.wechatMerchant = record.data["wechatMerchant"]?.stringValue
+    self.wechatMerchantRule = record.data["wechatMerchantRule"]?.stringsValue
   }
   public var data: [String: JSONValue] {
     var data: [String: JSONValue] = [:]
@@ -633,6 +639,8 @@ public struct ExpenseFields: EntityFields {
     if let recoveryMinor { data["recoveryMinor"] = .string(recoveryMinor) }
     if let recoveryDay { data["recoveryDay"] = .string(recoveryDay) }
     if let note { data["note"] = .string(note) }
+    if let wechatMerchant { data["wechatMerchant"] = .string(wechatMerchant) }
+    if let wechatMerchantRule { data["wechatMerchantRule"] = .array(wechatMerchantRule.map(JSONValue.string)) }
     return data
   }
 }

@@ -27,3 +27,6 @@ backups/
 # Server address and SSH details for deploy.sh
 infra/deploy/site.env
 
+
+# Python bytecode from the local WeChat bridge
+__pycache__/

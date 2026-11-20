@@ -11,6 +11,9 @@ struct FinanceScreen: View {
   @State private var view = start.first ?? "ledger"
   @State private var basis = FinanceRules.Basis.actual
   @State private var category = ""
+  @State private var reviewing = false
+  @State private var hasPromptedForPurpose = false
+  @State private var purposeOnly = false
   @State private var editing: Record?
   @State private var adding = false
   @State private var form: EntityForm?
@@ -26,12 +29,21 @@ struct FinanceScreen: View {
     let report = FinanceReport(expenses: expenses, filtered: filtered, month: month, basis: basis, asOf: asOf)
     let budget = studio.all("budget").first { $0.text("month") == month }
     let budgetMinor = budget.flatMap { FinanceRules.minor($0.text("amountMinor")) }
+    let reviewCandidate = view != "ledger" || categories.isEmpty ? nil : expenses.filter {
+      $0.text("categoryId").isEmpty && !$0.text("wechatMerchant").isEmpty
+    }
+      .max { $0.text("day") < $1.text("day") }
     List {
       Section {
         MonthBar(month: $month).listRowBackground(Color.clear)
           .listRowInsets(EdgeInsets(top: 0, leading: 6, bottom: 0, trailing: 6))
       }
-      Section { summary(report, budget: budgetMinor).cardRow() }
+      Section {
+        let discretionary = FinanceRules.total(
+          filtered.filter { $0.data["necessary"]?.boolValue == false },
+          month: month, basis: basis, asOf: asOf)
+        summary(report, budget: budgetMinor, discretionary: discretionary).cardRow()
+      }
       Section {
         Picker("视图", selection: $view) {
           Text("账本").tag("ledger")
@@ -71,14 +83,23 @@ struct FinanceScreen: View {
       }
     }
     .studioScreen("花销")
-    .sheet(item: $editing) { ExpenseSheet(record: $0) }
+    .onChange(of: reviewCandidate?.id, initial: true) { _, _ in
+      guard !hasPromptedForPurpose, view == "ledger", !adding, form == nil,
+        editing == nil, let reviewCandidate else { return }
+      hasPromptedForPurpose = true
+      purposeOnly = true
+      editing = reviewCandidate
+    }
+    .sheet(item: $editing, onDismiss: { purposeOnly = false }) {
+      ExpenseSheet(record: $0, purposeOnly: purposeOnly)
+    }
     .sheet(isPresented: $adding) { ExpenseSheet(record: nil) }
     .sheet(item: $form) { EntityFormSheet(form: $0) }
   }
 
   // MARK: Summary
 
-  func summary(_ report: FinanceReport, budget: Decimal?) -> some View {
+  func summary(_ report: FinanceReport, budget: Decimal?, discretionary: Decimal) -> some View {
     let spent = report.actualTotal
     let days = Double(report.summary.days.count)
     let monthDays = Double(HabitRules.days(in: month).count)
@@ -121,7 +142,7 @@ struct FinanceScreen: View {
       }
       StatRow(items: [
         ("必要", Money.format(report.necessary)),
-        ("非必要", Money.format(report.discretionary)),
+        ("非必要", Money.format(discretionary)),
         ("日均", report.summary.calendarAverage.map(Money.format) ?? "—"),
       ])
     }.padding(.vertical, 6)
@@ -130,8 +151,27 @@ struct FinanceScreen: View {
   // MARK: Ledger
 
   @ViewBuilder var ledger: some View {
-    let rows = filtered.filter { $0.text("day").hasPrefix(month) }
+    let pending = expenses.filter { $0.text("day").hasPrefix(month) && $0.text("categoryId").isEmpty }
+    let rows = reviewing ? pending : filtered.filter { $0.text("day").hasPrefix(month) }
     let days = Array(Set(rows.map { $0.text("day") })).sorted(by: >)
+    if !pending.isEmpty || reviewing {
+      Section {
+        Button {
+          category = ""
+          reviewing.toggle()
+        } label: {
+          HStack {
+            Label(reviewing ? "返回账本" : "待分类",
+                  systemImage: reviewing ? "arrow.uturn.backward" : "tray")
+            Spacer()
+            if !reviewing {
+              Text("\(pending.count) 笔").foregroundStyle(Ink.text3).monospacedDigit()
+              Image(systemName: "chevron.right").font(Ink.micro).foregroundStyle(Ink.text3)
+            }
+          }.font(Ink.meta).foregroundStyle(Ink.text2)
+        }.buttonStyle(.plain).cardRow()
+      }
+    }
     if !category.isEmpty {
       Section {
         Button {
@@ -154,14 +194,14 @@ struct FinanceScreen: View {
                 Text(row.title).font(Ink.row).foregroundStyle(Ink.text).lineLimit(1)
                 Text(
                   [
-                    name(row.text("categoryId")),
+                    row.text("categoryId").isEmpty ? "待分类" : name(row.text("categoryId")),
                     row.text("subcategoryId").isEmpty ? nil : name(row.text("subcategoryId")),
                     row.text("mode") == "immediate" ? nil : Words.of(row.text("mode")),
                   ].compactMap { $0 }.joined(separator: " · ")
                 ).font(.system(size: 12)).foregroundStyle(Ink.text3)
               }
               Spacer()
-              if !row.flag("necessary") {
+              if row.data["necessary"]?.boolValue == false {
                 Text("非必要").font(.system(size: 10, weight: .medium)).foregroundStyle(Ink.text3)
                   .padding(.horizontal, 6).padding(.vertical, 2).overlay(Capsule().stroke(Ink.line))
               }
@@ -185,7 +225,10 @@ struct FinanceScreen: View {
       }
     }
     if days.isEmpty {
-      Section { Text("这个月还没有记录").font(Ink.meta).foregroundStyle(Ink.text3).cardRow() }
+      Section {
+        Text(reviewing ? "本月账单已分类" : "这个月还没有记录")
+          .font(Ink.meta).foregroundStyle(Ink.text3).cardRow()
+      }
     }
   }
 
@@ -196,12 +239,13 @@ struct FinanceScreen: View {
     Section {
       ForEach(report.categories) { group in
         Button {
+          reviewing = group.id.isEmpty
           category = category == group.id ? "" : group.id
           view = "ledger"
         } label: {
           VStack(alignment: .leading, spacing: 7) {
             HStack {
-              Text(group.id.isEmpty ? "未分类" : name(group.id)).font(Ink.row).foregroundStyle(Ink.text)
+              Text(group.id.isEmpty ? "待分类" : name(group.id)).font(Ink.row).foregroundStyle(Ink.text)
               Spacer()
               Text(Money.format(group.minor)).font(.system(size: 15, weight: .semibold, design: .rounded))
                 .monospacedDigit().foregroundStyle(Ink.text)
@@ -355,11 +399,12 @@ struct ExpenseSheet: View {
   @Environment(Studio.self) private var studio
   @Environment(\.dismiss) private var dismiss
   let record: Record?
+  var purposeOnly = false
   @State private var amount = ""
   @State private var title = ""
   @State private var category = ""
   @State private var child = ""
-  @State private var necessary = true
+  @State private var necessary: Bool? = true
   @State private var day = Date()
   @State private var mode = "immediate"
   @State private var start = Date()
@@ -368,27 +413,58 @@ struct ExpenseSheet: View {
   @State private var recovery = ""
   @State private var note = ""
   @State private var confirmDelete = false
+  @State private var rememberMerchant = false
   @FocusState private var amountFocused: Bool
   var parents: [Record] { studio.all("category").filter { $0.text("parentId").isEmpty } }
   var children: [Record] { studio.all("category").filter { $0.text("parentId") == category && !category.isEmpty } }
+  private var savedMerchant: String {
+    guard let record else { return "" }
+    let source = record.text("wechatMerchant")
+    return source.isEmpty ? record.data["wechatMerchantRule"]?.stringsValue?.first ?? "" : source
+  }
+  private var ledgerTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+  private var renamed: Bool { ledgerTitle != record?.title }
+  private var canSave: Bool {
+    guard !ledgerTitle.isEmpty, ledgerTitle.utf16.count <= 500 else { return false }
+    return purposeOnly ? (!category.isEmpty || renamed) : Money.minor(amount) != nil
+  }
   var body: some View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 18) {
-          HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text("¥").font(.system(size: 30, weight: .semibold, design: .rounded)).foregroundStyle(Ink.text3)
-            TextField("0", text: $amount).font(.system(size: 52, weight: .semibold, design: .rounded))
-              .keyboardType(.decimalPad).focused($amountFocused).monospacedDigit()
+          if purposeOnly, let record {
+            HStack(alignment: .firstTextBaseline) {
+              VStack(alignment: .leading, spacing: 4) {
+                Text(savedMerchant.isEmpty ? record.title : savedMerchant).font(Ink.row)
+                Text(record.text("day")).font(Ink.meta).foregroundStyle(Ink.text3)
+              }
+              Spacer()
+              Text(Money.format(record.text("amountMinor"))).font(Ink.title).monospacedDigit()
+            }
+          } else {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+              Text("¥").font(.system(size: 30, weight: .semibold, design: .rounded)).foregroundStyle(Ink.text3)
+              TextField("0", text: $amount).font(.system(size: 52, weight: .semibold, design: .rounded))
+                .keyboardType(.decimalPad).focused($amountFocused).monospacedDigit()
+            }
           }
-          TextField("买了什么", text: $title).font(.system(size: 18))
-            .padding(14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+          VStack(alignment: .leading, spacing: 6) {
+            if purposeOnly || !savedMerchant.isEmpty {
+              Text("账单名称").font(Ink.micro).foregroundStyle(Ink.text3)
+            }
+            TextField(purposeOnly || !savedMerchant.isEmpty ? "账单名称" : "买了什么", text: $title)
+              .font(.system(size: 18))
+              .padding(14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+          }
           VStack(alignment: .leading, spacing: 10) {
             Text("用途").font(Ink.micro).foregroundStyle(Ink.text3)
             FlowChips(items: parents.map { ($0.id, $0.title) }, selection: category) { id in
               category = category == id ? "" : id
               if let row = parents.first(where: { $0.id == category }) {
-                necessary = row.flag("necessary")
+                necessary = row.data["necessary"]?.boolValue ?? necessary
                 child = row.text("defaultChildId")
+              } else {
+                child = ""
               }
             }
             if !children.isEmpty {
@@ -397,58 +473,78 @@ struct ExpenseSheet: View {
               }
             }
           }
-          VStack(spacing: 0) {
-            Toggle("必要支出", isOn: $necessary).padding(.vertical, 10)
-            Hairline()
-            DatePicker("日期", selection: $day, displayedComponents: .date).padding(.vertical, 6)
-            Hairline()
-            Picker("方式", selection: $mode) {
-              Text("当次").tag("immediate")
-              Text("预计使用").tag("estimated")
-              Text("固定期限").tag("fixed")
-            }.pickerStyle(.segmented).padding(.vertical, 10)
-            if mode != "immediate" {
-              DatePicker("开始使用", selection: $start, displayedComponents: .date).padding(.vertical, 6)
-              DatePicker(mode == "fixed" ? "到期" : "预计用到", selection: $end, in: start..., displayedComponents: .date)
-                .padding(.vertical, 6)
-              if record != nil {
-                Hairline()
-                Toggle("已结束 / 已出售", isOn: Binding(get: { ended != nil }, set: { ended = $0 ? Date() : nil }))
+          if !purposeOnly {
+            VStack(spacing: 0) {
+              if let record, record.data["necessary"]?.boolValue == nil {
+                Picker("必要性", selection: $necessary) {
+                  Text("待确认").tag(nil as Bool?)
+                  Text("必要").tag(true as Bool?)
+                  Text("非必要").tag(false as Bool?)
+                }.padding(.vertical, 10)
+              } else {
+                Toggle("必要支出", isOn: Binding(get: { necessary == true }, set: { necessary = $0 }))
                   .padding(.vertical, 10)
-                if ended != nil {
-                  DatePicker("实际结束", selection: Binding(get: { ended ?? Date() }, set: { ended = $0 }), displayedComponents: .date)
-                  HStack {
-                    Text("回收金额")
-                    TextField("0", text: $recovery).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                  }.padding(.vertical, 8)
-                }
               }
-            }
-          }.padding(.horizontal, 14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-          TextField("备注", text: $note, axis: .vertical).lineLimit(1...4)
-            .padding(14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-          if let record {
-            Button("移入回收站", role: .destructive) { confirmDelete = true }.font(Ink.meta)
-              .frame(maxWidth: .infinity)
-              .confirmationDialog("移入回收站？", isPresented: $confirmDelete) {
-                Button("移入回收站", role: .destructive) {
-                  Task {
-                    await studio.remove(record)
-                    dismiss()
+              Hairline()
+              DatePicker("日期", selection: $day, displayedComponents: .date).padding(.vertical, 6)
+              Hairline()
+              Picker("方式", selection: $mode) {
+                Text("当次").tag("immediate")
+                Text("预计使用").tag("estimated")
+                Text("固定期限").tag("fixed")
+              }.pickerStyle(.segmented).padding(.vertical, 10)
+              if mode != "immediate" {
+                DatePicker("开始使用", selection: $start, displayedComponents: .date).padding(.vertical, 6)
+                DatePicker(mode == "fixed" ? "到期" : "预计用到", selection: $end, in: start..., displayedComponents: .date)
+                  .padding(.vertical, 6)
+                if record != nil {
+                  Hairline()
+                  Toggle("已结束 / 已出售", isOn: Binding(get: { ended != nil }, set: { ended = $0 ? Date() : nil }))
+                    .padding(.vertical, 10)
+                  if ended != nil {
+                    DatePicker("实际结束", selection: Binding(get: { ended ?? Date() }, set: { ended = $0 }), displayedComponents: .date)
+                    HStack {
+                      Text("回收金额")
+                      TextField("0", text: $recovery).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                    }.padding(.vertical, 8)
                   }
                 }
               }
+            }.padding(.horizontal, 14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            TextField("备注", text: $note, axis: .vertical).lineLimit(1...4)
+              .padding(14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if let record {
+              Button("移入回收站", role: .destructive) { confirmDelete = true }.font(Ink.meta)
+                .frame(maxWidth: .infinity)
+                .confirmationDialog("移入回收站？", isPresented: $confirmDelete) {
+                  Button("移入回收站", role: .destructive) {
+                    Task {
+                      await studio.remove(record)
+                      dismiss()
+                    }
+                  }
+                }
+            }
+          }
+          if record != nil {
+            Toggle(isOn: $rememberMerchant) {
+              VStack(alignment: .leading, spacing: 4) {
+                Text("记住这个商户的用途")
+                Text("下次同商户的微信支付会沿用这个账单名称和分类。")
+                  .font(Ink.meta).foregroundStyle(Ink.text3)
+              }
+            }.disabled(category.isEmpty)
           }
         }.padding(20)
       }
       .background(Ink.card)
       .environment(\.locale, Locale(identifier: "zh_CN"))
-      .navigationTitle(record == nil ? "记一笔" : "编辑").navigationBarTitleDisplayMode(.inline)
+      .navigationTitle(record.map { $0.text("categoryId").isEmpty ? "补分类" : "编辑" } ?? "记一笔")
+      .navigationBarTitleDisplayMode(.inline)
       .toolbar {
-        ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+        ToolbarItem(placement: .cancellationAction) { Button(purposeOnly ? "稍后" : "取消") { dismiss() } }
         ToolbarItem(placement: .confirmationAction) {
-          Button("保存") { save() }.fontWeight(.semibold)
-            .disabled(Money.minor(amount) == nil || title.trimmingCharacters(in: .whitespaces).isEmpty)
+          Button("保存") { save() }.fontWeight(.semibold).disabled(!canSave)
         }
       }
     }.studioSheet().presentationDetents([.large])
@@ -468,7 +564,7 @@ struct ExpenseSheet: View {
     title = record.title
     category = record.text("categoryId")
     child = record.text("subcategoryId")
-    necessary = record.flag("necessary")
+    necessary = record.data["necessary"]?.boolValue
     day = CalendarDays.date(record.text("day")) ?? Date()
     mode = record.text("mode", "immediate")
     start = CalendarDays.date(record.text("startDay")) ?? day
@@ -478,12 +574,34 @@ struct ExpenseSheet: View {
     note = record.text("note")
   }
   func save() {
-    guard let minor = Money.minor(amount) else { return }
+    guard canSave else { return }
     var data: [String: JSONValue] = record?.data ?? [:]
-    data["title"] = .string(title)
+    data["title"] = .string(ledgerTitle)
+    let remember = rememberMerchant && !category.isEmpty
+    if let record, remember || (record.text("categoryId").isEmpty && renamed) {
+      let original = record.title.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+      let merchant = savedMerchant.isEmpty ? String(original.unicodeScalars.prefix(200)) : savedMerchant
+      if !merchant.isEmpty {
+        data["wechatMerchant"] = .string(merchant)
+        if remember {
+          data["wechatMerchantRule"] = .array([
+            merchant, child.isEmpty ? category : child, Date().ISO8601Format(), ledgerTitle,
+          ].map(JSONValue.string))
+        }
+      }
+    }
+    if purposeOnly {
+      guard let record else { return }
+      data["categoryId"] = category.isEmpty ? nil : .string(category)
+      data["subcategoryId"] = child.isEmpty ? nil : .string(child)
+      data["necessary"] = necessary.map { .bool($0) }
+      Task { if await studio.save("expense", data, id: record.id) != nil { dismiss() } }
+      return
+    }
+    guard let minor = Money.minor(amount) else { return }
     data["amountMinor"] = .string(minor)
     data["day"] = .string(CalendarDays.string(day))
-    data["necessary"] = .bool(necessary)
+    data["necessary"] = necessary.map { .bool($0) }
     data["mode"] = .string(mode)
     data["categoryId"] = category.isEmpty ? nil : .string(category)
     data["subcategoryId"] = child.isEmpty ? nil : .string(child)

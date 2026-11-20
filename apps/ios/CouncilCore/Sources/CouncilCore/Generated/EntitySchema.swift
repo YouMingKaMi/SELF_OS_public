@@ -178,6 +178,8 @@ public enum EntitySchema {
       FieldSpec(name: "recoveryMinor", column: "recovery_minor", kind: .money, required: false, storage: "INTEGER"),
       FieldSpec(name: "recoveryDay", column: "recovery_day", kind: .day, required: false, storage: "TEXT"),
       FieldSpec(name: "note", column: "note", kind: .string, required: false, storage: "TEXT"),
+      FieldSpec(name: "wechatMerchant", column: "wechat_merchant", kind: .string, required: false, storage: "TEXT"),
+      FieldSpec(name: "wechatMerchantRule", column: "wechat_merchant_rule", kind: .strings, required: false, storage: "TEXT"),
     ]),
     EntitySpec(type: "recurringExpense", module: "finance", table: "recurring_expenses", fields: [
       FieldSpec(name: "name", column: "name", kind: .string, required: true, storage: "TEXT"),

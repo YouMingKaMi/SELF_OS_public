@@ -43,6 +43,48 @@
 .amount.negative {
   color: var(--live);
 }
+.finance-review-summary {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-2);
+}
+.finance-review-summary > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.finance-review-summary small {
+  display: block;
+  color: var(--text-3);
+}
+.finance-review-summary > strong {
+  white-space: nowrap;
+}
+.modal-backdrop.finance-purpose-backdrop {
+  z-index: 80;
+}
+.record-form .finance-remember-merchant {
+  display: flex;
+  flex-direction: row;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  gap: 10px;
+}
+.record-form > .finance-remember-merchant > span {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.finance-remember-merchant input {
+  flex: none;
+  margin-top: 3px;
+}
+.finance-remember-merchant small {
+  display: block;
+  color: var(--text-3);
+}
 
 .finance-summary {
   display: grid;
@@ -232,4 +274,26 @@
 .long-toggle {
   align-self: flex-start;
   margin-top: 10px;
+}
+.wechat-pay-view {
+  max-width: 880px;
+}
+.wechat-pay-view iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+}
+.wechat-pay-view p[role="status"] {
+  margin: 0;
+  color: var(--text-2);
+}
+.wechat-pay-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+.wechat-pay-actions a {
+  color: var(--text-2);
 }
