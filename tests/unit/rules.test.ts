@@ -8,6 +8,33 @@ import { client } from "../support.ts";
 const setup = () =>
   client(new SyncService(new MemoryStore(), composeRules()), "owner");
 
+test("WeChat expense titles keep merchant identity and only change defaults on confirmation", async () => {
+  const c = setup();
+  const category = await c.create("category", { name: "订阅" });
+  const merchant = "示例小铺";
+  const date = "2026-11-17T01:00:00.000Z";
+  const expense = await c.create("expense", {
+    title: merchant, wechatMerchant: merchant, mode: "immediate",
+    amountMinor: "1200", day: "2026-11-17",
+  });
+  const renamed = await c.update(expense, { title: "本次打印" });
+  assert.equal(renamed.data.wechatMerchant, merchant);
+  assert.equal(renamed.data.wechatMerchantRule, undefined);
+  const rule = [merchant, category.id, date, "会员充值"];
+  const remembered = await c.update(renamed, {
+    title: rule[3], categoryId: category.id, wechatMerchantRule: rule,
+  });
+  const edited = await c.update(remembered, {
+    title: "本次会员升级", wechatMerchant: undefined, wechatMerchantRule: undefined,
+  });
+  assert.equal(edited.data.title, "本次会员升级");
+  assert.equal(edited.data.wechatMerchant, merchant);
+  assert.deepEqual(edited.data.wechatMerchantRule, rule);
+  assert.equal(edited.data.amountMinor, "1200");
+  const legacy = await c.update(edited, { wechatMerchantRule: [edited.data.title, category.id, date] });
+  assert.deepEqual(legacy.data.wechatMerchantRule, rule.slice(0, 3));
+});
+
 test("tasks: completion instant is recorded once and survives re-planning", async () => {
   const c = setup();
   const task = await c.create("task", {

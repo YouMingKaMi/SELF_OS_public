@@ -1101,6 +1101,18 @@
           "note": {
             "type": "string",
             "maxLength": 10000
+          },
+          "wechatMerchant": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "wechatMerchantRule": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
           }
         }
       },

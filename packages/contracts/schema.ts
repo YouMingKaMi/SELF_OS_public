@@ -160,6 +160,9 @@ export const schema = {
     recoveryMinor: money(),
     recoveryDay: day(),
     note: text(false, 10000),
+    wechatMerchant: text(false, 400),
+    // Explicit confirmation: merchant name, category ID, timestamp, optional ledger title.
+    wechatMerchantRule: strings,
   }),
   recurringExpense: entity("finance", "recurring_expenses", {
     name: text(true),

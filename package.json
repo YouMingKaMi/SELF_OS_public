@@ -1,6 +1,6 @@
 {
   "name": "self-os",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "engines": {
     "node": ">=24.0.0 <25"
@@ -15,6 +15,7 @@
     "build:web": "vite build --config apps/web/vite.config.ts",
     "dev": "npm run build:web && node scripts/dev.mjs",
     "contracts:generate": "node scripts/generate-contracts.ts",
+    "test:wechat": "python3 -m unittest discover -s tools/wechat-pay -p 'test_*.py'",
     "contracts:check": "node scripts/generate-contracts.ts --check && node scripts/generate-migration.ts --check",
     "backup:local": "node scripts/backup-local.mjs --verify",
     "db:migration": "node scripts/generate-migration.ts",

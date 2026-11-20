@@ -27,6 +27,7 @@ jobs:
       - run: npm run verify
       # Real PostgreSQL: migrations, constraints, concurrency, receipts, change feed.
       - run: npm run test:integration
+      - run: npm run test:wechat
       - run: npm run build:web
   native:
     runs-on: macos-15

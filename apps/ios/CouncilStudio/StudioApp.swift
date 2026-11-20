@@ -2,23 +2,32 @@ import CouncilCore
 import SwiftUI
 
 @main struct StudioApp: App {
-  @State private var studio = Studio()
+  @State private var studio = Studio.shared
   @Environment(\.scenePhase) private var phase
   var body: some Scene {
     WindowGroup {
       RootView().environment(studio).preferredColorScheme(.dark).tint(Ink.text)
         .task {
           await studio.bootstrap()
+          await studio.applyWidgetCompletions()
           await studio.sync()
           // Hints do the fast path; this slow poll only covers a missed hint.
           while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(120))
+            await studio.applyWidgetCompletions()
             await studio.sync()
           }
         }
         .task { await studio.listen() }
         .task(id: studio.revision("importantDay")) { await studio.scheduleReminders() }
-        .onChange(of: phase) { _, value in if value == .active { Task { await studio.sync() } } }
+        .onChange(of: phase) { _, value in
+          if value == .active {
+            Task {
+              await studio.applyWidgetCompletions()
+              await studio.sync()
+            }
+          }
+        }
         .alert(
           "没能完成",
           isPresented: Binding(get: { studio.error != nil }, set: { if !$0 { studio.error = nil } })

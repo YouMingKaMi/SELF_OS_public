@@ -2,6 +2,7 @@ import CouncilCore
 import Observation
 import Security
 import SwiftUI
+import WidgetKit
 
 /// Live records of one entity type. A screen that reads it re-renders only when that table changes.
 @MainActor @Observable final class Feed {
@@ -11,6 +12,7 @@ import SwiftUI
 
 /// The one object views talk to. Views never touch SQLite or the network.
 @MainActor @Observable final class Studio {
+  static let shared = Studio()
   var pending: [PendingOperation] = []
   var syncState: SyncState = .idle
   var error: String?
@@ -93,6 +95,7 @@ import SwiftUI
           for try await records in updates {
             feed.records = records
             feed.revision += 1
+            if type == "task" { WidgetTasks.publish(records) }
           }
         } catch { self?.error = error.localizedDescription }
       })
@@ -314,6 +317,40 @@ import SwiftUI
       requestSync()
     } catch { self.error = error.localizedDescription }
   }
+  func completeWidgetTask(_ id: String, at date: Date = Date()) async throws {
+    guard ProcessInfo.processInfo.environment["STUDIO_DEMO"] == nil else {
+      throw WidgetTaskActionError.openApp
+    }
+    guard UUID(uuidString: id) != nil else { throw WidgetTaskActionError.openApp }
+    guard let task = try await store.record(type: "task", id: id), !task.deleted,
+      task.text("status") == "pending"
+    else { throw WidgetTaskActionError.openApp }
+    let data = TaskRules.apply(
+      "complete", to: task, now: ISO8601DateFormatter().string(from: date))
+    guard await save("task", data, id: id) != nil else { throw WidgetTaskActionError.openApp }
+    WidgetTasks.clearCompletion(id)
+    WidgetTasks.publish(try await store.records(type: "task"))
+    await sync()
+  }
+
+  func applyWidgetCompletions() async {
+    guard ProcessInfo.processInfo.environment["STUDIO_DEMO"] == nil else { return }
+    let requests = WidgetTasks.queuedCompletions()
+    guard !requests.isEmpty else { return }
+    for (id, date) in requests.sorted(by: { ($0.value, $0.key) < ($1.value, $1.key) }) {
+      do {
+        try await completeWidgetTask(id, at: date)
+      } catch let error as WidgetTaskActionError {
+        WidgetTasks.clearCompletion(id)
+        self.error = error.localizedDescription
+      } catch {
+        self.error = error.localizedDescription
+      }
+    }
+    if let tasks = try? await store.records(type: "task") { WidgetTasks.publish(tasks) }
+    WidgetCenter.shared.reloadTimelines(ofKind: WidgetTasks.kind)
+  }
+
   func task(_ record: Record?, _ action: String, title: String? = nil, schedule: Schedule? = nil)
     async
   {
