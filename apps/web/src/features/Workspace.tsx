@@ -27,6 +27,10 @@ import {
 } from "../data/export.ts";
 import { downloadFile } from "../ui/download.ts";
 import {
+  isAndroidApp,
+  openAndroidEndpointSettings,
+} from "../ui/android-bridge.ts";
+import {
   Heading,
   Panel,
   Empty,
@@ -827,6 +831,17 @@ export function Settings({
             <span>本机待发送</span>
             <strong>{pending.length} 条</strong>
           </div>
+          {isAndroidApp() && (
+            <div className="settings-line">
+              <span>Android 服务器</span>
+              <button
+                type="button"
+                onClick={() => openAndroidEndpointSettings()}
+              >
+                连接设置…
+              </button>
+            </div>
+          )}
           <p className="muted-note">
             模块开关、别名与部门定制跨端自动同步；首页排版、分屏与主题保存在当前设备。
           </p>

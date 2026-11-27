@@ -1,3 +1,5 @@
+import { saveViaAndroidBridge } from "./android-bridge.ts";
+
 type ContentWriter = (
   write: (chunk: string) => void | Promise<void>,
 ) => Promise<void>;
@@ -5,12 +7,14 @@ type SaveFilePicker = (options: {
   suggestedName: string;
 }) => Promise<FileSystemFileHandle>;
 
-/** Use a local file writer where available and the browser's normal download everywhere else. */
+/** Use native Android SAF bridge or local file writer where available, and browser download elsewhere. */
 export async function downloadFile(
   name: string,
   type: string,
   write: ContentWriter,
 ) {
+  if (await saveViaAndroidBridge(name, type, write)) return;
+
   const { showSaveFilePicker } = window as Window & {
     showSaveFilePicker?: SaveFilePicker;
   };

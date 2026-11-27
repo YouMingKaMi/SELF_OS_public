@@ -61,6 +61,8 @@
   --pad: 14px;
   --sidebar: 200px;
   --topbar: 40px;
+  --inset-top: var(--android-inset-top, env(safe-area-inset-top, 0px));
+  --inset-bottom: var(--android-inset-bottom, env(safe-area-inset-bottom, 0px));
 
   /* legacy aliases still read by inline SVG */
   --muted: var(--text-3);
@@ -458,6 +460,12 @@ input[type="datetime-local"] {
 }
 .mobile-menu {
   display: none !important;
+}
+.mobile-scrim {
+  display: none;
+}
+.mobile-page-title {
+  display: none;
 }
 .workspace-tabs {
   display: flex;
@@ -1442,21 +1450,70 @@ button.row-main:hover strong {
   :root {
     --fs: 14px;
     --fs-sm: 13px;
+    --topbar: 46px;
+    --control: 36px;
+  }
+  html,
+  body {
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  a,
+  select,
+  summary {
+    touch-action: manipulation;
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
   .studio-shell {
     grid-template-columns: minmax(0, 1fr);
+    min-height: 100dvh;
+  }
+  .studio-topbar {
+    height: calc(var(--topbar) + var(--inset-top));
+    padding: var(--inset-top) 10px 0;
+  }
+  .studio-topbar button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .mobile-page-title {
+    display: inline-block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 4px;
+  }
+  .split-picker {
+    display: none;
+  }
+  .mobile-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: var(--scrim);
   }
   .studio-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 70;
-    width: 240px;
+    width: 264px;
+    padding-top: calc(10px + var(--inset-top));
+    padding-bottom: calc(12px + var(--inset-bottom));
     transform: translateX(-100%);
     transition: transform 0.2s ease;
   }
   .studio-sidebar.mobile-open {
     transform: none;
-    box-shadow: 0 0 0 100vmax var(--scrim);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
   }
   .mobile-menu {
     display: inline-flex !important;
@@ -1468,7 +1525,7 @@ button.row-main:hover strong {
     display: none;
   }
   .workspace-pane {
-    padding: 12px 12px 84px;
+    padding: 12px 12px calc(86px + var(--inset-bottom));
   }
   .feature-heading {
     align-items: flex-start;
@@ -1489,16 +1546,16 @@ button.row-main:hover strong {
     inset: auto 0 0 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    padding: 4px 6px calc(4px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 4px 6px calc(4px + var(--inset-bottom));
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(14px);
     border-top: 1px solid var(--line);
   }
   .mobile-dock button {
     flex-direction: column;
     gap: 2px;
-    height: 50px;
+    height: 52px;
     border: 0;
     color: var(--text-3);
   }
@@ -1510,12 +1567,20 @@ button.row-main:hover strong {
     color: inherit;
   }
   .floating-timer {
-    bottom: 76px;
+    bottom: calc(76px + var(--inset-bottom));
     right: 12px;
   }
   .workspace-panes.split .split-drop {
     display: none;
   }
+}
+:root[data-android-app="true"] .studio-topbar {
+  height: calc(var(--topbar) + var(--inset-top));
+  padding-top: var(--inset-top);
+}
+:root[data-android-app="true"] .studio-sidebar {
+  padding-top: calc(10px + var(--inset-top));
+  padding-bottom: calc(10px + var(--inset-bottom));
 }
 
 /* Steppers: ‹ 2026年11月 › — the native picker sits invisibly over the label */

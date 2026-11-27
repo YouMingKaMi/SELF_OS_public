@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SELF OS</string>
+    <string name="connection_settings">连接设置</string>
+    <string name="connect_title">连接 SELF OS</string>
+    <string name="connect_description">输入你自己的 SELF OS 服务地址。</string>
+    <string name="endpoint_hint">HTTPS 服务地址</string>
+    <string name="endpoint_default_hint">留空恢复默认地址</string>
+    <string name="endpoint_invalid">请输入有效的 HTTPS 服务地址</string>
+    <string name="connect_action">连接</string>
+    <string name="connection_error">无法连接 SELF OS</string>
+    <string name="retry_connection">重试连接</string>
+    <string name="back_again_to_exit">再按一次退出 SELF OS</string>
+    <string name="open_external_error">无法打开此链接</string>
+    <string name="file_picker_error">无法打开文件选择器</string>
+    <string name="export_success">导出已保存</string>
+    <string name="export_error">无法保存导出文件</string>
+</resources>

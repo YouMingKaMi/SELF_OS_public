@@ -6,6 +6,7 @@ apps/macos                macOS 原生桌面壳（WKWebView，同源下载与安
 apps/ios/CouncilStudio    iPhone App（SwiftUI）
 apps/ios/CouncilWidgets   iPhone 今日任务小组件扩展
 apps/ios/CouncilCore      iPhone 的本地数据库、同步和计算规则（Swift 包，可单独测试）
+apps/android              Android 原生安全壳（Kotlin + Gradle + 签名 APK，支持 Edge-to-Edge 与 SAF 导出）
 packages/contracts        所有数据类型的唯一定义（schema.ts），其他东西都从它生成
 modules/kernel            与业务无关的同步内核：保存、版本、冲突、变化记录、设备身份、作用域快照
 modules/<业务>            每个业务的规则，都是纯函数（finance、habits、tasks、treasury、storage、workspace…）

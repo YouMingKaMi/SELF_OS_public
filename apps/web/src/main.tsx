@@ -10,6 +10,7 @@ import {
 } from "./data/entities.ts";
 import { usePreference } from "./ui/shared.tsx";
 import { Pairing } from "./ui/Pairing.tsx";
+import { syncAndroidTheme } from "./ui/android-bridge.ts";
 import { useWorkspaceConfig } from "./features/workspace-config.ts";
 const Home = React.lazy(() =>
   import("./features/Home.tsx").then((m) => ({ default: m.Home })),
@@ -175,13 +176,41 @@ function App() {
   }, []);
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () =>
-      (document.documentElement.dataset.theme =
-        theme === "system" ? (media.matches ? "dark" : "light") : theme);
+    const apply = () => {
+      const resolved: "dark" | "light" =
+        theme === "system" ? (media.matches ? "dark" : "light") : theme === "light" ? "light" : "dark";
+      document.documentElement.dataset.theme = resolved;
+      syncAndroidTheme(resolved);
+    };
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [theme]);
+  useEffect(() => {
+    window.__selfOSHandleBack = () => {
+      if (mobileMenu) {
+        setMobileMenu(false);
+        return true;
+      }
+      if (picker) {
+        setPicker(false);
+        return true;
+      }
+      if (history.current.length > 0) {
+        stepBack();
+        return true;
+      }
+      if (active !== "home") {
+        setActive("home");
+        historyReplace("home");
+        return true;
+      }
+      return false;
+    };
+    return () => {
+      delete window.__selfOSHandleBack;
+    };
+  }, [mobileMenu, picker, active]);
   function screen(key: FeatureKey) {
     switch (key) {
       case "home":
@@ -292,6 +321,13 @@ function App() {
   return (
     <div className={"studio-shell" + (sidebarCollapsed ? " sidebar-collapsed" : "")}>
       {syncState === "unauthorized" && <Pairing />}
+      {mobileMenu && (
+        <div
+          className="mobile-scrim"
+          aria-hidden="true"
+          onClick={() => setMobileMenu(false)}
+        />
+      )}
       <aside className={"studio-sidebar " + (mobileMenu ? "mobile-open" : "")}>
         <div className="macos-sidebar-head macos-drag-bar">
           {macosControls}
@@ -430,6 +466,7 @@ function App() {
             >
               <Icon name="back" />
             </button>
+            <span className="mobile-page-title">{ws.labelOf(active)}</span>
             <div className="workspace-tabs">
               {tabs.map((key) => (
                 <div
@@ -610,14 +647,14 @@ function App() {
         )}
         <FloatingTimer />
         <nav className="mobile-dock">
-          {(["home", "departments", "discover"] as const).map(
+          {(["home", "departments", "discover", "settings"] as const).map(
             (key) => (
               <button
                 className={active === key ? "active" : ""}
                 key={key}
                 onClick={() => navigate(key)}
               >
-                <Icon name={key} size={22} />
+                <Icon name={key} size={20} />
                 <small>
                   {ws.labelOf(key) === "部门与知识库"
                     ? "部门"
