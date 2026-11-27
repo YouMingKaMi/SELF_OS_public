@@ -67,7 +67,7 @@ npm run dev                                   # 构建并启动
 - **部署到自己的服务器**（一台最低配的云服务器就够）：见 [docs/deploy.md](docs/deploy.md)
 - **安装 macOS 桌面客户端**（可选）：在项目根目录运行 `sh scripts/build-macos-app.sh`（自动读取 `infra/deploy/site.env` 或传入 `SELF_OS_URL`，构建并安装 `/Applications/SELF OS.app`）
 - **安装 iPhone App（含今日任务小组件）**（需要一台 Mac 和 Xcode）：见 [docs/iphone.md](docs/iphone.md)；免费 Apple 账号可启用 Mac 无线自动续签，见 [docs/iphone-signing.md](docs/iphone-signing.md)
-- **安装 / 构建 Android APK**（Android 8.0+，原生安全壳，支持首次连接引导、Edge-to-Edge 安全区、系统返回手势与 SAF 流式导出）：见 [docs/android.md](docs/android.md)
+- **安装 / 构建 Android APK（早期测试版）**：可前往 [GitHub Releases](https://github.com/YouMingKaMi/SELF_OS_public/releases) 直接下载通用版 APK（⚠️ 早期版本可能存在较多问题，作者尚未仔细体验研究，仅供尝鲜），或按 [docs/android.md](docs/android.md) 自行构建
 - **想了解或修改代码**：见 [docs/architecture.md](docs/architecture.md)
 
 ### 可选：微信支付记账（仅 macOS）
@@ -84,7 +84,7 @@ CouncilStudio 工程包含一个今日任务小组件：在桌面查看今天和
 
 - 界面目前只有中文（支持通过自定义名称修改模块与部门显示名）。
 - iPhone App 没有上架 App Store，需要用 Mac + Xcode 自行安装；免费 Apple 账号签名的 App 每 7 天需要续签（仓库已附带 Mac 无线自动续签脚本）。
-- Android 端为原生 Kotlin 安全壳 APK（`apps/android/`），默认不内嵌服务器地址，可自行运行 `sh scripts/build-android-apk.sh` 构建签名安装包（详见 [docs/android.md](docs/android.md)）。
+- Android 端为原生 Kotlin 安全壳 APK（`apps/android/`），默认不内嵌服务器地址，可在 [GitHub Releases](https://github.com/YouMingKaMi/SELF_OS_public/releases) 下载或自行运行 `sh scripts/build-android-apk.sh` 构建（⚠️ 当前为早期测试版，可能出现较多问题，作者尚未仔细体验研究，详见 [docs/android.md](docs/android.md)）。
 - 只支持单人使用，没有多人协作。
 - 笔记里暂时不能放图片和附件。
 - 微信支付导入需要 Mac 上另装 `wechat-cli`；它不是 SELF OS 的依赖，没装也不影响记账。
