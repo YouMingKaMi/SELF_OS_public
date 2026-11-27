@@ -31,6 +31,52 @@ public struct DepartmentFields: EntityFields {
   }
 }
 
+public struct WorkspaceConfigFields: EntityFields {
+  public static let entityType = "workspaceConfig"
+  public var preset: String?
+  public var disabledFeatures: [String]?
+  public var featureAliases: String?
+  public var hiddenDepartments: [String]?
+  public var departmentAliases: String?
+  public var sidebarFavorites: [String]?
+  public var phoneShortcuts: [String]?
+  public var homeCards: [String]?
+  public init(preset: String? = nil, disabledFeatures: [String]? = nil, featureAliases: String? = nil, hiddenDepartments: [String]? = nil, departmentAliases: String? = nil, sidebarFavorites: [String]? = nil, phoneShortcuts: [String]? = nil, homeCards: [String]? = nil) {
+    self.preset = preset
+    self.disabledFeatures = disabledFeatures
+    self.featureAliases = featureAliases
+    self.hiddenDepartments = hiddenDepartments
+    self.departmentAliases = departmentAliases
+    self.sidebarFavorites = sidebarFavorites
+    self.phoneShortcuts = phoneShortcuts
+    self.homeCards = homeCards
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType
+    else { return nil }
+    self.preset = record.data["preset"]?.stringValue
+    self.disabledFeatures = record.data["disabledFeatures"]?.stringsValue
+    self.featureAliases = record.data["featureAliases"]?.stringValue
+    self.hiddenDepartments = record.data["hiddenDepartments"]?.stringsValue
+    self.departmentAliases = record.data["departmentAliases"]?.stringValue
+    self.sidebarFavorites = record.data["sidebarFavorites"]?.stringsValue
+    self.phoneShortcuts = record.data["phoneShortcuts"]?.stringsValue
+    self.homeCards = record.data["homeCards"]?.stringsValue
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    if let preset { data["preset"] = .string(preset) }
+    if let disabledFeatures { data["disabledFeatures"] = .array(disabledFeatures.map(JSONValue.string)) }
+    if let featureAliases { data["featureAliases"] = .string(featureAliases) }
+    if let hiddenDepartments { data["hiddenDepartments"] = .array(hiddenDepartments.map(JSONValue.string)) }
+    if let departmentAliases { data["departmentAliases"] = .string(departmentAliases) }
+    if let sidebarFavorites { data["sidebarFavorites"] = .array(sidebarFavorites.map(JSONValue.string)) }
+    if let phoneShortcuts { data["phoneShortcuts"] = .array(phoneShortcuts.map(JSONValue.string)) }
+    if let homeCards { data["homeCards"] = .array(homeCards.map(JSONValue.string)) }
+    return data
+  }
+}
+
 public struct DomainFields: EntityFields {
   public static let entityType = "domain"
   public var name: String
@@ -168,10 +214,52 @@ public struct SolutionFields: EntityFields {
   }
 }
 
+public struct PracticeEventFields: EntityFields {
+  public static let entityType = "practiceEvent"
+  public var domainId: String
+  public var activityId: String?
+  public var readingItemId: String?
+  public var title: String
+  public var note: String?
+  public var status: String
+  public init(domainId: String, activityId: String? = nil, readingItemId: String? = nil, title: String, note: String? = nil, status: String) {
+    self.domainId = domainId
+    self.activityId = activityId
+    self.readingItemId = readingItemId
+    self.title = title
+    self.note = note
+    self.status = status
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let domainId = record.data["domainId"]?.stringValue,
+      let title = record.data["title"]?.stringValue,
+      let status = record.data["status"]?.stringValue
+    else { return nil }
+    self.domainId = domainId
+    self.activityId = record.data["activityId"]?.stringValue
+    self.readingItemId = record.data["readingItemId"]?.stringValue
+    self.title = title
+    self.note = record.data["note"]?.stringValue
+    self.status = status
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["domainId"] = .string(domainId)
+    if let activityId { data["activityId"] = .string(activityId) }
+    if let readingItemId { data["readingItemId"] = .string(readingItemId) }
+    data["title"] = .string(title)
+    if let note { data["note"] = .string(note) }
+    data["status"] = .string(status)
+    return data
+  }
+}
+
 public struct SessionFields: EntityFields {
   public static let entityType = "session"
   public var domainId: String
   public var activityId: String?
+  public var eventId: String?
   public var problemId: String?
   public var solutionId: String?
   public var title: String
@@ -184,9 +272,10 @@ public struct SessionFields: EntityFields {
   public var note: String?
   public var manual: Bool?
   public var segments: [String]?
-  public init(domainId: String, activityId: String? = nil, problemId: String? = nil, solutionId: String? = nil, title: String, day: String, startedAt: String? = nil, endedAt: String? = nil, elapsedSeconds: Double? = nil, runningSince: String? = nil, status: String, note: String? = nil, manual: Bool? = nil, segments: [String]? = nil) {
+  public init(domainId: String, activityId: String? = nil, eventId: String? = nil, problemId: String? = nil, solutionId: String? = nil, title: String, day: String, startedAt: String? = nil, endedAt: String? = nil, elapsedSeconds: Double? = nil, runningSince: String? = nil, status: String, note: String? = nil, manual: Bool? = nil, segments: [String]? = nil) {
     self.domainId = domainId
     self.activityId = activityId
+    self.eventId = eventId
     self.problemId = problemId
     self.solutionId = solutionId
     self.title = title
@@ -209,6 +298,7 @@ public struct SessionFields: EntityFields {
     else { return nil }
     self.domainId = domainId
     self.activityId = record.data["activityId"]?.stringValue
+    self.eventId = record.data["eventId"]?.stringValue
     self.problemId = record.data["problemId"]?.stringValue
     self.solutionId = record.data["solutionId"]?.stringValue
     self.title = title
@@ -226,6 +316,7 @@ public struct SessionFields: EntityFields {
     var data: [String: JSONValue] = [:]
     data["domainId"] = .string(domainId)
     if let activityId { data["activityId"] = .string(activityId) }
+    if let eventId { data["eventId"] = .string(eventId) }
     if let problemId { data["problemId"] = .string(problemId) }
     if let solutionId { data["solutionId"] = .string(solutionId) }
     data["title"] = .string(title)
@@ -246,13 +337,15 @@ public struct ProgressFields: EntityFields {
   public static let entityType = "progress"
   public var domainId: String
   public var activityId: String?
+  public var eventId: String?
   public var problemId: String?
   public var solutionId: String?
   public var day: String
   public var body: String
-  public init(domainId: String, activityId: String? = nil, problemId: String? = nil, solutionId: String? = nil, day: String, body: String) {
+  public init(domainId: String, activityId: String? = nil, eventId: String? = nil, problemId: String? = nil, solutionId: String? = nil, day: String, body: String) {
     self.domainId = domainId
     self.activityId = activityId
+    self.eventId = eventId
     self.problemId = problemId
     self.solutionId = solutionId
     self.day = day
@@ -266,6 +359,7 @@ public struct ProgressFields: EntityFields {
     else { return nil }
     self.domainId = domainId
     self.activityId = record.data["activityId"]?.stringValue
+    self.eventId = record.data["eventId"]?.stringValue
     self.problemId = record.data["problemId"]?.stringValue
     self.solutionId = record.data["solutionId"]?.stringValue
     self.day = day
@@ -275,10 +369,34 @@ public struct ProgressFields: EntityFields {
     var data: [String: JSONValue] = [:]
     data["domainId"] = .string(domainId)
     if let activityId { data["activityId"] = .string(activityId) }
+    if let eventId { data["eventId"] = .string(eventId) }
     if let problemId { data["problemId"] = .string(problemId) }
     if let solutionId { data["solutionId"] = .string(solutionId) }
     data["day"] = .string(day)
     data["body"] = .string(body)
+    return data
+  }
+}
+
+public struct TaskListFields: EntityFields {
+  public static let entityType = "taskList"
+  public var name: String
+  public var parentId: String?
+  public init(name: String, parentId: String? = nil) {
+    self.name = name
+    self.parentId = parentId
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let name = record.data["name"]?.stringValue
+    else { return nil }
+    self.name = name
+    self.parentId = record.data["parentId"]?.stringValue
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["name"] = .string(name)
+    if let parentId { data["parentId"] = .string(parentId) }
     return data
   }
 }
@@ -289,19 +407,27 @@ public struct TaskFields: EntityFields {
   public var status: String
   public var scheduleKind: String
   public var scheduleDate: String?
+  public var scheduleTime: String?
   public var scheduleStart: String?
   public var scheduleEnd: String?
   public var createdAt: String?
   public var completedAt: String?
-  public init(title: String, status: String, scheduleKind: String, scheduleDate: String? = nil, scheduleStart: String? = nil, scheduleEnd: String? = nil, createdAt: String? = nil, completedAt: String? = nil) {
+  public var note: String?
+  public var listId: String?
+  public var prerequisiteIds: [String]?
+  public init(title: String, status: String, scheduleKind: String, scheduleDate: String? = nil, scheduleTime: String? = nil, scheduleStart: String? = nil, scheduleEnd: String? = nil, createdAt: String? = nil, completedAt: String? = nil, note: String? = nil, listId: String? = nil, prerequisiteIds: [String]? = nil) {
     self.title = title
     self.status = status
     self.scheduleKind = scheduleKind
     self.scheduleDate = scheduleDate
+    self.scheduleTime = scheduleTime
     self.scheduleStart = scheduleStart
     self.scheduleEnd = scheduleEnd
     self.createdAt = createdAt
     self.completedAt = completedAt
+    self.note = note
+    self.listId = listId
+    self.prerequisiteIds = prerequisiteIds
   }
   public init?(_ record: Record) {
     guard record.type == Self.entityType,
@@ -313,10 +439,14 @@ public struct TaskFields: EntityFields {
     self.status = status
     self.scheduleKind = scheduleKind
     self.scheduleDate = record.data["scheduleDate"]?.stringValue
+    self.scheduleTime = record.data["scheduleTime"]?.stringValue
     self.scheduleStart = record.data["scheduleStart"]?.stringValue
     self.scheduleEnd = record.data["scheduleEnd"]?.stringValue
     self.createdAt = record.data["createdAt"]?.stringValue
     self.completedAt = record.data["completedAt"]?.stringValue
+    self.note = record.data["note"]?.stringValue
+    self.listId = record.data["listId"]?.stringValue
+    self.prerequisiteIds = record.data["prerequisiteIds"]?.stringsValue
   }
   public var data: [String: JSONValue] {
     var data: [String: JSONValue] = [:]
@@ -324,10 +454,14 @@ public struct TaskFields: EntityFields {
     data["status"] = .string(status)
     data["scheduleKind"] = .string(scheduleKind)
     if let scheduleDate { data["scheduleDate"] = .string(scheduleDate) }
+    if let scheduleTime { data["scheduleTime"] = .string(scheduleTime) }
     if let scheduleStart { data["scheduleStart"] = .string(scheduleStart) }
     if let scheduleEnd { data["scheduleEnd"] = .string(scheduleEnd) }
     if let createdAt { data["createdAt"] = .string(createdAt) }
     if let completedAt { data["completedAt"] = .string(completedAt) }
+    if let note { data["note"] = .string(note) }
+    if let listId { data["listId"] = .string(listId) }
+    if let prerequisiteIds { data["prerequisiteIds"] = .array(prerequisiteIds.map(JSONValue.string)) }
     return data
   }
 }
@@ -336,9 +470,11 @@ public struct ChecklistFields: EntityFields {
   public static let entityType = "checklist"
   public var name: String
   public var items: [String]?
-  public init(name: String, items: [String]? = nil) {
+  public var itemIds: [String]?
+  public init(name: String, items: [String]? = nil, itemIds: [String]? = nil) {
     self.name = name
     self.items = items
+    self.itemIds = itemIds
   }
   public init?(_ record: Record) {
     guard record.type == Self.entityType,
@@ -346,11 +482,13 @@ public struct ChecklistFields: EntityFields {
     else { return nil }
     self.name = name
     self.items = record.data["items"]?.stringsValue
+    self.itemIds = record.data["itemIds"]?.stringsValue
   }
   public var data: [String: JSONValue] {
     var data: [String: JSONValue] = [:]
     data["name"] = .string(name)
     if let items { data["items"] = .array(items.map(JSONValue.string)) }
+    if let itemIds { data["itemIds"] = .array(itemIds.map(JSONValue.string)) }
     return data
   }
 }
@@ -360,10 +498,18 @@ public struct ChecklistRunFields: EntityFields {
   public var checklistId: String
   public var day: String
   public var checked: [String]?
-  public init(checklistId: String, day: String, checked: [String]? = nil) {
+  public var itemIds: [String]?
+  public var itemLabels: [String]?
+  public var checkedItemIds: [String]?
+  public var ambiguousChecked: [String]?
+  public init(checklistId: String, day: String, checked: [String]? = nil, itemIds: [String]? = nil, itemLabels: [String]? = nil, checkedItemIds: [String]? = nil, ambiguousChecked: [String]? = nil) {
     self.checklistId = checklistId
     self.day = day
     self.checked = checked
+    self.itemIds = itemIds
+    self.itemLabels = itemLabels
+    self.checkedItemIds = checkedItemIds
+    self.ambiguousChecked = ambiguousChecked
   }
   public init?(_ record: Record) {
     guard record.type == Self.entityType,
@@ -373,12 +519,88 @@ public struct ChecklistRunFields: EntityFields {
     self.checklistId = checklistId
     self.day = day
     self.checked = record.data["checked"]?.stringsValue
+    self.itemIds = record.data["itemIds"]?.stringsValue
+    self.itemLabels = record.data["itemLabels"]?.stringsValue
+    self.checkedItemIds = record.data["checkedItemIds"]?.stringsValue
+    self.ambiguousChecked = record.data["ambiguousChecked"]?.stringsValue
   }
   public var data: [String: JSONValue] {
     var data: [String: JSONValue] = [:]
     data["checklistId"] = .string(checklistId)
     data["day"] = .string(day)
     if let checked { data["checked"] = .array(checked.map(JSONValue.string)) }
+    if let itemIds { data["itemIds"] = .array(itemIds.map(JSONValue.string)) }
+    if let itemLabels { data["itemLabels"] = .array(itemLabels.map(JSONValue.string)) }
+    if let checkedItemIds { data["checkedItemIds"] = .array(checkedItemIds.map(JSONValue.string)) }
+    if let ambiguousChecked { data["ambiguousChecked"] = .array(ambiguousChecked.map(JSONValue.string)) }
+    return data
+  }
+}
+
+public struct AchievementFields: EntityFields {
+  public static let entityType = "achievement"
+  public var title: String
+  public var description: String?
+  public var scope: String
+  public var year: String?
+  public var category: String?
+  public var icon: String?
+  public var prevIds: [String]?
+  public var current: Double?
+  public var target: Double?
+  public var unit: String?
+  public var completed: Bool?
+  public var completedAt: String?
+  public var note: String?
+  public init(title: String, description: String? = nil, scope: String, year: String? = nil, category: String? = nil, icon: String? = nil, prevIds: [String]? = nil, current: Double? = nil, target: Double? = nil, unit: String? = nil, completed: Bool? = nil, completedAt: String? = nil, note: String? = nil) {
+    self.title = title
+    self.description = description
+    self.scope = scope
+    self.year = year
+    self.category = category
+    self.icon = icon
+    self.prevIds = prevIds
+    self.current = current
+    self.target = target
+    self.unit = unit
+    self.completed = completed
+    self.completedAt = completedAt
+    self.note = note
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let title = record.data["title"]?.stringValue,
+      let scope = record.data["scope"]?.stringValue
+    else { return nil }
+    self.title = title
+    self.description = record.data["description"]?.stringValue
+    self.scope = scope
+    self.year = record.data["year"]?.stringValue
+    self.category = record.data["category"]?.stringValue
+    self.icon = record.data["icon"]?.stringValue
+    self.prevIds = record.data["prevIds"]?.stringsValue
+    self.current = record.data["current"]?.numberValue
+    self.target = record.data["target"]?.numberValue
+    self.unit = record.data["unit"]?.stringValue
+    self.completed = record.data["completed"]?.boolValue
+    self.completedAt = record.data["completedAt"]?.stringValue
+    self.note = record.data["note"]?.stringValue
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["title"] = .string(title)
+    if let description { data["description"] = .string(description) }
+    data["scope"] = .string(scope)
+    if let year { data["year"] = .string(year) }
+    if let category { data["category"] = .string(category) }
+    if let icon { data["icon"] = .string(icon) }
+    if let prevIds { data["prevIds"] = .array(prevIds.map(JSONValue.string)) }
+    if let current { data["current"] = .number(current) }
+    if let target { data["target"] = .number(target) }
+    if let unit { data["unit"] = .string(unit) }
+    if let completed { data["completed"] = .bool(completed) }
+    if let completedAt { data["completedAt"] = .string(completedAt) }
+    if let note { data["note"] = .string(note) }
     return data
   }
 }
@@ -955,6 +1177,78 @@ public struct IdeaFields: EntityFields {
   }
 }
 
+public struct MemoirFields: EntityFields {
+  public static let entityType = "memoir"
+  public var period: String
+  public var title: String
+  public var approxTime: String?
+  public var detail: String?
+  public var order: Double?
+  public init(period: String, title: String, approxTime: String? = nil, detail: String? = nil, order: Double? = nil) {
+    self.period = period
+    self.title = title
+    self.approxTime = approxTime
+    self.detail = detail
+    self.order = order
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let period = record.data["period"]?.stringValue,
+      let title = record.data["title"]?.stringValue
+    else { return nil }
+    self.period = period
+    self.title = title
+    self.approxTime = record.data["approxTime"]?.stringValue
+    self.detail = record.data["detail"]?.stringValue
+    self.order = record.data["order"]?.numberValue
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["period"] = .string(period)
+    data["title"] = .string(title)
+    if let approxTime { data["approxTime"] = .string(approxTime) }
+    if let detail { data["detail"] = .string(detail) }
+    if let order { data["order"] = .number(order) }
+    return data
+  }
+}
+
+public struct ReadingItemFields: EntityFields {
+  public static let entityType = "readingItem"
+  public var title: String
+  public var source: String?
+  public var tags: [String]?
+  public var note: String?
+  public var status: String
+  public init(title: String, source: String? = nil, tags: [String]? = nil, note: String? = nil, status: String) {
+    self.title = title
+    self.source = source
+    self.tags = tags
+    self.note = note
+    self.status = status
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let title = record.data["title"]?.stringValue,
+      let status = record.data["status"]?.stringValue
+    else { return nil }
+    self.title = title
+    self.source = record.data["source"]?.stringValue
+    self.tags = record.data["tags"]?.stringsValue
+    self.note = record.data["note"]?.stringValue
+    self.status = status
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["title"] = .string(title)
+    if let source { data["source"] = .string(source) }
+    if let tags { data["tags"] = .array(tags.map(JSONValue.string)) }
+    if let note { data["note"] = .string(note) }
+    data["status"] = .string(status)
+    return data
+  }
+}
+
 public struct MetricFields: EntityFields {
   public static let entityType = "metric"
   public var name: String
@@ -1084,6 +1378,102 @@ public struct ImportantDayFields: EntityFields {
     if let remindDays { data["remindDays"] = .number(Double(remindDays)) }
     if let dismissedDate { data["dismissedDate"] = .string(dismissedDate) }
     if let note { data["note"] = .string(note) }
+    return data
+  }
+}
+
+public struct StorageBoxFields: EntityFields {
+  public static let entityType = "storageBox"
+  public var zone: String
+  public var name: String
+  public var parentId: String?
+  public var icon: String?
+  public var location: String?
+  public var order: Double?
+  public init(zone: String, name: String, parentId: String? = nil, icon: String? = nil, location: String? = nil, order: Double? = nil) {
+    self.zone = zone
+    self.name = name
+    self.parentId = parentId
+    self.icon = icon
+    self.location = location
+    self.order = order
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let zone = record.data["zone"]?.stringValue,
+      let name = record.data["name"]?.stringValue
+    else { return nil }
+    self.zone = zone
+    self.name = name
+    self.parentId = record.data["parentId"]?.stringValue
+    self.icon = record.data["icon"]?.stringValue
+    self.location = record.data["location"]?.stringValue
+    self.order = record.data["order"]?.numberValue
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["zone"] = .string(zone)
+    data["name"] = .string(name)
+    if let parentId { data["parentId"] = .string(parentId) }
+    if let icon { data["icon"] = .string(icon) }
+    if let location { data["location"] = .string(location) }
+    if let order { data["order"] = .number(order) }
+    return data
+  }
+}
+
+public struct StorageItemFields: EntityFields {
+  public static let entityType = "storageItem"
+  public var name: String
+  public var icon: String?
+  public var status: String
+  public var boxId: String?
+  public var homeBoxId: String?
+  public var takenAt: String?
+  public var quantity: Int?
+  public var aliases: String?
+  public var note: String?
+  public var verifiedAt: String?
+  public init(name: String, icon: String? = nil, status: String, boxId: String? = nil, homeBoxId: String? = nil, takenAt: String? = nil, quantity: Int? = nil, aliases: String? = nil, note: String? = nil, verifiedAt: String? = nil) {
+    self.name = name
+    self.icon = icon
+    self.status = status
+    self.boxId = boxId
+    self.homeBoxId = homeBoxId
+    self.takenAt = takenAt
+    self.quantity = quantity
+    self.aliases = aliases
+    self.note = note
+    self.verifiedAt = verifiedAt
+  }
+  public init?(_ record: Record) {
+    guard record.type == Self.entityType,
+      let name = record.data["name"]?.stringValue,
+      let status = record.data["status"]?.stringValue
+    else { return nil }
+    self.name = name
+    self.icon = record.data["icon"]?.stringValue
+    self.status = status
+    self.boxId = record.data["boxId"]?.stringValue
+    self.homeBoxId = record.data["homeBoxId"]?.stringValue
+    self.takenAt = record.data["takenAt"]?.stringValue
+    self.quantity = record.data["quantity"]?.numberValue.map { Int($0) }
+    self.aliases = record.data["aliases"]?.stringValue
+    self.note = record.data["note"]?.stringValue
+    self.verifiedAt = record.data["verifiedAt"]?.stringValue
+  }
+  public var data: [String: JSONValue] {
+    var data: [String: JSONValue] = [:]
+    data["name"] = .string(name)
+    if let icon { data["icon"] = .string(icon) }
+    data["status"] = .string(status)
+    if let boxId { data["boxId"] = .string(boxId) }
+    if let homeBoxId { data["homeBoxId"] = .string(homeBoxId) }
+    if let takenAt { data["takenAt"] = .string(takenAt) }
+    if let quantity { data["quantity"] = .number(Double(quantity)) }
+    if let aliases { data["aliases"] = .string(aliases) }
+    if let note { data["note"] = .string(note) }
+    if let verifiedAt { data["verifiedAt"] = .string(verifiedAt) }
     return data
   }
 }

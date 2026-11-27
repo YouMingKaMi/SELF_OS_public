@@ -96,21 +96,43 @@ enum WidgetTasks {
         let plan = TaskRules.schedule(task)
         let time = task.text("scheduleTime")
         let blocked = !TaskRules.blockers(task, byID: byID).isEmpty
+        let shortDate: (String) -> String = { String($0.suffix(5)).replacingOccurrences(of: "-", with: "/") }
         let scheduleDetail: String
-        if !time.isEmpty {
-          scheduleDetail = plan.date.map { $0 < day } == true ? "逾期 · \(time)" : time
-        } else if plan.kind == "deadline" {
-          scheduleDetail = (plan.date ?? day) < day ? "已逾期" : "今天截止"
-        } else if plan.kind == "range", let end = plan.end {
-          scheduleDetail = "至 \(end.suffix(5).replacingOccurrences(of: "-", with: "/"))"
-        } else {
-          scheduleDetail = ""
+        let priority: Int
+        switch plan.kind {
+        case "deadline":
+          let d = plan.date ?? day
+          if d < day {
+            priority = 0
+            scheduleDetail = time.isEmpty ? "已逾期" : "逾期 · \(time)"
+          } else if d == day {
+            priority = 1
+            scheduleDetail = time.isEmpty ? "今天截止" : time
+          } else {
+            priority = 2
+            scheduleDetail = "截止 \(shortDate(d))"
+          }
+        case "day":
+          priority = 1
+          scheduleDetail = time
+        case "range":
+          priority = 2
+          scheduleDetail = plan.end.map { "至 \(shortDate($0))" } ?? ""
+        case "recent":
+          priority = 3
+          scheduleDetail = "近期"
+        default:
+          priority = 4
+          scheduleDetail = time
         }
         return (WidgetTaskRow(
           id: task.id, title: String(decoding: task.title.utf16.prefix(72), as: UTF16.self),
           detail: blocked ? "等前置" : scheduleDetail, blocked: blocked
-        ), plan.date ?? plan.end ?? day, time.isEmpty ? "24:00" : time)
-      }.sorted { $0.0.blocked != $1.0.blocked ? !$0.0.blocked : ($0.1, $0.2, $0.0.id) < ($1.1, $1.2, $1.0.id) }
+        ), priority, plan.date ?? plan.end ?? "9999-12-31", time.isEmpty ? "24:00" : time)
+      }.sorted {
+        if $0.0.blocked != $1.0.blocked { return !$0.0.blocked }
+        return ($0.1, $0.2, $0.3, $0.0.id) < ($1.1, $1.2, $1.3, $1.0.id)
+      }
         .prefix(4).map { $0.0 }
       return WidgetTaskDay(day: day, count: due.count, rows: rows)
     }

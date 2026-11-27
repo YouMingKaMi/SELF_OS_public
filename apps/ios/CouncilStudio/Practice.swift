@@ -3,14 +3,22 @@ import CouncilCore
 import SwiftUI
 
 struct PracticeScreen: View {
+  var requestedEventId: String? = nil
   @Environment(Studio.self) private var studio
   @AppStorage("studio-practice-domain") private var domainId = ""
   @AppStorage("studio-practice-activity") private var activityId = ""
+  @State private var eventId = ""
   @State private var problemId = ""
   @State private var solutionId = ""
   @State private var tab = "progress"
   @State private var month = String(Day.today.prefix(7))
-  @State private var draft = ""
+  @State private var generalDraft = ""
+  @State private var eventDrafts: [String: String] = [:]
+  @State private var progressLimit = 60
+  private var progressDraft: Binding<String> {
+    guard let event else { return $generalDraft }
+    return Binding(get: { eventDrafts[event.id] ?? "" }, set: { eventDrafts[event.id] = $0 })
+  }
   @State private var form: EntityForm?
   @State private var manual = false
   var domains: [Record] { studio.all("domain").sorted { $0.number("order") < $1.number("order") } }
@@ -19,6 +27,19 @@ struct PracticeScreen: View {
     studio.all("activity").filter { $0.text("domainId") == domain?.id && !$0.flag("archived") }
   }
   var activity: Record? { activities.first { $0.id == activityId } }
+  var events: [Record] {
+    studio.all("practiceEvent").filter {
+      $0.text("domainId") == domain?.id && (activity == nil || $0.text("activityId") == activity?.id)
+    }
+  }
+  var event: Record? { events.first { $0.id == eventId } }
+  var eventActivity: Record? {
+    guard let event else { return activity }
+    return studio.record(event.text("activityId"), in: "activity")
+  }
+  var requestedEvent: Record? {
+    requestedEventId.flatMap { studio.record($0, in: "practiceEvent") }
+  }
   var problems: [Record] {
     studio.all("problem").filter {
       $0.text("domainId") == domain?.id && (activity == nil || $0.text("activityId") == activity?.id)
@@ -40,15 +61,18 @@ struct PracticeScreen: View {
             activityId = ""
             problemId = ""
             solutionId = ""
+            eventId = ""
           }))
       if let domain {
         hero(domain)
         Picker("视图", selection: $tab) {
           Text("进展").tag("progress")
+          Text("事件").tag("events")
           Text("问题与方案").tag("problems")
           Text("时间").tag("time")
         }.pickerStyle(.segmented).padding(.vertical, 2)
         switch tab {
+        case "events": eventList
         case "problems": problemMap
         case "time": timeView
         default: progressView
@@ -58,8 +82,8 @@ struct PracticeScreen: View {
       }
     }
     .safeAreaInset(edge: .bottom) {
-      if domain != nil && tab == "progress" {
-        Composer(text: $draft, placeholder: "记下这一步的进展…") { saveProgress() }
+      if domain != nil && (tab == "progress" || tab == "events" && event != nil) {
+        Composer(text: progressDraft, placeholder: "记下这一步的进展…") { saveProgress() }
       }
     }
     .toolbar(.hidden, for: .tabBar)
@@ -67,6 +91,7 @@ struct PracticeScreen: View {
       Menu {
         Button("补记时间", systemImage: "clock.badge.checkmark") { manual = true }
         Divider()
+        Button("新建事件", systemImage: "flag") { newEvent() }.disabled(domain == nil)
         Button("新问题", systemImage: "questionmark.circle") {
           form = EntityForm(type: "problem", defaults: problemDefaults)
         }
@@ -96,10 +121,32 @@ struct PracticeScreen: View {
       }
     }
     .studioScreen("推进台")
-    .sheet(item: $form) { EntityFormSheet(form: $0) }
+    .onChange(of: domainId) { _, _ in progressLimit = 60 }
+    .onChange(of: activityId) { _, _ in progressLimit = 60 }
+    .onChange(of: eventId) { _, _ in progressLimit = 60 }
+    .onChange(of: problemId) { _, _ in progressLimit = 60 }
+    .onChange(of: requestedEvent?.id, initial: true) { _, _ in
+      guard let target = requestedEvent else { return }
+      domainId = target.text("domainId")
+      activityId = target.text("activityId")
+      eventId = target.id
+      problemId = ""
+      solutionId = ""
+      tab = "events"
+    }
+    .sheet(item: $form) { editor in
+      EntityFormSheet(form: editor) { id in
+        if editor.type == "practiceEvent" {
+          eventId = id
+          problemId = ""
+          solutionId = ""
+          tab = "events"
+        }
+      }
+    }
     .sheet(isPresented: $manual) {
       if let domain {
-        ManualSessionSheet(domain: domain, activity: activity, problem: problem, solution: solution)
+        ManualSessionSheet(domain: domain, activity: eventActivity, problem: problem, solution: solution, event: event)
       }
     }
   }
@@ -128,11 +175,12 @@ struct PracticeScreen: View {
             }
             Spacer()
             Button {
-              Task { await studio.start(domain: domain, activity: activity, problem: problem, solution: solution) }
+              Task { await studio.start(domain: domain, activity: eventActivity, problem: problem, solution: solution, event: event) }
             } label: {
               Image(systemName: "play.fill").font(.system(size: 20, weight: .bold)).foregroundStyle(.black)
                 .frame(width: 60, height: 60).background(Ink.text, in: Circle())
             }.buttonStyle(.plain).accessibilityLabel("开始推进")
+              .disabled(event.map { ["resolved", "discarded"].contains($0.text("status")) } ?? false)
           }
           HStack(spacing: 8) {
             Menu {
@@ -140,30 +188,37 @@ struct PracticeScreen: View {
                 activityId = ""
                 problemId = ""
                 solutionId = ""
+                eventId = ""
               }
               ForEach(activities) { a in
                 Button(a.title) {
                   activityId = a.id
                   problemId = ""
                   solutionId = ""
+                  eventId = ""
                 }
               }
             } label: {
               scopeChip(activity?.title ?? "子领域", on: activity != nil)
             }
             Menu {
-              Button("不关联问题") {
+              Button("直接推进") {
                 problemId = ""
                 solutionId = ""
+                eventId = ""
+              }
+              ForEach(events.filter { !["resolved", "discarded"].contains($0.text("status")) }) { entry in
+                Button(entry.title) { selectEvent(entry) }
               }
               ForEach(problems.filter { !["resolved", "discarded"].contains($0.text("status")) }) { p in
                 Button(p.title) {
                   problemId = p.id
                   solutionId = ""
+                  eventId = ""
                 }
               }
             } label: {
-              scopeChip(problem?.title ?? "问题", on: problem != nil)
+              scopeChip(event?.title ?? problem?.title ?? "事件或问题", on: event != nil || problem != nil)
             }
             if problem != nil {
               Menu {
@@ -194,9 +249,10 @@ struct PracticeScreen: View {
       .foregroundStyle(on ? Ink.text : Ink.text3).padding(.horizontal, 11).frame(height: 30)
       .background(Ink.raised, in: Capsule())
   }
-  var scopeTitle: String { solution?.title ?? problem?.title ?? activity?.title ?? domain?.title ?? "" }
+  var scopeTitle: String { event?.title ?? solution?.title ?? problem?.title ?? activity?.title ?? domain?.title ?? "" }
   var scopePath: String {
-    [domain?.title, activity?.title, problem?.title].compactMap { $0 }.dropLast(solution == nil ? 1 : 0)
+    if event != nil { return [domain?.title, eventActivity?.title].compactMap { $0 }.joined(separator: " / ") }
+    return [domain?.title, activity?.title, problem?.title].compactMap { $0 }.dropLast(solution == nil ? 1 : 0)
       .joined(separator: " / ").ifEmpty("直接推进这个领域")
   }
 
@@ -221,11 +277,14 @@ struct PracticeScreen: View {
   var progressView: some View {
     let logs = studio.all("progress").filter {
       $0.text("domainId") == domain?.id && (activity == nil || $0.text("activityId") == activity?.id)
+        && (event == nil || $0.text("eventId") == event?.id)
         && (problem == nil || $0.text("problemId") == problem?.id)
-    }.sorted { $0.text("day") == $1.text("day") ? $0.updatedAt > $1.updatedAt : $0.text("day") > $1.text("day") }
+    }.sorted {
+      ($0.text("day"), $0.updatedAt, $0.id) > ($1.text("day"), $1.updatedAt, $1.id)
+    }
     return Card(icon: "text.alignleft", title: "进展", meta: "\(logs.count) 条") {
       VStack(alignment: .leading, spacing: 0) {
-        ForEach(Array(logs.prefix(60).enumerated()), id: \.element.id) { index, log in
+        ForEach(Array(logs.prefix(progressLimit).enumerated()), id: \.element.id) { index, log in
           if index > 0 { Hairline(inset: 46) }
           HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
@@ -244,11 +303,18 @@ struct PracticeScreen: View {
               Button("删除", systemImage: "trash", role: .destructive) { Task { await studio.remove(log) } }
             }
         }
+        if logs.count > progressLimit {
+          Hairline(inset: 46)
+          Button("查看更多进展") { progressLimit += 60 }
+            .font(Ink.meta).foregroundStyle(Ink.text2)
+            .frame(maxWidth: .infinity).padding(.vertical, 12)
+        }
         if logs.isEmpty { EmptyNote(text: "每一步进展会按时间留在这里。", icon: "text.alignleft") }
       }
     }
   }
   func place(_ log: Record) -> String {
+    if let event = studio.record(log.text("eventId"), in: "practiceEvent") { return event.title }
     if let p = studio.record(log.text("problemId"), in: "problem") {
       return p.title + (studio.record(log.text("solutionId"), in: "solution").map { " / " + $0.title } ?? "")
     }
@@ -256,14 +322,73 @@ struct PracticeScreen: View {
   }
   func saveProgress() {
     guard let domain else { return }
+    let draft = progressDraft
+    let body = draft.wrappedValue
     var data: [String: JSONValue] = [
-      "domainId": .string(domain.id), "day": .string(Day.today), "body": .string(draft),
+      "domainId": .string(domain.id), "day": .string(Day.today), "body": .string(body),
     ]
-    if let activity { data["activityId"] = .string(activity.id) }
+    if let event { data["eventId"] = .string(event.id) }
+    if let eventActivity { data["activityId"] = .string(eventActivity.id) }
     if let problem { data["problemId"] = .string(problem.id) }
     if let solution { data["solutionId"] = .string(solution.id) }
-    draft = ""
-    Task { await studio.save("progress", data) }
+    Task { if await studio.save("progress", data) != nil, draft.wrappedValue == body { draft.wrappedValue = "" } }
+  }
+
+  private func selectEvent(_ entry: Record) {
+    eventId = entry.id
+    problemId = ""
+    solutionId = ""
+    tab = "events"
+  }
+
+  private func newEvent() {
+    guard let domain else { return }
+    var defaults: [String: JSONValue] = ["domainId": .string(domain.id), "status": .string("active")]
+    if let activity { defaults["activityId"] = .string(activity.id) }
+    form = EntityForm(type: "practiceEvent", defaults: defaults, fields: ["title", "note", "status"])
+    tab = "events"
+  }
+
+  private var eventList: some View {
+    VStack(spacing: Ink.gap) {
+      Button("新建事件", systemImage: "plus") { newEvent() }
+        .buttonStyle(.chip).frame(maxWidth: .infinity, alignment: .leading)
+      if events.isEmpty {
+        Card { EmptyNote(text: "添加一个阶段目标，例如听完 CS 61B。", icon: "flag") }
+      }
+      ForEach(events) { entry in
+        Card {
+          VStack(alignment: .leading, spacing: 8) {
+            HStack {
+              Button { selectEvent(entry) } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                  Text(entry.title).font(Ink.body.weight(.semibold)).foregroundStyle(Ink.text)
+                  HStack {
+                    Text(entry.text("status") == "resolved" ? "已完成" : Words.of(entry.text("status")))
+                    EventTimeLabel(sessions: sessions.filter { $0.text("eventId") == entry.id })
+                  }.font(Ink.meta).foregroundStyle(Ink.text3)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+              }.buttonStyle(.plain)
+              Button("编辑事件", systemImage: "pencil") {
+                form = EntityForm(type: "practiceEvent", record: entry, fields: ["title", "note", "status"])
+              }.labelStyle(.iconOnly).buttonStyle(.plain).padding(8)
+            }
+            if entry.id == eventId {
+              if !entry.text("note").isEmpty {
+                Text(entry.text("note")).font(Ink.meta).foregroundStyle(Ink.text2)
+              }
+              if let source = studio.record(entry.text("readingItemId"), in: "readingItem") {
+                Text("研究收藏 · " + source.title).font(Ink.meta).foregroundStyle(Ink.text2)
+                if let link = readingLink(source.text("note")) ?? readingLink(source.title) {
+                  Link("打开原文", destination: link).font(Ink.meta)
+                }
+              }
+            }
+          }
+        }
+      }
+      if event != nil { progressView }
+    }
   }
 
   // MARK: Problems
@@ -276,6 +401,7 @@ struct PracticeScreen: View {
           VStack(alignment: .leading, spacing: 12) {
             Button {
               withAnimation(.snappy) {
+                eventId = ""
                 problemId = open ? "" : p.id
                 solutionId = ""
               }
@@ -364,6 +490,9 @@ struct PracticeScreen: View {
       Card {
         MonthBar(month: $month)
         Figure(value: Clock.span(total), caption: "\(monthSessions.count) 次记录 · 重叠时间已去重", font: Ink.figure)
+        if summary.unlocatedSeconds > 0 {
+          Text("旧计时缺少具体时段，按记录日期计入。").font(Ink.meta).foregroundStyle(Ink.text3)
+        }
         Chart {
           ForEach(days, id: \.self) { day in
             BarMark(x: .value("日", Int(day.suffix(2)) ?? 0), y: .value("分钟", (summary.daily[day] ?? 0) / 60), width: 6)
@@ -441,6 +570,7 @@ struct ManualSessionSheet: View {
   let activity: Record?
   let problem: Record?
   let solution: Record?
+  var event: Record? = nil
   @State private var title = ""
   @State private var day = Date()
   @State private var minutes = 30.0
@@ -478,18 +608,16 @@ struct ManualSessionSheet: View {
               "day": .string(CalendarDays.string(day)), "elapsedSeconds": .number(minutes * 60),
               "status": .string("finished"), "manual": .bool(true), "segments": .array([]),
             ]
+            if let event { data["eventId"] = .string(event.id) }
             if let activity { data["activityId"] = .string(activity.id) }
             if let problem { data["problemId"] = .string(problem.id) }
             if let solution { data["solutionId"] = .string(solution.id) }
-            Task {
-              await studio.save("session", data)
-              dismiss()
-            }
+            Task { if await studio.save("session", data) != nil { dismiss() } }
           }.fontWeight(.semibold)
         }
       }
     }.studioSheet().presentationDetents([.medium, .large])
-      .onAppear { title = solution?.title ?? problem?.title ?? activity?.title ?? domain.title }
+      .onAppear { title = String(decoding: (event?.title ?? solution?.title ?? problem?.title ?? activity?.title ?? domain.title).utf16.prefix(500), as: UTF16.self) }
   }
 }
 

@@ -1,9 +1,11 @@
 /**
  * Architecture rules, enforced on every file. A violation fails `npm run verify`.
- * The architecture rules (see docs/architecture.md), in executable form.
+ * The rules are the ones in AGENTS.md; this file is their executable form.
  */
 import fs from "node:fs";
 import path from "node:path";
+import ts from "typescript";
+import { runtimeRoutes } from "./runtime-routes.ts";
 const root = path.resolve(import.meta.dirname, "..");
 const skip = new Set([
   ".git",
@@ -48,6 +50,27 @@ function imports(file) {
     found.push({ spec: m[3], typeOnly: !!m[2] });
   for (const m of text.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g))
     found.push({ spec: m[1], typeOnly: false });
+  // Vite bundles same-origin worker entry points as modules, despite URL syntax.
+  if (rel(file).startsWith("apps/web/") && /\b(?:Worker|SharedWorker)\b/.test(text)) {
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest);
+    function visit(node) {
+      if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) &&
+          ["Worker", "SharedWorker"].includes(node.expression.text)) {
+        const [url] = node.arguments ?? [];
+        if (url && ts.isNewExpression(url) && ts.isIdentifier(url.expression) &&
+            url.expression.text === "URL") {
+          const [entry, base] = url.arguments ?? [];
+          if (entry && ts.isStringLiteralLike(entry) && base && ts.isPropertyAccessExpression(base) &&
+              base.name.text === "url" && ts.isMetaProperty(base.expression) &&
+              base.expression.keywordToken === ts.SyntaxKind.ImportKeyword) {
+            found.push({ spec: entry.text, typeOnly: false });
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(source);
+  }
   return found.map((entry) => ({
     ...entry,
     target: entry.spec.startsWith(".")
@@ -240,9 +263,11 @@ for (const file of sources.map(rel)) {
 }
 for (const file of files.map(rel).filter((f) => f.endsWith(".swift"))) {
   const text = read(path.join(root, file));
+  const studio = file.startsWith("apps/ios/CouncilStudio/");
+  const studioAdapter = ["Model.swift", "TaskPlanService.swift"].includes(path.basename(file));
   if (
-    file.startsWith("apps/ios/CouncilApp/Features/") &&
-    /import GRDB|URLSession|DatabaseQueue/.test(text)
+    studio && !studioAdapter &&
+    /import GRDB|URLSession|DatabaseQueue|SQLite\.open/.test(text)
   )
     fail(
       root + "/" + file,
@@ -282,15 +307,22 @@ const contract = JSON.parse(
 const contractFile = path.join(root, "packages/contracts/openapi.json");
 if (contract.openapi !== "3.1.1") fail(contractFile, "expected OpenAPI 3.1.1");
 const operations = new Set();
-for (const entry of Object.values(contract.paths))
+const documentedRoutes = new Set();
+for (const [route, entry] of Object.entries(contract.paths))
   for (const [method, operation] of Object.entries(entry)) {
     if (!["get", "post", "put", "delete", "patch"].includes(method)) continue;
+    documentedRoutes.add(method + " " + route);
     if (!operation.operationId || operations.has(operation.operationId))
       fail(contractFile, "missing or duplicate operationId");
     operations.add(operation.operationId);
     if (!operation.responses)
       fail(contractFile, `${operation.operationId}: responses missing`);
   }
+const registeredRoutes = runtimeRoutes(read(path.join(root, "services/api/app.ts")));
+for (const route of registeredRoutes)
+  if (!documentedRoutes.has(route)) fail(contractFile, `runtime route missing from contract: ${route}`);
+for (const route of documentedRoutes)
+  if (!registeredRoutes.has(route)) fail(contractFile, `contract route missing from runtime: ${route}`);
 (function refs(value) {
   if (!value || typeof value !== "object") return;
   if (value.$ref) {

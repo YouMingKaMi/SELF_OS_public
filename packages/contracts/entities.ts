@@ -1,5 +1,6 @@
 /** Wire types of the one synchronisation protocol (v1). */
 import type { EntityData, EntityType } from "./schema.ts";
+import { syncScopeSchema, type SyncScope } from "./snapshot.ts";
 export { entityTypes, schema, spec } from "./schema.ts";
 export type { EntityData, EntityType } from "./schema.ts";
 
@@ -33,8 +34,11 @@ export type Command = {
   entityType: EntityType;
   /** Version the client edited; 0 creates. A mismatch is a conflict, never an overwrite. */
   baseVersion: number;
-  action: "put" | "delete";
+  /** A patch keeps omitted fields and clears fields sent as null. A put can create records. */
+  action: "put" | "patch" | "delete";
   data?: Data;
+  /** Freeze this scope when queuing a write. A recovered database rejects old scopes. */
+  scope?: SyncScope;
   occurredAt: string;
 };
 export type Receipt =
@@ -63,13 +67,14 @@ export const commandSchema = {
     entityId: { type: "string", format: "uuid" },
     entityType: { type: "string", maxLength: 40 },
     baseVersion: { type: "integer", minimum: 0 },
-    action: { enum: ["put", "delete"] },
+    action: { enum: ["put", "patch", "delete"] },
     occurredAt: { type: "string", format: "date-time" },
     data: { type: "object", maxProperties: 40 },
+    scope: syncScopeSchema,
   },
   allOf: [
     {
-      if: { properties: { action: { const: "put" } } },
+      if: { properties: { action: { enum: ["put", "patch"] } } },
       then: { required: ["data"] },
     },
   ],

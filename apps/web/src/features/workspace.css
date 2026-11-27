@@ -87,8 +87,13 @@ button.department-card {
 .department-card footer button {
   height: 24px;
   border: 0;
+  background: transparent;
   font-size: var(--fs-xs);
   color: var(--text-3);
+}
+.department-card footer button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
 }
 .domain-card {
   gap: 4px;
@@ -276,6 +281,13 @@ button.department-card {
   cursor: pointer;
   min-width: 0;
 }
+.dept-head:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+.dept-head:hover .dept-mark {
+  border-color: var(--line-3);
+}
 .dept-mark {
   display: grid;
   place-items: center;
@@ -316,9 +328,13 @@ button.department-card {
   color: var(--text-4);
   font-size: 14px;
 }
-.dept-pin:hover,
+.dept-pin:hover:not(:disabled),
 .dept-pin.on {
+  background: transparent;
   color: var(--text-2);
+}
+.dept-pin:hover:not(:disabled) {
+  color: var(--text);
 }
 .dept-features {
   display: flex;
@@ -344,4 +360,163 @@ button.department-card {
 .dept-features .icon {
   width: 13px;
   height: 13px;
+}
+
+/* Workspace Config (synced presets, module toggles & aliases) */
+.ws-config-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-config-count {
+  font: 11px var(--mono);
+  color: var(--text-3);
+}
+.ws-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.ws-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+  height: auto;
+  padding: 13px 14px;
+  text-align: left;
+  white-space: normal;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.14s, background 0.14s;
+}
+.ws-preset-card:hover {
+  border-color: var(--line-3);
+  background: var(--surface-2);
+}
+.ws-preset-card.active {
+  border-color: var(--text);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.ws-preset-head {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ws-preset-head strong {
+  font-size: var(--fs);
+  font-weight: 600;
+}
+.ws-preset-head small {
+  font: 11px var(--mono);
+  color: var(--text-3);
+}
+.ws-preset-card > span {
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.ws-custom-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 6px;
+}
+.ws-custom-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-custom-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ws-custom-head strong {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.ws-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 8px;
+}
+.ws-module-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
+}
+.ws-module-row.off {
+  opacity: 0.62;
+}
+.ws-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 118px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  flex: none;
+  justify-content: space-between;
+}
+.ws-switch.on {
+  border-color: var(--line-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+.ws-switch small {
+  font: 600 10px var(--mono);
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: var(--bg);
+  color: var(--text-3);
+}
+.ws-switch.on small {
+  background: var(--text);
+  color: var(--bg);
+}
+.ws-alias-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  font-size: var(--fs-xs);
+  padding: 0 8px;
+}
+.ws-io-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ws-io-msg {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.ws-import-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ws-import-box textarea {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
 }

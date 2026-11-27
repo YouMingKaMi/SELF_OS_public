@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..", "backups");
+const container = process.env.COUNCIL_BACKUP_CONTAINER ?? "infra-db-1";
 await mkdir(root, { recursive: true, mode: 0o700 });
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const name = "council-next-" + stamp;
@@ -12,7 +13,7 @@ const file = path.join(root, name + ".dump");
 async function docker(args, { input, output } = {}) {
   const child = spawn(
     "docker",
-    ["exec", ...(input ? ["-i"] : []), "infra-db-1", ...args],
+    ["exec", ...(input ? ["-i"] : []), container, ...args],
     { stdio: [input ? "pipe" : "ignore", "pipe", "pipe"] },
   );
   let error = "",
@@ -53,18 +54,35 @@ await docker(
   ],
   { output: file },
 );
-const data = await readFile(file);
+const hash = createHash("sha256");
+let size = 0;
+for await (const chunk of createReadStream(file)) {
+  hash.update(chunk);
+  size += chunk.length;
+}
 const metadata = {
   formatVersion: 1,
   environment: "isolated-local-development",
   createdAt: new Date().toISOString(),
   file: name + ".dump",
-  size: data.length,
-  sha256: createHash("sha256").update(data).digest("hex"),
+  size,
+  sha256: hash.digest("hex"),
   verifiedRestore: false,
 };
 if (process.argv.includes("--verify")) {
   const database = "council_restore_test_" + randomUUID().replaceAll("-", "");
+  const started = performance.now();
+  const digest = (name) => docker(["psql", "-U", "council", "-d", name, "-Atc", `
+    SELECT json_build_object(
+      'tables', (SELECT count(*) FROM information_schema.tables WHERE table_schema='council'),
+      'heads', (SELECT count(*) FROM council.sync_heads),
+      'receipts', (SELECT count(*) FROM council.sync_receipts) +
+        (SELECT count(*) FROM council.sync_receipts_archive),
+      'expenseTotalMinor', (SELECT coalesce(sum(amount_minor - coalesce(recovery_minor, 0)), 0)::text
+        FROM council.expense_entries WHERE NOT deleted),
+      'documentDigest', (SELECT md5(coalesce(string_agg(md5(body), '' ORDER BY owner_id, id), ''))
+        FROM council.documents WHERE NOT deleted)
+    );`]);
   try {
     await docker(["createdb", "-U", "council", database]);
     await docker(
@@ -79,18 +97,14 @@ if (process.argv.includes("--verify")) {
       ],
       { input: file },
     );
-    const result = await docker([
-      "psql",
-      "-U",
-      "council",
-      "-d",
-      database,
-      "-Atc",
-      "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';",
-    ]);
-    if (Number(result) < 20) throw new Error("Restored schema incomplete");
+    const [result, source] = await Promise.all([digest(database), digest("council_next")]);
+    if (result !== source) throw new Error("Restored totals differ from the local source; pause writes and retry");
+    const restored = JSON.parse(result);
+    if (restored.tables < 20) throw new Error("Restored schema incomplete");
     metadata.verifiedRestore = true;
-    metadata.restoredTables = Number(result);
+    metadata.restoredTables = restored.tables;
+    metadata.restoredHeads = restored.heads;
+    metadata.restoreMilliseconds = Math.round(performance.now() - started);
   } finally {
     await docker(["dropdb", "--if-exists", "-U", "council", database]);
   }

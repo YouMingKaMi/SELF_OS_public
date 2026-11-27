@@ -9,9 +9,10 @@ export {
   daily,
   usage,
   effectiveEnd,
+  monthlyUsage,
   isHistory,
   longTerm,
 } from "./domain/ledger.ts";
 export { rules } from "./rules.ts";
-export { dailyCost, bookkeepingStart, freedom, whatIf } from "./domain/freedom.ts";
+export { dailyCost, bookkeepingStart, businessDayEnd, expenseKnownAt, freedom, freedomTrend, whatIf } from "./domain/freedom.ts";
 export type { DailyCost, Freedom, CostBasis } from "./domain/freedom.ts";

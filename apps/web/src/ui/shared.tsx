@@ -251,6 +251,7 @@ export function RecordForm({
   onSaved,
   onCancel,
   title = "记录",
+  draftScope = "",
 }: {
   type: EntityType;
   entity?: Entity;
@@ -259,8 +260,9 @@ export function RecordForm({
   onSaved?: (id: string) => void;
   onCancel?: () => void;
   title?: string;
+  draftScope?: string;
 }) {
-  const key = type + "-" + (entity?.id ?? "new");
+  const key = type + "-" + (entity?.id ?? ("new" + draftScope));
   const [draft, setDraft] = useState<Data>(() => {
     try {
       return (
@@ -279,7 +281,7 @@ export function RecordForm({
     setDraft((old) => {
       const next = { ...old, [key]: value };
       localStorage.setItem(
-        "pc-draft-" + type + "-" + (entity?.id ?? "new"),
+        "pc-draft-" + key,
         JSON.stringify(next),
       );
       return next;
@@ -416,19 +418,104 @@ export function RecordForm({
     </form>
   );
 }
+type PlotPoint = { x: number; y: number | null };
+type PlotBounds = { left: number; right: number; top: number; bottom: number };
+
+/** The whole plot is a hit target. Pick by horizontal distance, breaking timestamp ties by height. */
+function ChartCursor({
+  bounds,
+  positions,
+  selected,
+  select,
+  sharedGuide = false,
+}: {
+  bounds: PlotBounds;
+  positions: PlotPoint[];
+  selected: number | null;
+  select: (index: number | null) => void;
+  sharedGuide?: boolean;
+}) {
+  const { left, right, top, bottom } = bounds;
+  const active = selected === null ? undefined : positions[selected];
+  function move(event: React.PointerEvent<SVGRectElement>) {
+    const svg = event.currentTarget.ownerSVGElement;
+    const matrix = svg?.getScreenCTM();
+    if (!matrix) return;
+    const cursor = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    let closest = 0;
+    let dx = Infinity;
+    let dy = Infinity;
+    for (const [i, point] of positions.entries()) {
+      const horizontal = Math.abs(point.x - cursor.x);
+      const vertical = point.y === null ? Infinity : Math.abs(point.y - cursor.y);
+      if (horizontal < dx || (horizontal === dx && vertical < dy)) {
+        closest = i;
+        dx = horizontal;
+        dy = vertical;
+      }
+    }
+    select(closest);
+  }
+  return (
+    <>
+      {active && (
+        <g className="chart-crosshair" aria-hidden="true">
+          {!sharedGuide && <line x1={active.x} x2={active.x} y1={top} y2={bottom} />}
+          {active.y !== null && (
+            <>
+              <line x1={left} x2={right} y1={active.y} y2={active.y} />
+              <circle className="chart-cursor-dot" cx={active.x} cy={active.y} r="4" />
+            </>
+          )}
+        </g>
+      )}
+      <rect className="chart-hit-area" x={left} y={top} width={right - left} height={bottom - top}
+        fill="transparent" onPointerDown={sharedGuide ? undefined : move}
+        onPointerMove={sharedGuide ? undefined : move}
+        onPointerLeave={(event) => { if (!sharedGuide && event.pointerType !== "touch") select(null); }}
+        onPointerCancel={sharedGuide ? undefined : () => select(null)} />
+    </>
+  );
+}
+function browseChart(event: React.KeyboardEvent<SVGSVGElement>, length: number, selected: number | null, select: (index: number | null) => void) {
+  if (event.key === "Escape") select(null);
+  else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    const next = (selected ?? (event.key === "ArrowLeft" ? length : -1)) +
+      (event.key === "ArrowLeft" ? -1 : 1);
+    select(Math.max(0, Math.min(length - 1, next)));
+  }
+}
+
 export function Chart({
   points,
   label,
   unit = "",
+  fullDates = false,
+  dateSelection,
 }: {
   points: { x: string; y: number | null }[];
   label: string;
   unit?: string;
+  fullDates?: boolean;
+  dateSelection?: { day: string | null; onChange: (day: string | null) => void };
 }) {
-  const [selected, setSelected] = useState<number | null>(null);
+  const [localSelection, setLocalSelection] = useState<number | null>(null);
+  const selected = dateSelection
+    ? points.findIndex((point) => point.x === dateSelection.day)
+    : localSelection ?? -1;
+  const selectedIndex = selected < 0 ? null : selected;
+  function select(index: number | null) {
+    if (dateSelection) {
+      dateSelection.onChange(index === null ? null : points[index]?.x ?? null);
+    } else {
+      setLocalSelection(index);
+    }
+  }
   const frame = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(700);
   const valid = points.filter((p) => p.y !== null && Number.isFinite(p.y));
+  const showPlot = points.length > 0 && (valid.length > 0 || !!dateSelection);
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
@@ -437,22 +524,23 @@ export function Chart({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [points.length, valid.length]);
-  if (!valid.length) return <Empty text="有记录后，这里会显示趋势" />;
-  const min = Math.min(...valid.map((p) => p.y!)),
-    max = Math.max(...valid.map((p) => p.y!));
+  }, [showPlot]);
+  if (!showPlot) return <Empty text="有记录后，这里会显示趋势" />;
+  const min = valid.length ? Math.min(...valid.map((p) => p.y!)) : 0;
+  const max = valid.length ? Math.max(...valid.map((p) => p.y!)) : 1;
   const padding = max === min ? Math.max(Math.abs(max) * 0.1, 1) : 0;
   const axisMin = min - padding,
     axisMax = max + padding;
   const span = axisMax - axisMin;
   const times = points.map((p) => Date.parse(p.x));
+  const firstTime = Math.min(...times);
+  const duration = Math.max(...times) - firstTime;
   const temporal =
-    times.every(Number.isFinite) && Math.max(...times) > Math.min(...times);
+    times.every(Number.isFinite) && duration > 0;
   const x = (i: number) =>
       52 +
       (temporal
-        ? (times[i] - Math.min(...times)) /
-          (Math.max(...times) - Math.min(...times))
+        ? (times[i] - firstTime) / duration
         : i / Math.max(points.length - 1, 1)) *
         (width - 72),
     y = (v: number) => 165 - ((v - axisMin) / span) * 130;
@@ -466,10 +554,8 @@ export function Chart({
     path += (open ? "L" : "M") + x(i) + "," + y(p.y) + " ";
     open = true;
   });
-  const current =
-    selected === null
-      ? points.findLast((point) => point.y !== null)
-      : points[selected];
+  const current = points[selected] ??
+    points.findLast((point) => point.y !== null);
   const format = (value: number) =>
     value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
   const axisFormat = (value: number) =>
@@ -492,7 +578,7 @@ export function Chart({
           })
           .replace("/", "-")
       : /^\d{4}-\d{2}-\d{2}/.test(value)
-        ? value.slice(5, 10)
+        ? value.slice(fullDates ? 0 : 5, 10)
         : value;
   return (
     <div className="chart" ref={frame}>
@@ -503,10 +589,12 @@ export function Chart({
             ? dateLabel(current.x) +
               " · " +
               (current.y === null ? "未记录" : format(current.y) + unit)
-            : ""}
+            : "暂无数据"}
         </strong>
       </div>
-      <svg viewBox={`0 0 ${width} 212`} role="img" aria-label={label}>
+      <svg viewBox={`0 0 ${width} 212`} role="img" aria-label={label} tabIndex={0}
+        onKeyDown={(event) => browseChart(event, points.length, selectedIndex, select)}
+        onBlur={() => select(null)}>
         {[35, 100, 165].map((position, i) => (
           <React.Fragment key={position}>
             <line
@@ -524,7 +612,7 @@ export function Chart({
               fill="var(--muted)"
               fontSize="11"
             >
-              {axisFormat(
+              {valid.length > 0 && axisFormat(
                 i === 0 ? axisMax : i === 2 ? axisMin : (axisMin + axisMax) / 2,
               )}
             </text>
@@ -539,17 +627,8 @@ export function Chart({
               cy={y(p.y)}
               r="3"
               fill="var(--text)"
-              tabIndex={0}
-              aria-label={p.x + "：" + format(p.y) + unit}
-              onClick={() => setSelected(i)}
-              onFocus={() => setSelected(i)}
-              onMouseEnter={() => setSelected(i)}
-            >
-              <title>
-                {p.x}：{p.y}
-                {unit}
-              </title>
-            </circle>
+              aria-hidden="true"
+            />
           ),
         )}
         <text x="52" y="200" fill="var(--muted)" fontSize="11">
@@ -564,6 +643,9 @@ export function Chart({
         >
           {dateLabel(points.at(-1)?.x)}
         </text>
+        <ChartCursor bounds={{ left: 52, right: width - 20, top: 35, bottom: 165 }}
+          positions={points.map((point, index) => ({ x: x(index), y: point.y === null ? null : y(point.y) }))}
+          selected={selectedIndex} select={select} sharedGuide={!!dateSelection} />
       </svg>
     </div>
   );
@@ -592,17 +674,19 @@ export function BarChart({
     const observer = new ResizeObserver(([entry]) => setWidth(Math.max(280, Math.round(entry.contentRect.width))));
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [points.length > 0]);
   if (!points.length) return <Empty text="有记录后，这里会显示每日数量" />;
   const max = Math.max(1, ...points.map((p) => p.y ?? 0));
-  const top = Number.isInteger(max) ? max : Math.ceil(max);
+  const rawTop = Number.isInteger(max) ? max : Math.ceil(max);
+  const top = rawTop >= 2 && rawTop % 2 === 1 ? rawTop + 1 : rawTop;
   const left = 34,
     right = 12,
     base = 168,
     height = 140;
   const step = (width - left - right) / points.length;
   const bar = Math.max(3, Math.min(18, step * 0.58));
-  const current = selected === null ? points.findLast((p) => p.y !== null) : points[selected];
+  const current = (selected === null ? undefined : points[selected]) ??
+    points.findLast((point) => point.y !== null);
   const format = (v: number) => v.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
   const ticks = [0, top / 2, top];
   const labelled = (i: number) => i === 0 || i === points.length - 1 || (i + 1) % 5 === 0;
@@ -614,7 +698,9 @@ export function BarChart({
           {current ? current.x.slice(5) + " · " + (current.y === null ? "未记录" : format(current.y) + unit) : ""}
         </strong>
       </div>
-      <svg viewBox={`0 0 ${width} 196`} role="img" aria-label={label}>
+      <svg viewBox={`0 0 ${width} 196`} role="img" aria-label={label} tabIndex={0}
+        onKeyDown={(event) => browseChart(event, points.length, selected, setSelected)}
+        onBlur={() => setSelected(null)}>
         {ticks.map((t) => {
           const y = base - (t / top) * height;
           return (
@@ -631,8 +717,7 @@ export function BarChart({
           const value = p.y ?? 0;
           const h = value > 0 ? Math.max(3, (value / top) * height) : 3;
           return (
-            <g key={p.x} onMouseEnter={() => setSelected(i)} onClick={() => setSelected(i)}>
-              <rect x={cx - step / 2} y={base - height} width={step} height={height} fill="transparent" />
+            <g key={p.x}>
               <rect
                 x={cx - bar / 2}
                 y={base - h}
@@ -641,11 +726,7 @@ export function BarChart({
                 rx={Math.min(4, bar / 2)}
                 fill={value <= 0 ? "var(--line-2)" : p.done ? "var(--text)" : "var(--text-3)"}
                 opacity={selected === i ? 0.8 : 1}
-              >
-                <title>
-                  {p.x}：{p.y === null ? "未记录" : format(p.y) + unit}
-                </title>
-              </rect>
+              />
               {labelled(i) && (
                 <text x={cx} y={188} textAnchor="middle" fill="var(--muted)" fontSize="11">
                   {Number(p.x.slice(-2))}
@@ -654,6 +735,12 @@ export function BarChart({
             </g>
           );
         })}
+        <ChartCursor bounds={{ left, right: width - right, top: base - height, bottom: base }}
+          positions={points.map((point, index) => ({
+            x: left + step * (index + 0.5),
+            y: point.y === null ? null : base - (Math.max(0, point.y) / top) * height,
+          }))}
+          selected={selected} select={setSelected} />
       </svg>
       {note && <small className="chart-note">{note}</small>}
     </div>

@@ -7,6 +7,8 @@ struct HabitLine: View {
   @Environment(Studio.self) private var studio
   let habit: Record
   let day: String
+  @State private var typing = false
+  @State private var typed = ""
   var records: [Record] { studio.habitRecords }
   var body: some View {
     let records = records
@@ -24,13 +26,15 @@ struct HabitLine: View {
       : kind == "checklist" ? Double(checked.filter(items.contains).count) / Double(max(items.count, 1))
       : done ? 1 : 0
     VStack(alignment: .leading, spacing: 10) {
-      HStack(spacing: 12) {
+      HStack(spacing: 8) {
         Button {
           if kind == "binary" { save(done ? 0 : 1, log: log, rule: rule) }
           if kind == "quantity" && !done { save(target, log: log, rule: rule) }
         } label: {
           Ring(value: progress, size: 26)
-        }.buttonStyle(.plain).sensoryFeedback(.success, trigger: done) { _, new in new }
+            .frame(width: 40, height: 40)
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain).padding(.leading, -7).sensoryFeedback(.success, trigger: done) { _, new in new }
           .accessibilityLabel(habit.title)
         VStack(alignment: .leading, spacing: 2) {
           Text(habit.title).font(.system(size: 16, weight: .medium)).foregroundStyle(Ink.text)
@@ -43,18 +47,35 @@ struct HabitLine: View {
             Button {
               save(max(0, (value ?? 0) - 1), log: log, rule: rule)
             } label: {
-              Image(systemName: "minus").frame(width: 34, height: 34)
+              Image(systemName: "minus").frame(width: 38, height: 38).contentShape(Rectangle())
             }.accessibilityLabel("减少 " + habit.title)
-            Text(number(value ?? 0)).font(.system(size: 16, weight: .semibold, design: .rounded))
-              .monospacedDigit().frame(minWidth: 26).contentTransition(.numericText())
+            // Tap the number to type an exact value, decimals included (3.6 km).
+            Button {
+              typed = value.map(number) ?? ""
+              typing = true
+            } label: {
+              Text(number(value ?? 0)).font(.system(size: 16, weight: .semibold, design: .rounded))
+                .monospacedDigit().frame(minWidth: 38, minHeight: 38).contentTransition(.numericText())
+                .contentShape(Rectangle())
+            }.accessibilityLabel("输入 " + habit.title + " 的数值")
             Button {
               save((value ?? 0) + 1, log: log, rule: rule)
             } label: {
-              Image(systemName: "plus").frame(width: 34, height: 34)
+              Image(systemName: "plus").frame(width: 38, height: 38).contentShape(Rectangle())
             }.accessibilityLabel("增加 " + habit.title)
           }.buttonStyle(.plain).font(.system(size: 13, weight: .bold)).foregroundStyle(Ink.text)
             .background(Ink.raised, in: Capsule())
             .sensoryFeedback(.increase, trigger: value)
+            .alert(habit.title, isPresented: $typing) {
+              TextField("数值", text: $typed).keyboardType(.decimalPad)
+              Button("取消", role: .cancel) {}
+              Button("保存") {
+                let text = typed.replacingOccurrences(of: "，", with: ".").replacingOccurrences(of: ",", with: ".")
+                if let v = Double(text.trimmingCharacters(in: .whitespaces)), v >= 0 { save(v, log: log, rule: rule) }
+              }
+            } message: {
+              Text("今天的数值" + (HabitRules.unit(habit: habit, rule: rule).isEmpty ? "" : "（\(HabitRules.unit(habit: habit, rule: rule))）"))
+            }
         }
       }
       if kind == "checklist" {
@@ -88,7 +109,7 @@ struct HabitLine: View {
     return done ? "已完成" : "待记录"
   }
   func number(_ value: Double) -> String {
-    value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
+    value == value.rounded() ? String(Int(value)) : String(format: "%g", (value * 100).rounded() / 100)
   }
   func save(_ value: Double, items: [String]? = nil, log: Record?, rule: Record?) {
     var data: [String: JSONValue] = log?.data ?? [:]
@@ -178,8 +199,15 @@ struct MonthCard: View {
     let lead = (CalendarDays.date(month + "-01").map { CalendarDays.calendar.component(.weekday, from: $0) } ?? 1) - 1
     let values = days.map { HabitRules.value(habit: habit, day: $0, records: records) }
     let kind = HabitRules.kind(habit: habit, rule: HabitRules.rule(habit: habit, day: days.last ?? Day.today, records: records))
-    let elapsed = max(1, days.filter { $0 <= Day.today }.count)
-    let rate = "\(Int((Double(summary.completedDays) / Double(elapsed) * 100).rounded()))%"
+    let elapsed = days.filter { $0 <= Day.today }
+    let planned = elapsed.filter { HabitRules.isScheduled(habit: habit, day: $0, records: records) }
+    let mixedUnits = summary.quantityTotals.count > 1
+    let quantity = summary.quantityTotals.first
+    let rate = { (dates: [String]) -> String in
+      if dates.isEmpty { return "—" }
+      let completed = dates.filter { HabitRules.isComplete(habit: habit, day: $0, records: records) }.count
+      return "\(Int((Double(completed) / Double(dates.count) * 100).rounded()))%"
+    }
     Card(icon: "calendar", title: habit.title, meta: "本月") {
       MonthBar(month: $month)
       // Totals only mean something for quantities; check-ins and checklists are about how often.
@@ -187,12 +215,13 @@ struct MonthCard: View {
         ? [
           ("记录", "\(summary.recordedDays)/\(days.count)"),
           ("完成", "\(summary.completedDays)"),
-          ("合计", number(summary.total)),
-          ("日均", summary.recordedAverage.map(number) ?? "—"),
+          ("合计", mixedUnits ? "单位有变更" : number(quantity?.value ?? 0) + " " + (quantity?.key ?? "")),
+          ("有记录日均", mixedUnits || summary.quantityDays == 0 ? "—" : number((quantity?.value ?? 0) / Double(summary.quantityDays))),
         ]
         : [
-          (kind == "checklist" ? "全部完成" : "打卡", "\(summary.completedDays)/\(elapsed)"),
-          ("完成率", rate),
+          (kind == "checklist" ? "全部完成" : "打卡", "\(summary.completedDays)/\(days.count)"),
+          ("日历日完成率", rate(elapsed)),
+          ("计划日完成率", rate(planned)),
           ("连续", "\(streak(records: records)) 天"),
         ])
       LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 7), spacing: 5) {
@@ -225,10 +254,11 @@ struct MonthCard: View {
       if kind == "checklist" {
         ItemMatrix(habit: habit, days: days, records: records)
       }
-      if values.contains(where: { $0 != nil }) && kind == "quantity" {
+      if values.contains(where: { $0 != nil }) && kind == "quantity" && !mixedUnits {
         Chart {
           ForEach(Array(days.enumerated()), id: \.element) { index, date in
-            if let v = values[index] {
+            if let v = values[index],
+               HabitRules.kind(habit: habit, rule: HabitRules.rule(habit: habit, day: date, records: records)) == "quantity" {
               BarMark(x: .value("日", Int(date.suffix(2)) ?? 0), y: .value("值", v), width: 6)
                 .foregroundStyle(Ink.text).clipShape(Capsule())
             }
@@ -309,6 +339,7 @@ struct HabitPlanSheet: View {
   @State private var status = "active"
   @State private var showHome = true
   @State private var effective = Date()
+  @State private var error: String?
   var body: some View {
     NavigationStack {
       Form {
@@ -367,6 +398,9 @@ struct HabitPlanSheet: View {
         }
       }
     }.studioSheet()
+      .alert("无法保存习惯", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+        Button("好", role: .cancel) { error = nil }
+      } message: { Text(error ?? "") }
       .onAppear {
         guard let habit else { return }
         let rule = HabitRules.rule(habit: habit, day: Day.today, records: studio.habitRecords)
@@ -381,6 +415,10 @@ struct HabitPlanSheet: View {
       }
   }
   func save() {
+    guard kind != "quantity" || (target.isFinite && target > 0) else {
+      error = "最低目标必须大于 0"
+      return
+    }
     let list = items.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter {
       !$0.isEmpty
     }
@@ -392,22 +430,37 @@ struct HabitPlanSheet: View {
     data["status"] = .string(status)
     data["showHome"] = .bool(showHome)
     if data["order"] == nil { data["order"] = .number(Double(studio.all("habit").count)) }
+    let effectiveDay = CalendarDays.string(effective)
+    let actualTarget = kind == "quantity" ? target : 1
+    let records = studio.habitRecords
+    let rule = habit.flatMap { HabitRules.rule(habit: $0, day: Day.today, records: records) }
+    let changed =
+      rule == nil || rule!.text("kind") != kind || HabitRules.target(rule: rule) != actualTarget
+      || Set(rule!.data["weekdays"]?.strings ?? (0...6).map(String.init)) != weekdays
+      || rule!.data["items"]?.strings ?? [] != list || rule!.text("unit") != unit
+    if changed, let habit, records.contains(where: {
+      $0.type == "habitLog" && !$0.deleted && $0.text("habitId") == habit.id && $0.text("day") >= effectiveDay
+    }) {
+      error = "生效日及之后已有记录，请选尚未记录的日期"
+      return
+    }
+    let existing = habit.flatMap { HabitRules.rule(habit: $0, day: effectiveDay, records: records) }
     Task {
-      guard let id = await studio.save("habit", data, id: habit?.id) else { return }
-      let rule = habit.flatMap { HabitRules.rule(habit: $0, day: Day.today, records: studio.habitRecords) }
-      let changed =
-        rule == nil || rule!.text("kind") != kind || HabitRules.target(rule: rule) != target
-        || Set(rule!.data["weekdays"]?.strings ?? []) != weekdays
-        || rule!.data["items"]?.strings ?? [] != list || rule!.text("unit") != unit
+      let id = habit?.id ?? UUID().uuidString.lowercased()
       if changed {
-        await studio.save(
-          "habitRule",
-          [
-            "habitId": .string(id), "effectiveFrom": .string(CalendarDays.string(effective)),
-            "target": .number(target), "weekdays": .array(weekdays.sorted().map(JSONValue.string)),
-            "kind": .string(kind), "unit": .string(unit), "items": .array(list.map(JSONValue.string)),
-          ])
-      }
+        let matching = existing?.text("effectiveFrom") == effectiveDay ? existing : nil
+        var ruleData = matching?.data ?? [:]
+        ruleData.merge([
+          "habitId": .string(id), "effectiveFrom": .string(effectiveDay),
+          "target": .number(actualTarget), "weekdays": .array(weekdays.sorted().map(JSONValue.string)),
+          "kind": .string(kind), "unit": .string(unit), "items": .array(list.map(JSONValue.string)),
+        ]) { _, next in next }
+        guard await studio.saveTogether([
+          BatchPut(type: "habit", id: id, data: data, version: habit?.version ?? 0),
+          BatchPut(type: "habitRule", id: matching?.id ?? UUID().uuidString.lowercased(),
+            data: ruleData, version: matching?.version ?? 0),
+        ]) else { return }
+      } else if await studio.save("habit", data, id: id, editBase: habit) == nil { return }
       dismiss()
     }
   }

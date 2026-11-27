@@ -40,3 +40,24 @@ test("quotes: search maps Tencent hints to quote ids and keeps only stocks and f
   assert.deepEqual(results.map((r) => r.quoteId), ["tencent:usCRCL", "tencent:hk01810", "tencent:sh600519"]);
   assert.equal(results[0].currency, "USD");
 });
+
+test("quotes: batches all requested assets and preserves the provider observation across cache hits", async () => {
+  const observedAt = "2026-01-01T12:00:00.000Z";
+  const { get, calls } = fake({
+    "ids=coin-60&": JSON.stringify({
+      "coin-60": { cny: 0, last_updated_at: Date.parse(observedAt) / 1000 },
+    }),
+    "coingecko.com": "{}",
+  });
+  const service = new QuoteService(get);
+  const ids = Array.from({ length: 61 }, (_, i) => `coingecko:coin-${i}`);
+  const first = await service.quotes(ids);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(first.missing, ids.slice(0, 60));
+  assert.equal(first.quotes[ids[60]].priceCNY, "0");
+  assert.equal(first.quotes[ids[60]].at, observedAt);
+  assert.equal(first.quotes[ids[60]].timeSource, "market");
+  const second = await service.quotes(ids.slice(-1));
+  assert.deepEqual(second.quotes, first.quotes);
+  assert.equal(calls.length, 2);
+});

@@ -29,9 +29,7 @@ struct FinanceScreen: View {
     let report = FinanceReport(expenses: expenses, filtered: filtered, month: month, basis: basis, asOf: asOf)
     let budget = studio.all("budget").first { $0.text("month") == month }
     let budgetMinor = budget.flatMap { FinanceRules.minor($0.text("amountMinor")) }
-    let reviewCandidate = view != "ledger" || categories.isEmpty ? nil : expenses.filter {
-      $0.text("categoryId").isEmpty && !$0.text("wechatMerchant").isEmpty
-    }
+    let reviewCandidate = view != "ledger" || categories.isEmpty ? nil : expenses.filter { $0.text("categoryId").isEmpty }
       .max { $0.text("day") < $1.text("day") }
     List {
       Section {
@@ -414,7 +412,8 @@ struct ExpenseSheet: View {
   @State private var note = ""
   @State private var confirmDelete = false
   @State private var rememberMerchant = false
-  @FocusState private var amountFocused: Bool
+  private enum ExpenseField { case amount, title, note }
+  @FocusState private var focusedField: ExpenseField?
   var parents: [Record] { studio.all("category").filter { $0.text("parentId").isEmpty } }
   var children: [Record] { studio.all("category").filter { $0.text("parentId") == category && !category.isEmpty } }
   private var savedMerchant: String {
@@ -445,8 +444,10 @@ struct ExpenseSheet: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
               Text("¥").font(.system(size: 30, weight: .semibold, design: .rounded)).foregroundStyle(Ink.text3)
               TextField("0", text: $amount).font(.system(size: 52, weight: .semibold, design: .rounded))
-                .keyboardType(.decimalPad).focused($amountFocused).monospacedDigit()
+                .keyboardType(.decimalPad).focused($focusedField, equals: .amount).monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .background(Color.clear.contentShape(Rectangle()).onTapGesture { focusedField = .amount })
           }
           VStack(alignment: .leading, spacing: 6) {
             if purposeOnly || !savedMerchant.isEmpty {
@@ -454,7 +455,10 @@ struct ExpenseSheet: View {
             }
             TextField(purposeOnly || !savedMerchant.isEmpty ? "账单名称" : "买了什么", text: $title)
               .font(.system(size: 18))
-              .padding(14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+              .focused($focusedField, equals: .title)
+              .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+              .padding(14)
+              .studioInputBox(cornerRadius: 14, fill: Ink.raised) { focusedField = .title }
           }
           VStack(alignment: .leading, spacing: 10) {
             Text("用途").font(Ink.micro).foregroundStyle(Ink.text3)
@@ -512,7 +516,10 @@ struct ExpenseSheet: View {
               }
             }.padding(.horizontal, 14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             TextField("备注", text: $note, axis: .vertical).lineLimit(1...4)
-              .padding(14).background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+              .focused($focusedField, equals: .note)
+              .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+              .padding(14)
+              .studioInputBox(cornerRadius: 14, fill: Ink.raised) { focusedField = .note }
             if let record {
               Button("移入回收站", role: .destructive) { confirmDelete = true }.font(Ink.meta)
                 .frame(maxWidth: .infinity)
@@ -552,7 +559,7 @@ struct ExpenseSheet: View {
   }
   func load() {
     guard let record else {
-      amountFocused = true
+      focusedField = .amount
       if let first = parents.first(where: { $0.flag("necessary") }) ?? parents.first {
         category = first.id
         necessary = first.flag("necessary")

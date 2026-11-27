@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from "react";
 import "./life.css";
 import { Lunar, Solar } from "lunar-typescript";
+import { metricDays } from "../../../../modules/metrics/index.ts";
+import { checklistItems, runFields, runState, type ChecklistItem } from "../../../../modules/tasks/index.ts";
 import {
+  useDatedEntities,
   useEntities,
   put,
   putKey,
@@ -78,9 +81,11 @@ export function Metrics() {
   const [period, setPeriod] = useState("month");
   const [form, setForm] = useState(false);
   const [editing, setEditing] = useState<Entity>();
-  const logs = entities.filter(
-    (e) => e.type === "metricLog" && e.data.metricId === metric?.id,
+  const readings = useMemo(
+    () => metricDays(entities.filter((e) => e.type === "metricLog")),
+    [entities],
   );
+  const logs = metric ? readings.get(metric.id) : undefined;
   const days =
     period === "month"
       ? daysInMonth(month)
@@ -89,17 +94,21 @@ export function Metrics() {
           date.setUTCDate(date.getUTCDate() - 89 + i);
           return date.toISOString().slice(0, 10);
         });
-  const visible = logs.filter((e) => days.includes(str(e, "day")));
-  const values = visible.map((e) => num(e, "value"));
+  const visible = days.map((d) => logs?.get(d));
+  const values = visible.flatMap((entry) => entry?.value == null ? [] : [entry.value]);
+  const monthly = new Map<string, { sum: number; count: number }>();
+  for (const [day, entry] of logs ?? []) {
+    if (entry.value === null) continue;
+    const month = day.slice(0, 7);
+    const stats = monthly.get(month) ?? { sum: 0, count: 0 };
+    monthly.set(month, { sum: stats.sum + entry.value, count: stats.count + 1 });
+  }
   async function record(m: Entity, value: number) {
-    const existing = entities.find(
-      (e) =>
-        e.type === "metricLog" &&
-        e.data.metricId === m.id &&
-        e.data.day === day,
-    );
+    const candidates = readings.get(m.id)?.get(day)?.candidates ?? [];
+    if (candidates.length > 1 || !Number.isFinite(value)) return;
+    const [existing] = candidates;
     const data = { metricId: m.id, day, value };
-    if (existing) await put("metricLog", data, existing);
+    if (existing) await put("metricLog", { ...existing.data, value }, existing);
     else await putKey("metricLog", m.id + ":" + day, data);
   }
   const recent = useMemo(() => {
@@ -112,18 +121,10 @@ export function Metrics() {
     for (const m of metrics)
       byMetric.set(
         m.id,
-        window.map((d) => {
-          const log = entities.find(
-            (e) =>
-              e.type === "metricLog" &&
-              e.data.metricId === m.id &&
-              e.data.day === d,
-          );
-          return log ? num(log, "value") : null;
-        }),
+        window.map((d) => readings.get(m.id)?.get(d)?.value ?? null),
       );
     return byMetric;
-  }, [entities, day]);
+  }, [entities, readings, day]);
   const average = values.length
     ? values.reduce((a, b) => a + b, 0) / values.length
     : null;
@@ -151,12 +152,10 @@ export function Metrics() {
         >
           <div className="metric-list">
             {metrics.map((m) => {
-              const log = entities.find(
-                (e) =>
-                  e.type === "metricLog" &&
-                  e.data.metricId === m.id &&
-                  e.data.day === day,
-              );
+              const reading = readings.get(m.id)?.get(day);
+              const duplicate = (reading?.candidates.length ?? 0) > 1;
+              const lower = num(m, "minimum", -100_000);
+              const upper = num(m, "maximum", 1e12);
               return (
                 <div
                   key={m.id}
@@ -176,21 +175,22 @@ export function Metrics() {
                   </button>
                   <Spark
                     values={recent.get(m.id) ?? []}
-                    min={num(m, "minimum")}
-                    max={num(m, "maximum", 100)}
+                    min={lower}
+                    max={upper}
                   />
                   <input
                     aria-label={str(m, "name")}
                     type="number"
-                    min={num(m, "minimum")}
-                    max={num(m, "maximum", 100)}
+                    min={lower}
+                    max={upper}
                     step="any"
                     placeholder="—"
-                    defaultValue={log ? num(log, "value") : ""}
-                    key={m.id + day + log?.id}
+                    defaultValue={reading?.value ?? ""}
+                    key={m.id + day + (reading?.candidates[0]?.version ?? 0)}
+                    disabled={duplicate}
                     onFocus={() => setSelected(m.id)}
                     onBlur={(e) => {
-                      if (e.target.value !== "")
+                      if (e.target.value !== "" && Number(e.target.value) !== reading?.value)
                         perform(record(m, Number(e.target.value)));
                     }}
                   />
@@ -252,35 +252,33 @@ export function Metrics() {
           <Chart
             label={str(metric, "name")}
             unit={str(metric, "unit")}
-            points={days.map((day) => ({
+            points={days.map((day, index) => ({
               x: day,
-              y: logs.find((e) => e.data.day === day)
-                ? num(
-                    logs.find((e) => e.data.day === day),
-                    "value",
-                  )
-                : null,
+              y: visible[index]?.value ?? null,
             }))}
           />
+          {visible.some((entry) => (entry?.candidates.length ?? 0) > 1) && (
+            <div className="dense-list">
+              <div className="label">待核对的重复记录</div>
+              {visible.flatMap((entry) => (entry?.candidates.length ?? 0) > 1 ? entry!.candidates : []).map((row) => (
+                <div key={row.id}>
+                  <span>{row.data.day} · {row.data.value ?? "未填数值"}</span>
+                  <small>{row.data.note || row.id}</small>
+                </div>
+              ))}
+            </div>
+          )}
           <div>
             <div className="label">月均</div>
             <div className="dense-list">
-              {[...new Set(logs.map((e) => str(e, "day").slice(0, 7)))]
-                .sort()
-                .reverse()
-                .map((month) => {
-                  const list = logs.filter((e) =>
-                    str(e, "day").startsWith(month),
-                  );
+              {[...monthly].sort(([a], [b]) => b.localeCompare(a))
+                .map(([month, stats]) => {
                   return (
                     <div key={month}>
                       <span className="mono">{month}</span>
-                      <small>{list.length} 天</small>
+                      <small>{stats.count} 天</small>
                       <strong>
-                        {(
-                          list.reduce((n, e) => n + num(e, "value"), 0) /
-                          list.length
-                        ).toFixed(2)}{" "}
+                        {(stats.sum / stats.count).toFixed(2)}{" "}
                         {str(metric, "unit")}
                       </strong>
                     </div>
@@ -685,29 +683,40 @@ function DayEditor({
   );
 }
 export function Checklists() {
-  const { entities } = useEntities("checklist", "checklistRun");
-  const templates = entities.filter((e) => e.type === "checklist");
+  const { entities: templates } = useEntities("checklist");
   const [selected, setSelected] = useState("");
   const current = templates.find((e) => e.id === selected) ?? templates[0];
   const [form, setForm] = useState(false);
   const [editing, setEditing] = useState<Entity>();
-  const run = entities
-    .filter(
-      (e) =>
-        e.type === "checklistRun" &&
-        e.data.checklistId === current?.id &&
-        e.data.day === today(),
-    )
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-  async function toggle(item: string) {
+  const day = today();
+  const todayRuns = useDatedEntities(day, day, "checklistRun");
+  const run = todayRuns.reduce<Entity | undefined>((latest, row) => {
+    if (row.data.checklistId !== current?.id) return latest;
+    if (!latest) return row;
+    const order = Date.parse(row.updatedAt) - Date.parse(latest.updatedAt) ||
+      row.version - latest.version || latest.id.localeCompare(row.id);
+    return order > 0 ? row : latest;
+  }, undefined);
+  const state = runState(
+    { items: arr(current, "items"), itemIds: arr(current, "itemIds") },
+    run && {
+      checked: arr(run, "checked"),
+      itemIds: Array.isArray(run.data.itemIds) ? arr(run, "itemIds") : undefined,
+      itemLabels: Array.isArray(run.data.itemLabels) ? arr(run, "itemLabels") : undefined,
+      checkedItemIds: Array.isArray(run.data.checkedItemIds) ? arr(run, "checkedItemIds") : undefined,
+      ambiguousChecked: arr(run, "ambiguousChecked"),
+    },
+  );
+  async function saveChecks(checked: Set<string>) {
     if (!current) return;
-    const old = arr(run, "checked"),
-      checked = old.includes(item)
-        ? old.filter((x) => x !== item)
-        : [...old, item];
-    const data = { checklistId: current.id, day: today(), checked };
+    const data = { checklistId: current.id, day, ...runFields(state.items, checked, state.ambiguous) };
     if (run) await put("checklistRun", data, run);
-    else await putKey("checklistRun", current.id + ":" + today(), data);
+    else await putKey("checklistRun", current.id + ":" + day, data);
+  }
+  function toggle(id: string) {
+    const checked = new Set(state.checked);
+    if (!checked.delete(id)) checked.add(id);
+    return saveChecks(checked);
   }
   return (
     <>
@@ -743,9 +752,7 @@ export function Checklists() {
                     style={
                       {
                         "--value":
-                          arr(run, "checked").filter((x) =>
-                            arr(e, "items").includes(x),
-                          ).length / Math.max(arr(e, "items").length, 1),
+                          state.checked.size / Math.max(state.items.length, 1),
                       } as React.CSSProperties
                     }
                   />
@@ -759,11 +766,9 @@ export function Checklists() {
             current
               ? str(current, "name") +
                 " · " +
-                arr(run, "checked").filter((x) =>
-                  arr(current, "items").includes(x),
-                ).length +
+                state.checked.size +
                 " / " +
-                arr(current, "items").length
+                state.items.length
               : "选择一个场景"
           }
           aside={
@@ -778,13 +783,8 @@ export function Checklists() {
                   编辑清单
                 </button>
                 <button
-                  onClick={() =>
-                    perform(
-                      run
-                        ? put("checklistRun", { ...run.data, checked: [] }, run)
-                        : Promise.resolve(),
-                    )
-                  }
+                  disabled={!state.checked.size}
+                  onClick={() => perform(saveChecks(new Set()))}
                 >
                   重置本次
                 </button>
@@ -792,21 +792,25 @@ export function Checklists() {
             )
           }
         >
+          {!!state.ambiguous.size && (
+            <p className="muted-note">旧记录需核对，请确认当时勾选的是哪一项。{[...state.ambiguous].join("、")}</p>
+          )}
           {current ? (
-            arr(current, "items").map((item) => (
+            state.items.map((item) => (
               <button
                 className="checklist-item"
-                key={item}
-                onClick={() => perform(toggle(item))}
+                key={item.id}
+                aria-pressed={state.checked.has(item.id)}
+                onClick={() => perform(toggle(item.id))}
               >
                 <span
                   className={
-                    arr(run, "checked").includes(item) ? "box checked" : "box"
+                    state.checked.has(item.id) ? "box checked" : "box"
                   }
                 >
-                  {arr(run, "checked").includes(item) ? "✓" : ""}
+                  {state.checked.has(item.id) ? "✓" : ""}
                 </span>
-                {item}
+                {item.label}
               </button>
             ))
           ) : (
@@ -821,19 +825,8 @@ export function Checklists() {
               <h2>准备清单</h2>
               <button onClick={() => setForm(false)}>×</button>
             </header>
-            <RecordForm
-              type="checklist"
+            <ChecklistEditor
               entity={editing}
-              defaults={{ name: "", items: [] }}
-              fields={[
-                { key: "name", label: "场景名称", required: true },
-                {
-                  key: "items",
-                  label: "每行一个要准备的东西",
-                  type: "lines",
-                  required: true,
-                },
-              ]}
               onSaved={(id) => {
                 setSelected(id);
                 setForm(false);
@@ -844,5 +837,60 @@ export function Checklists() {
         </div>
       )}
     </>
+  );
+}
+
+function ChecklistEditor({ entity, onSaved, onCancel }: {
+  entity?: Entity;
+  onSaved: (id: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(str(entity, "name"));
+  const [text, setText] = useState("");
+  const [items, setItems] = useState<ChecklistItem[]>(() =>
+    checklistItems({ items: arr(entity, "items"), itemIds: arr(entity, "itemIds") }),
+  );
+  const [saving, setSaving] = useState(false);
+  return (
+    <form className="record-form" onSubmit={(event) => {
+      event.preventDefault();
+      if (saving || !name.trim()) return;
+      const rows = entity ? items.map((item) => ({ ...item, label: item.label.trim() })).filter((item) => item.label)
+        : text.split(/\r?\n/).map((label) => label.trim()).filter(Boolean)
+          .map((label) => ({ id: crypto.randomUUID(), label }));
+      if (!rows.length) return;
+      setSaving(true);
+      perform(put("checklist", {
+        name: name.trim(), items: rows.map((item) => item.label), itemIds: rows.map((item) => item.id),
+      }, entity).then(onSaved).finally(() => setSaving(false)));
+    }}>
+      <label>
+        场景名称
+        <input required value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+      {entity ? (
+        <>
+          {items.map((item, index) => (
+            <label key={item.id}>
+              项目 {index + 1}
+              <input value={item.label} onChange={(event) => {
+                const label = event.target.value;
+                setItems((previous) => previous.map((entry) => entry.id === item.id ? { ...entry, label } : entry));
+              }} />
+            </label>
+          ))}
+          <button type="button" onClick={() => setItems((previous) => [
+            ...previous, { id: crypto.randomUUID(), label: "" },
+          ])}>添加项目</button>
+        </>
+      ) : (
+        <label>
+          每行一个要准备的东西
+          <textarea required value={text} onChange={(event) => setText(event.target.value)} />
+        </label>
+      )}
+      <button type="button" onClick={onCancel}>取消</button>
+      <button className="primary" disabled={saving || (entity ? !items.some((item) => item.label.trim()) : !text.trim())}>保存</button>
+    </form>
   );
 }

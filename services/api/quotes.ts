@@ -8,6 +8,7 @@ import { quoteIdPattern } from "../../packages/contracts/quotes.ts";
 
 type Fetch = typeof fetch;
 const validId = new RegExp(quoteIdPattern);
+const batchSize = 60;
 const markets: Record<string, [string, string]> = {
   us: ["美股", "USD"],
   hk: ["港股", "HKD"],
@@ -51,7 +52,7 @@ export class QuoteService {
   }
 
   async quotes(ids: string[]): Promise<Quotes> {
-    const wanted = [...new Set(ids)].filter((id) => validId.test(id)).slice(0, 60);
+    const wanted = [...new Set(ids)].filter((id) => validId.test(id));
     const now = Date.now();
     const quotes: Record<string, Quote> = {};
     const stale = wanted.filter((id) => {
@@ -59,18 +60,30 @@ export class QuoteService {
       if (hit && hit.until > now) quotes[id] = hit.quote;
       return !quotes[id];
     });
-    const at = new Date().toISOString();
+    for (let first = 0; first < stale.length; first += batchSize) {
+      Object.assign(quotes, await this.fetchBatch(stale.slice(first, first + batchSize)));
+    }
+    for (const id of stale)
+      if (quotes[id]) this.cache.set(id, { quote: quotes[id], until: Date.now() + this.ttl });
+    return { quotes, missing: wanted.filter((id) => !quotes[id]) };
+  }
+
+  private async fetchBatch(stale: string[]): Promise<Record<string, Quote>> {
+    const quotes: Record<string, Quote> = {};
     const coins = stale.filter((id) => id.startsWith("coingecko:")).map((id) => id.slice(10));
     if (coins.length) {
       try {
         const body = JSON.parse(
           await this.text(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${coins.join(",")}&vs_currencies=usd,cny&include_24hr_change=true`,
+            `https://api.coingecko.com/api/v3/simple/price?ids=${coins.join(",")}&vs_currencies=usd,cny&include_24hr_change=true&include_last_updated_at=true`,
           ),
         );
+        const retrieved = new Date();
         for (const coin of coins) {
           const row = body[coin];
-          if (!row?.cny) continue;
+          if (!row || !Number.isFinite(row.cny) || row.cny < 0) continue;
+          const observed = row.last_updated_at;
+          const marketTime = Number.isInteger(observed) && observed > 0 && observed * 1000 <= retrieved.getTime();
           quotes["coingecko:" + coin] = {
             id: "coingecko:" + coin,
             name: coin,
@@ -78,7 +91,8 @@ export class QuoteService {
             currency: row.usd ? "USD" : "CNY",
             priceCNY: String(row.cny),
             changePercent: typeof row.usd_24h_change === "number" ? Math.round(row.usd_24h_change * 100) / 100 : undefined,
-            at,
+            at: marketTime ? new Date(observed * 1000).toISOString() : retrieved.toISOString(),
+            timeSource: marketTime ? "market" : "retrieved",
           };
         }
       } catch {
@@ -89,32 +103,35 @@ export class QuoteService {
     if (stocks.length) {
       try {
         const body = await this.text(`https://qt.gtimg.cn/q=${stocks.join(",")}`, "gbk");
+        const at = new Date().toISOString();
+        const requested = new Set(stocks);
         for (const line of body.split(";")) {
           const match = line.match(/v_([a-zA-Z0-9.]+)="([^"]*)"/);
-          if (!match) continue;
+          if (!match || !requested.has(match[1])) continue;
           const f = match[2].split("~");
           const price = Number(f[3]);
           const previous = Number(f[4]);
-          if (!(price > 0)) continue;
+          if (!f[3]?.trim() || !Number.isFinite(price) || price < 0) continue;
           const currency = markets[match[1].slice(0, 2)]?.[1] ?? "CNY";
           const id = "tencent:" + match[1];
+          const rate = await this.cnyPer(currency).catch(() => undefined);
+          if (rate === undefined) continue;
           quotes[id] = {
             id,
             name: f[1],
             price: f[3],
             currency,
-            priceCNY: String(Math.round(price * (await this.cnyPer(currency)) * 1e6) / 1e6),
+            priceCNY: (price * rate).toFixed(12).replace(/\.?0+$/, ""),
             changePercent: previous > 0 ? Math.round(((price - previous) / previous) * 10000) / 100 : undefined,
             at,
+            timeSource: "retrieved",
           };
         }
       } catch {
         /* reported as missing */
       }
     }
-    for (const id of stale)
-      if (quotes[id]) this.cache.set(id, { quote: quotes[id], until: now + this.ttl });
-    return { quotes, missing: wanted.filter((id) => !quotes[id]) };
+    return quotes;
   }
 
   async search(query: string, kind: AssetKind): Promise<QuoteMatch[]> {

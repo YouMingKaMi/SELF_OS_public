@@ -84,6 +84,10 @@
 .home-widget:hover .panel > header button {
   color: var(--text-2);
 }
+.home-widget .panel > header button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
 .home-widget .panel-content {
   overflow: visible;
   gap: 10px;
@@ -279,8 +283,13 @@
   margin-top: 4px;
   border: 0;
   padding: 0 2px;
+  background: transparent;
   font-size: var(--fs-xs);
   color: var(--text-3);
+}
+.home-task-more:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
 }
 
 /* Journal cards */

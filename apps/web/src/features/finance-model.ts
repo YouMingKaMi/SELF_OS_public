@@ -1,8 +1,9 @@
-export function minor(value: string) {
-  if (!/^-?\d+(\.\d{0,2})?$/.test(value.trim()))
+export function minor(input: string) {
+  const value = input.trim();
+  if (!/^-?\d+(\.\d{0,2})?$/.test(value))
     throw new Error("金额最多保留两位小数");
   const negative = value.startsWith("-");
-  const [whole, part = ""] = value.replace("-", "").split(".");
+  const [whole, part = ""] = (negative ? value.slice(1) : value).split(".");
   return (
     (negative ? -1n : 1n) *
     (BigInt(whole) * 100n + BigInt(part.padEnd(2, "0")))
@@ -28,6 +29,7 @@ export {
   daily,
   usage,
   effectiveEnd,
+  monthlyUsage,
   isHistory,
   longTerm,
 } from "../../../../modules/finance/index.ts";

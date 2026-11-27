@@ -5,6 +5,7 @@ import { compose } from "../../services/api/compose.ts";
 import {
   migrate,
   purgeOwner,
+  rotateRestoredGeneration,
   storageModel,
 } from "../../modules/kernel/server.ts";
 import { client } from "../support.ts";
@@ -48,6 +49,65 @@ test("migrations are recorded once and the live database matches the entity sche
     }
 });
 
+test("an owner-scoped ID binds to one type and a rejected collision leaves no row or revision", async () => {
+  const c = client(sync, owner("entity-binding"));
+  const domain = await c.create("domain", { name: "领域" });
+  await assert.rejects(
+    c.send(c.command("taskList", domain.id, 0, { name: "同 ID 清单" })),
+    /ENTITY_TYPE_COLLISION/,
+  );
+  const changed = await sync.changes(c.owner);
+  assert.equal(changed.nextCursor, "1");
+  assert.deepEqual(changed.changes.map(({ entity }) => entity), [domain]);
+  const row = await pool.query("SELECT 1 FROM task_lists WHERE owner_id=$1 AND id=$2", [c.owner, domain.id]);
+  assert.equal(row.rows.length, 0);
+});
+
+test("snapshots are private fixed-watermark pages and a recovery rejects old scoped writes", async () => {
+  const c = client(sync, owner("snapshot"));
+  const first = await c.create("expense", {
+    title: "合成账单", day: "2026-11-18", amountMinor: "999999999999999989", mode: "immediate",
+  });
+  const another = await c.create("domain", { name: "已删除的领域" });
+  const tombstone = await c.remove(another);
+  const { watermark, ...scope } = await sync.state(c.owner);
+  const snapshot = await sync.snapshot(c.owner, scope);
+  assert.equal(snapshot.watermark, watermark);
+  assert.equal(snapshot.total, 2);
+  assert.equal((await sync.snapshot(c.owner, scope)).snapshotId, snapshot.snapshotId);
+  await c.update(first, { title: "快照创建后的修改" });
+  const page = await sync.snapshotPage(c.owner, snapshot.snapshotId, "0", 1);
+  assert.equal(page.nextPosition, "1");
+  const rest = await sync.snapshotPage(c.owner, snapshot.snapshotId, page.nextPosition!, 1);
+  assert.equal(rest.nextPosition, null);
+  const taken = [...page.records, ...rest.records];
+  assert.deepEqual(taken.find((record) => record.id === first.id), first);
+  assert.deepEqual(taken.find((record) => record.id === tombstone.id), tombstone);
+  assert.equal((await sync.changes(c.owner, watermark, 10, scope)).changes[0]?.entity.data.title, "快照创建后的修改");
+  await assert.rejects(sync.snapshotPage(owner("other"), snapshot.snapshotId), /SNAPSHOT_EXPIRED/);
+  await assert.rejects(sync.changes(c.owner, "9999", 10, scope), /CURSOR_AHEAD/);
+
+  assert.equal((await sync.state(c.owner)).scopeRequired, false);
+  const inFlight = c.command("expense", first.id, 2, { ...first.data, title: "升级前已提交" });
+  assert.equal((await c.send(inFlight)).outcome, "accepted");
+  assert.equal((await c.send({ ...inFlight, scope })).outcome, "accepted");
+  await rotateRestoredGeneration(pool);
+  const recovered = await sync.state(c.owner);
+  assert.equal(recovered.datasetId, scope.datasetId);
+  assert.notEqual(recovered.generation, scope.generation);
+  assert.equal(recovered.scopeRequired, true);
+  await assert.rejects(sync.snapshotPage(c.owner, snapshot.snapshotId), /SNAPSHOT_EXPIRED/);
+  await assert.rejects(sync.changes(c.owner, watermark, 10, scope), /GENERATION_MISMATCH/);
+  const offline = c.command("expense", first.id, 2, { ...first.data, title: "旧代际的离线稿" });
+  await assert.rejects(c.send({ ...offline, scope }), /GENERATION_MISMATCH/);
+  await assert.rejects(c.send(offline), /SYNC_UPGRADE_REQUIRED/);
+  await assert.rejects(sync.changes(c.owner, watermark), /SYNC_UPGRADE_REQUIRED/);
+  const newScope = { datasetId: recovered.datasetId, generation: recovered.generation };
+  const restored = await sync.snapshot(c.owner, newScope);
+  assert.equal(restored.generation, recovered.generation);
+  assert.equal((await c.send({ ...offline, baseVersion: 3, scope: newScope })).outcome, "accepted");
+});
+
 test("typed storage round-trips every kind of field exactly", async () => {
   const c = client(sync, owner("types"));
   const wallet = await c.create("wallet", {
@@ -80,9 +140,9 @@ test("typed storage round-trips every kind of field exactly", async () => {
   const lunar = await c.create("importantDay", {
     name: "生日",
     calendar: "lunar",
-    lunarYear: 1990,
-    lunarMonth: 4,
-    lunarDay: 30,
+    lunarYear: 2025,
+    lunarMonth: 6,
+    lunarDay: 29,
     leap: true,
     repeat: "yearly",
     intervalUnit: "year",
@@ -262,4 +322,70 @@ test("a failed rule rolls the whole write back", async () => {
     /INVALID_RULE_RECORDED_DATES/,
   );
   assert.deepEqual(await sync.changes(id), before);
+});
+
+test("research events retain their sessions and notes and enforce their placement", async () => {
+  const id = owner("research");
+  const c = client(sync, id);
+  const domain = await c.create("domain", { name: "计算机" });
+  const activity = await c.create("activity", {
+    domainId: domain.id,
+    name: "数据结构",
+  });
+  const reading = await c.create("readingItem", {
+    title: "外部资料",
+    note: "https://example.com",
+    tags: ["计算机"],
+    status: "read",
+  });
+  const event = await c.create("practiceEvent", {
+    domainId: domain.id,
+    activityId: activity.id,
+    readingItemId: reading.id,
+    title: reading.data.title,
+    status: "active",
+  });
+  const placement = {
+    domainId: domain.id,
+    activityId: activity.id,
+    eventId: event.id,
+  };
+  const session = await c.create("session", {
+    ...placement,
+    title: event.data.title,
+    day: "2026-11-13",
+    status: "finished",
+    elapsedSeconds: 900,
+    manual: true,
+  });
+  const note = await c.create("progress", {
+    ...placement,
+    day: "2026-11-13",
+    body: "研究笔记",
+  });
+  await assert.rejects(
+    c.create("progress", {
+      domainId: domain.id,
+      eventId: event.id,
+      day: "2026-11-13",
+      body: "漏掉子领域",
+    }),
+    /INVALID_EVENT_PLACEMENT/,
+  );
+  await assert.rejects(
+    c.update(event, { activityId: null }),
+    /EVENT_PLACEMENT_LOCKED/,
+  );
+  await c.remove(reading);
+  await c.update(event, { title: "已研究", status: "resolved" });
+  const rows = (await sync.changes(id)).changes.map(({ entity }) => entity);
+  assert.equal(
+    rows.find((row) => row.id === session.id)?.data.eventId,
+    event.id,
+  );
+  assert.equal(rows.find((row) => row.id === note.id)?.data.eventId, event.id);
+  assert.equal(
+    rows.find((row) => row.id === event.id)?.data.status,
+    "resolved",
+  );
 });

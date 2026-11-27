@@ -18,16 +18,24 @@ function remember(quotes: Record<string, Quote>) {
   }
 }
 
-export async function fetchQuotes(ids: string[]): Promise<Record<string, Quote>> {
-  if (!ids.length) return {};
-  const response = await fetch("/v1/quotes?ids=" + encodeURIComponent(ids.join(",")), {
-    headers: { "x-council-request": "1" },
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!response.ok) throw new Error("QUOTES_UNAVAILABLE");
-  const body: Quotes = await response.json();
-  remember(body.quotes);
-  return body.quotes;
+export async function fetchQuotes(ids: string[]): Promise<Quotes> {
+  const wanted = [...new Set(ids)];
+  const batches = [];
+  for (let first = 0; first < wanted.length; first += 40) {
+    const batch = wanted.slice(first, first + 40);
+    batches.push(fetch("/v1/quotes?ids=" + encodeURIComponent(batch.join(",")), {
+      headers: { "x-council-request": "1" },
+      signal: AbortSignal.timeout(12000),
+    }).then(async (response): Promise<Quotes> => {
+      if (!response.ok) throw new Error("QUOTES_UNAVAILABLE");
+      return response.json();
+    }));
+  }
+  const quotes: Record<string, Quote> = {};
+  for (const result of await Promise.allSettled(batches))
+    if (result.status === "fulfilled") Object.assign(quotes, result.value.quotes);
+  if (Object.keys(quotes).length) remember(quotes);
+  return { quotes, missing: wanted.filter((id) => !quotes[id]) };
 }
 
 export async function searchQuotes(q: string, kind: AssetKind): Promise<QuoteMatch[]> {
@@ -43,19 +51,18 @@ export async function searchQuotes(q: string, kind: AssetKind): Promise<QuoteMat
 export function useQuotes(ids: string[]) {
   const key = [...new Set(ids)].sort().join(",");
   const [quotes, setQuotes] = useState<Record<string, Quote>>(remembered);
-  const [live, setLive] = useState(false);
+  const [latest, setLatest] = useState<Record<string, Quote>>({});
+  function accept(result: Quotes) {
+    setQuotes((old) => ({ ...old, ...result.quotes }));
+    setLatest(result.quotes);
+  }
   useEffect(() => {
     if (!key) return;
     let stop = false;
     const load = () => {
       if (document.hidden) return;
       fetchQuotes(key.split(","))
-        .then((q) => {
-          if (stop) return;
-          setQuotes((old) => ({ ...old, ...q }));
-          setLive(true);
-        })
-        .catch(() => !stop && setLive(false));
+        .then((result) => { if (!stop) accept(result); });
     };
     load();
     const timer = setInterval(load, 60000);
@@ -66,5 +73,11 @@ export function useQuotes(ids: string[]) {
       document.removeEventListener("visibilitychange", load);
     };
   }, [key]);
-  return { quotes, live, setQuotes };
+  const statusOf = (id: string) => {
+    if (!quotes[id]) return "缺报价";
+    const current = latest[id];
+    if (!current || Date.now() - Date.parse(current.at) > 300_000) return "最近报价";
+    return current.timeSource === "market" ? "市场报价" : "最近获取";
+  };
+  return { quotes, statusOf, accept };
 }

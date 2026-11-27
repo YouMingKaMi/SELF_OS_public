@@ -328,3 +328,127 @@ test("metrics, calendar and documents keep their own invariants", async () => {
     source: "ai",
   });
 });
+
+test("task planning: two devices cannot create a cycle, and completion unlocks the next task", async () => {
+  const service = new SyncService(new MemoryStore(), composeRules());
+  const a = client(service, "owner", "phone");
+  const b = client(service, "owner", "web");
+  const create = (title: string) =>
+    a.create("task", {
+      title,
+      status: "pending",
+      scheduleKind: "recent",
+    });
+  const first = await create("收集资料");
+  const second = await create("写提纲");
+  const results = await Promise.allSettled([
+    a.update(second, { prerequisiteIds: [first.id] }),
+    b.update(first, { prerequisiteIds: [second.id] }),
+  ]);
+  assert.equal(results[0].status, "fulfilled");
+  assert.equal(results[1].status, "rejected");
+  if (results[1].status === "rejected")
+    assert.match(String(results[1].reason), /TASK_DEPENDENCY_CYCLE/);
+  const waiting = results[0].value;
+  await assert.rejects(
+    a.update(waiting, { status: "completed" }),
+    /TASK_PREREQUISITES_OPEN/,
+  );
+  const done = await a.update(first, { status: "completed" });
+  const third = await create("提交提纲");
+  await assert.rejects(
+    b.update(third, { prerequisiteIds: [done.id] }),
+    /TASK_PREREQUISITE_NOT_PENDING/,
+  );
+  const edited = await b.update(waiting, { note: "已完成的前置仍保留" });
+  assert.deepEqual(edited.data.prerequisiteIds, [done.id]);
+  const secondDone = await b.update(edited, { status: "completed" });
+  assert.equal(secondDone.data.status, "completed");
+  const reopened = await a.update(done, { status: "pending" });
+  const secondOpen = await b.update(secondDone, { status: "pending" });
+  await assert.rejects(
+    b.update(secondOpen, { status: "completed" }),
+    /TASK_PREREQUISITES_OPEN/,
+  );
+  assert.equal(reopened.data.status, "pending");
+});
+
+test("task planning: old task edits preserve notes, list and prerequisite fields", async () => {
+  const c = setup();
+  const list = await c.create("taskList", { name: "学习" });
+  const prerequisite = await c.create("task", {
+    title: "先读题",
+    status: "pending",
+    scheduleKind: "recent",
+  });
+  const task = await c.create("task", {
+    title: "写作业",
+    status: "pending",
+    scheduleKind: "recent",
+    listId: list.id,
+    note: "测试备注",
+    prerequisiteIds: [prerequisite.id],
+  });
+  const result = await c.send(
+    c.command("task", task.id, task.version, {
+      title: "交作业",
+      status: "pending",
+      scheduleKind: "unscheduled",
+    }),
+  );
+  assert.equal(result.outcome, "accepted");
+  if (result.outcome !== "accepted" || result.entity.type !== "task")
+    throw new Error("Expected task");
+  assert.equal(result.entity.data.listId, list.id);
+  assert.equal(result.entity.data.note, "测试备注");
+  assert.deepEqual(result.entity.data.prerequisiteIds, [prerequisite.id]);
+  const cleared = await c.update<"task">(result.entity, {
+    listId: "",
+    note: "",
+    prerequisiteIds: [],
+  });
+  assert.equal(cleared.data.listId, "");
+  assert.equal(cleared.data.note, "");
+  assert.deepEqual(cleared.data.prerequisiteIds, []);
+});
+
+test("task folders preserve their parent on legacy edits and reject cycles", async () => {
+  const c = setup();
+  const root = await c.create("taskList", { name: "工作" });
+  const child = await c.create("taskList", { name: "网站", parentId: root.id });
+  const edit = await c.send(
+    c.command("taskList", child.id, child.version, { name: "官网改版" }),
+  );
+  assert.equal(edit.outcome, "accepted");
+  if (edit.outcome !== "accepted" || edit.entity.type !== "taskList")
+    throw new Error("Expected task folder");
+  assert.equal(edit.entity.data.parentId, root.id);
+  await assert.rejects(
+    c.update(root, { parentId: child.id }),
+    /TASK_LIST_CYCLE/,
+  );
+});
+
+test("task time survives an older client's title edit and can be cleared", async () => {
+  const c = setup();
+  const data = {
+    title: "交稿",
+    status: "pending",
+    scheduleKind: "deadline",
+    scheduleDate: "2026-11-19",
+  } as const;
+  const task = await c.create("task", { ...data, scheduleTime: "18:15" });
+  const edit = await c.send(
+    c.command("task", task.id, task.version, { ...data, title: "交最终稿" }),
+  );
+  assert.equal(edit.outcome, "accepted");
+  if (edit.outcome !== "accepted" || edit.entity.type !== "task")
+    throw new Error("Expected task");
+  assert.equal(edit.entity.data.scheduleTime, "18:15");
+  await assert.rejects(
+    c.update<"task">(edit.entity, { scheduleTime: "25:00" }),
+    /INVALID_TASK_TIME/,
+  );
+  const cleared = await c.update<"task">(edit.entity, { scheduleTime: "" });
+  assert.equal(cleared.data.scheduleTime, undefined);
+});

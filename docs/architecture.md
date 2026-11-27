@@ -2,14 +2,19 @@
 
 ```
 apps/web                  网页（React）。界面只通过 src/data 读写数据，不直接碰网络或本地数据库
+apps/macos                macOS 原生桌面壳（WKWebView，同源下载与安全导出保存）
 apps/ios/CouncilStudio    iPhone App（SwiftUI）
+apps/ios/CouncilWidgets   iPhone 今日任务小组件扩展
 apps/ios/CouncilCore      iPhone 的本地数据库、同步和计算规则（Swift 包，可单独测试）
 packages/contracts        所有数据类型的唯一定义（schema.ts），其他东西都从它生成
-modules/kernel            与业务无关的同步内核：保存、版本、冲突、变化记录、设备身份
-modules/<业务>            每个业务的规则，都是纯函数（finance、habits、tasks、treasury…）
+modules/kernel            与业务无关的同步内核：保存、版本、冲突、变化记录、设备身份、作用域快照
+modules/<业务>            每个业务的规则，都是纯函数（finance、habits、tasks、treasury、storage、workspace…）
 services/api              HTTP 接口，把上面这些组装起来
-infra                     数据库迁移和部署脚本
-tests                     接口与同步测试
+services/council-query    只读查询服务
+services/council-gemini   经 OAuth PKCE 授权的只读 Gemini 连接器（可选）
+infra                     数据库迁移（0001–0024）、部署与监测脚本
+tools                     本机微信支付记账桥（可选）与迁移工具
+tests                     单元测试、PostgreSQL 集成测试与浏览器端到端测试
 ```
 
 ## 几个关键设计

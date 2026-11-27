@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 [ -f infra/deploy/site.env ] && . infra/deploy/site.env
 : "${COUNCIL_SSH:?set COUNCIL_SSH in infra/deploy/site.env}"
 PORT=${COUNCIL_SSH_PORT:-22}
-DEST=${COUNCIL_BACKUP_DIR:-"$HOME/Library/Mobile Documents/com~apple~CloudDocs/SELF OS 备份/数据库"}
+DEST=${COUNCIL_BACKUP_DIR:-"$HOME/Library/Mobile Documents/com~apple~CloudDocs/个人决策团备份/新版数据库"}
 KEEP=${COUNCIL_BACKUP_KEEP:-7}
 SSH="ssh -p $PORT -o BatchMode=yes -o ConnectTimeout=20"
 mkdir -p "$DEST"

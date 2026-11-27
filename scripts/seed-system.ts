@@ -272,7 +272,7 @@ try {
   });
   await seed("document", "note", {
     title: "学习资料 · 模拟笔记",
-    body: "# 把资料和行动连接起来\n\n这是一篇演示文章。\n\n## 关键概念\n\n- 领域可以直接推进，也可以细分子领域。\n- 真正遇到问题时，再建立问题和方案链。\n- 每一条进展保留原文和所属分支。\n\n## 下一步\n\n选择一个很小的行动，开始。",
+    body: "# 把资料和行动连接起来\n\n这是新版的模拟资料，不包含真实个人信息。\n\n## 关键概念\n\n- 领域可以直接推进，也可以细分子领域。\n- 真正遇到问题时，再建立问题和方案链。\n- 每一条进展保留原文和所属分支。\n\n## 下一步\n\n选择一个很小的行动，开始。",
     kind: "note",
     day,
     domainId: id("automation"),
@@ -341,7 +341,7 @@ try {
   if (exportOnly)
     writeFileSync(
       new URL(
-        "../apps/ios/CouncilApp/Generated/demo-fixtures.json",
+        "../apps/ios/CouncilStudio/Generated/demo-fixtures.json",
         import.meta.url,
       ),
       JSON.stringify(fixtureRecords),

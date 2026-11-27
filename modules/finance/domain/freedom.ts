@@ -88,13 +88,14 @@ export type Freedom = {
 
 /** `assets` are the stable ones: money in hand. Volatile assets are shown apart and promise nothing. */
 export function freedom(input: { assets: bigint; startAssets: bigint; average: number; volatile?: bigint }): Freedom {
-  if (!(input.average > 0)) return { days: null, blue: 0, gold: 0, volatile: 0 };
+  if (!(input.average > 0) || !Number.isFinite(input.average)) return { days: null, blue: 0, gold: 0, volatile: 0 };
   const assets = input.assets > 0n ? input.assets : 0n;
-  const days = Math.floor(Number(assets) / input.average);
+  const daysFor = (amount: bigint) => Math.min(1_000_000, Math.floor(Number(amount) / input.average));
+  const days = daysFor(assets);
   const base = input.startAssets < assets ? (input.startAssets > 0n ? input.startAssets : 0n) : assets;
-  const blue = Math.min(days, Math.floor(Number(base) / input.average));
+  const blue = Math.min(days, daysFor(base));
   const extra = input.volatile && input.volatile > 0n ? input.volatile : 0n;
-  const withVolatile = Math.floor(Number(assets + extra) / input.average);
+  const withVolatile = daysFor(assets + extra);
   return { days, blue, gold: days - blue, volatile: withVolatile - days };
 }
 
@@ -114,4 +115,104 @@ export function whatIf(
   const average = (cost.total + Number(spend)) / days;
   const after = assets + (change.income ?? 0n) - (change.fromAssets ? spend : 0n);
   return { days: freedom({ assets: after, startAssets: after, average }).days, average };
+}
+
+export type FreedomTrendPoint = {
+  day: string;
+  average: number | null;
+  usageCost: number | null;
+  days: number | null;
+};
+const dayMillis = 86_400_000;
+const businessZone = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Shanghai", timeZoneName: "longOffset",
+});
+
+/** Exclusive close of the accounting day at the next Shanghai midnight. */
+export function businessDayEnd(day: string): number {
+  const next = Date.parse(day + "T00:00:00Z") + dayMillis;
+  if (!Number.isFinite(next)) return NaN;
+  const offset = businessZone.formatToParts(next - 8 * 3_600_000)
+    .find((part) => part.type === "timeZoneName")?.value;
+  const match = /^GMT([+-])(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(offset ?? "");
+  if (!match) return next - 8 * 3_600_000;
+  const seconds = Number(match[2]) * 3600 + Number(match[3]) * 60 + Number(match[4] ?? 0);
+  return next - (match[1] === "+" ? seconds : -seconds) * 1000;
+}
+
+/** Hide a sale or recovery that had not yet occurred on a retrospective point. */
+export function expenseKnownAt(row: Row, day: string): Row {
+  const ended = text(row, "endedDay");
+  const recovery = text(row, "recoveryDay") || ended || text(row, "day");
+  if (ended <= day && recovery <= day) return row;
+  return { data: { ...row.data, endedDay: ended > day ? "" : ended, recoveryMinor: recovery > day ? "0" : row.data.recoveryMinor } };
+}
+
+/** Date range only controls the view. Each average still starts at the bookkeeping start. */
+export function freedomTrend(
+  expenses: Row[],
+  history: readonly { at: string; value: bigint | null }[],
+  options: { from: string; to: string; today: string; assetsToday: bigint | null; since?: string; basis: CostBasis },
+): FreedomTrendPoint[] {
+  const end = options.to < options.today ? options.to : options.today;
+  const first = Date.parse(options.from + "T00:00:00Z");
+  const last = Date.parse(end + "T00:00:00Z");
+  if (!Number.isFinite(first) || !Number.isFinite(last) || first > last) return [];
+  const stride = Math.max(1, Math.ceil((last - first) / dayMillis / 366));
+  const points: FreedomTrendPoint[] = [];
+  const timed = history.map((row) => ({ ...row, time: Date.parse(row.at) }))
+    .filter((row) => Number.isFinite(row.time)).sort((a, b) => a.time - b.time);
+  const since = options.since && isDay(options.since) ? options.since : bookkeepingStart(expenses, end);
+  const ordinaryByDay = new Map<string, bigint>();
+  const ordinaryEvents = new Map<string, bigint>();
+  const longTerm: Row[] = [];
+  const increment = (map: Map<string, bigint>, day: string, amount: bigint) =>
+    map.set(day, (map.get(day) ?? 0n) + amount);
+  for (const row of expenses) {
+    if (row.data.mode !== "immediate" && row.data.mode !== undefined) {
+      longTerm.push(row);
+      continue;
+    }
+    const purchase = text(row, "day");
+    if (!since || !isDay(purchase) || purchase < since || purchase > end) continue;
+    const amount = BigInt(text(row, "amountMinor") || "0");
+    const recovery = BigInt(text(row, "recoveryMinor") || "0");
+    increment(ordinaryEvents, purchase, amount);
+    increment(ordinaryByDay, purchase, amount);
+    if (recovery === 0n) continue;
+    const recoveredAt = text(row, "recoveryDay") || text(row, "endedDay") || purchase;
+    const firstKnown = recoveredAt < purchase ? purchase : recoveredAt;
+    // Today shows the purchase using the current ledger; older points only use events then known.
+    const effective = firstKnown > options.today ? options.today : firstKnown;
+    increment(ordinaryEvents, effective, -recovery);
+    if (effective === purchase) increment(ordinaryByDay, purchase, -recovery);
+  }
+  const events = [...ordinaryEvents].sort(([left], [right]) => left.localeCompare(right));
+  let eventIndex = 0;
+  let ordinaryTotal = 0n;
+  let cursor = 0;
+  let balance: bigint | null = null;
+  for (let at = first; ; at = Math.min(last, at + stride * dayMillis)) {
+    const day = new Date(at).toISOString().slice(0, 10);
+    // Accounting days close at midnight UTC+8. A future price cannot fill an earlier gap.
+    const nextMidnight = businessDayEnd(day);
+    while (cursor < timed.length && timed[cursor].time < nextMidnight) balance = timed[cursor++].value;
+    while (eventIndex < events.length && events[eventIndex][0] <= day) ordinaryTotal += events[eventIndex++][1];
+
+    const assets = day === options.today ? options.assetsToday : balance;
+    if (!since || day < since) {
+      points.push({ day, average: null, usageCost: null, days: null });
+    } else {
+      const rows = day === options.today ? longTerm : longTerm.map((row) => expenseKnownAt(row, day));
+      const cost = dailyCost(rows, day, { since, basis: options.basis });
+      const average = (Number(ordinaryTotal) + cost.total) / cost.days;
+      points.push({
+        day,
+        average,
+        usageCost: Number(ordinaryByDay.get(day) ?? 0n) + cost.today,
+        days: assets === null ? null : freedom({ assets, startAssets: 0n, average }).days,
+      });
+    }
+    if (at === last) return points;
+  }
 }

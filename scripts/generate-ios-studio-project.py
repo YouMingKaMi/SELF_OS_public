@@ -1,5 +1,4 @@
-"""Xcode project for the design-study app (CouncilStudio). Shares only the CouncilCore package
-with the main app; its UI lives entirely in apps/ios/CouncilStudio. Re-run after adding files."""
+"""Xcode project for CouncilStudio and its widgets. Re-run after adding source files."""
 from pathlib import Path
 import hashlib
 root = Path(__file__).resolve().parent.parent / 'apps/ios'
@@ -18,7 +17,7 @@ for directory in ['CouncilStudio', 'CouncilWidgets']:
             sources.append(obj('build' + name, f'isa = PBXBuildFile; fileRef = {ref};'))
         if directory == 'CouncilWidgets':
             widget_sources.append(obj('widgetbuild' + name, f'isa = PBXBuildFile; fileRef = {ref};'))
-fixture = obj('fixtures', 'isa = PBXFileReference; lastKnownFileType = text.json; path = "CouncilApp/Generated/demo-fixtures.json"; sourceTree = "<group>";')
+fixture = obj('fixtures', 'isa = PBXFileReference; lastKnownFileType = text.json; path = "CouncilStudio/Generated/demo-fixtures.json"; sourceTree = "<group>";')
 fixturebuild = obj('fixturebuild', f'isa = PBXBuildFile; fileRef = {fixture};')
 # App icon: one 1024 image; Xcode derives every size.
 assets = obj('assets', 'isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "CouncilStudio/Assets.xcassets"; sourceTree = "<group>";')
@@ -42,14 +41,14 @@ settings = ('PRODUCT_BUNDLE_IDENTIFIER = org.personalcouncil.next.studio; PRODUC
             'SWIFT_VERSION = 6.0; IPHONEOS_DEPLOYMENT_TARGET = 18.0; GENERATE_INFOPLIST_FILE = YES; '
             'INFOPLIST_FILE = CouncilStudio/Info.plist; TARGETED_DEVICE_FAMILY = 1; '
             'ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_ENTITLEMENTS = CouncilStudio/CouncilStudio.entitlements; '
-            'MARKETING_VERSION = 0.3.0; CURRENT_PROJECT_VERSION = 4; CODE_SIGN_STYLE = Automatic; COUNCIL_WIDGET_GROUP = org.personalcouncil.next.studio.widget-items;')
+            'MARKETING_VERSION = 0.3.14; CURRENT_PROJECT_VERSION = 20; CODE_SIGN_STYLE = Automatic;')
 widget_settings = ('PRODUCT_BUNDLE_IDENTIFIER = org.personalcouncil.next.studio.widgets; PRODUCT_NAME = CouncilWidgets; '
                    'SWIFT_VERSION = 6.0; IPHONEOS_DEPLOYMENT_TARGET = 18.0; GENERATE_INFOPLIST_FILE = YES; '
                    'INFOPLIST_FILE = CouncilWidgets/Info.plist; TARGETED_DEVICE_FAMILY = 1; '
                    'CODE_SIGN_ENTITLEMENTS = CouncilWidgets/CouncilWidgets.entitlements; '
                    'APPLICATION_EXTENSION_API_ONLY = YES; SKIP_INSTALL = YES; '
                    'SWIFT_ACTIVE_COMPILATION_CONDITIONS = COUNCIL_WIDGET; '
-                   'MARKETING_VERSION = 0.3.0; CURRENT_PROJECT_VERSION = 4; CODE_SIGN_STYLE = Automatic; COUNCIL_WIDGET_GROUP = org.personalcouncil.next.studio.widget-items;')
+                   'MARKETING_VERSION = 0.3.14; CURRENT_PROJECT_VERSION = 20; CODE_SIGN_STYLE = Automatic;')
 configs, pconfigs, widget_configs = [], [], []
 for name in ['Debug', 'Release']:
     configs.append(obj('target' + name, f'isa = XCBuildConfiguration; name = {name}; buildSettings = {{ {settings} }};'))

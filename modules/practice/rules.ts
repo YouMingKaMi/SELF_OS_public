@@ -1,7 +1,12 @@
 import type { Rules } from "../kernel/index.ts";
 import type { AnyEntity } from "../../packages/contracts/entities.ts";
 
-type Placement = { domainId?: string; problemId?: string };
+type Placement = {
+  domainId?: string;
+  activityId?: string;
+  problemId?: string;
+  solutionId?: string;
+};
 /**
  * Anything filed under the practice tree must point at one consistent branch:
  * the activity and problem belong to the stated domain, the solution to the stated problem.
@@ -24,6 +29,14 @@ export function checkPlacement(
   )
     throw new Error("INVALID_PROBLEM_DOMAIN");
   if (
+    refs.eventId &&
+    (refs.eventId.data.domainId !== data.domainId ||
+      refs.eventId.data.activityId !== data.activityId ||
+      data.problemId ||
+      data.solutionId)
+  )
+    throw new Error("INVALID_EVENT_PLACEMENT");
+  if (
     refs.solutionId &&
     data.problemId &&
     refs.solutionId.data.problemId !== data.problemId
@@ -44,6 +57,22 @@ const placed = {
 
 export const rules: Rules = {
   problem: placed,
+  practiceEvent: {
+    async check({ data, current, refs }, reader) {
+      checkPlacement(data, refs);
+      if (
+        current &&
+        (current.data.domainId !== data.domainId ||
+          current.data.activityId !== data.activityId ||
+          current.data.readingItemId !== data.readingItemId)
+      )
+        throw new Error("EVENT_PLACEMENT_LOCKED");
+      if (!current && data.readingItemId) {
+        const item = await reader.get("readingItem", data.readingItemId);
+        if (!item || item.deleted) throw new Error("MISSING_READING_ITEM");
+      }
+    },
+  },
   session: placed,
   progress: placed,
   solution: {

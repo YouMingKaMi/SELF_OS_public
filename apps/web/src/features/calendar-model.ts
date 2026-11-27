@@ -1,14 +1,11 @@
-import { Lunar, Solar, LunarMonth } from "lunar-typescript";
+import { Lunar, LunarMonth } from "lunar-typescript";
+import { solarOccurrence } from "../../../../modules/calendar/index.ts";
 import type { AnyEntity as Entity } from "../data/entities.ts";
 import { today, str, num } from "../ui/shared.tsx";
-function solarDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 export function nextOccurrence(e: Entity, from = today()): string | null {
   try {
     const base = str(e, "date");
     const repeat = str(e, "repeat", "once");
-    const fromDate = new Date(from + "T00:00:00Z");
     if (e.data.calendar === "lunar") {
       const initial = Lunar.fromYmd(
         num(e, "lunarYear"),
@@ -41,14 +38,14 @@ export function nextOccurrence(e: Entity, from = today()): string | null {
       }
       const first = LunarMonth.fromYm(initial.getYear(), initial.getMonth());
       if (!first) return null;
-      for (let i = 0; i < 5000; i++) {
-        const target =
-          unit === "month"
-            ? first.next(i * interval)
-            : LunarMonth.fromYm(
-                initial.getYear() + i * interval,
-                initial.getMonth(),
-              );
+      const fromYear = Number(from.slice(0, 4));
+      const start = unit === "year" ? Math.max(0, Math.floor((fromYear - 1 - initial.getYear()) / interval)) : 0;
+      let nextMonth: LunarMonth | null = first;
+      for (let i = start; nextMonth && nextMonth.getYear() <= 2100; i++) {
+        const year = initial.getYear() + i * interval;
+        if (unit === "year" && year > 2100) break;
+        const target = unit === "month" ? nextMonth : LunarMonth.fromYm(year, initial.getMonth());
+        if (unit === "month") nextMonth = nextMonth.next(interval);
         if (!target) continue;
         const result = Lunar.fromYmd(
           target.getYear(),
@@ -63,7 +60,6 @@ export function nextOccurrence(e: Entity, from = today()): string | null {
     }
     if (!base) return null;
     if (repeat === "once") return base;
-    const initial = new Date(base + "T00:00:00Z");
     const unit =
       repeat === "weekly"
         ? "week"
@@ -73,35 +69,7 @@ export function nextOccurrence(e: Entity, from = today()): string | null {
             ? "year"
             : str(e, "intervalUnit", "day");
     const interval = repeat === "custom" ? num(e, "interval", 1) : 1;
-    for (let i = 0; i < 20000; i++) {
-      const date = new Date(initial);
-      if (unit === "day" || unit === "week")
-        date.setUTCDate(
-          date.getUTCDate() + i * interval * (unit === "week" ? 7 : 1),
-        );
-      else if (unit === "month") {
-        date.setUTCDate(1);
-        date.setUTCMonth(initial.getUTCMonth() + i * interval);
-        const last = new Date(
-          Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
-        ).getUTCDate();
-        date.setUTCDate(Math.min(initial.getUTCDate(), last));
-      } else {
-        date.setUTCDate(1);
-        date.setUTCFullYear(initial.getUTCFullYear() + i * interval);
-        date.setUTCMonth(initial.getUTCMonth());
-        date.setUTCDate(
-          Math.min(
-            initial.getUTCDate(),
-            new Date(
-              Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
-            ).getUTCDate(),
-          ),
-        );
-      }
-      if (solarDate(date) >= from) return solarDate(date);
-    }
-    return null;
+    return solarOccurrence(base, from, unit, interval);
   } catch {
     return null;
   }

@@ -1,18 +1,26 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./writing.css";
+import { useDocumentSearch } from "../data/document-search.ts";
+import { documentMarkdownParts, documentsMarkdown } from "./document-export.ts";
+import { downloadFile } from "../ui/download.ts";
 import Markdown from "react-markdown";
 import { Icon } from "../ui/Icon.tsx";
 import {
   useDocumentDraft,
   writeDocumentDraft,
   clearDocumentDraft,
-  hasDocumentDraft,
+  readDocumentDraft,
+  anotherDocumentDraft,
 } from "../ui/document-draft.ts";
+import { applyPatch, fieldPatch, hasFieldConflict } from "../../../../packages/contracts/edit.ts";
 import {
+  useDatedEntities,
   useEntities,
   usePending,
   put,
   remove,
+  saveEdit,
+  transferJournalText,
   undoPending,
   type AnyEntity as Entity,
   type Data,
@@ -57,22 +65,88 @@ const copy = {
     placeholder: "记下一个想法，按回车保存。",
   },
 } as const;
-export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
-  const { entities }: { entities: Entity[] } = useEntities(
-    kind === "idea" ? "idea" : "journal",
-  );
+type JournalTarget = { kind: "idea" | "raw"; day: string; id: string };
+
+const MAX_IDEA_TRANSFER_UNITS = 100_000;
+
+function formatTransferError(err: unknown): string {
+  const code = err instanceof Error ? err.message : String(err ?? "");
+  switch (code) {
+    case "INVALID_TRANSFER_SOURCE":
+      return "当前记录无法迁移，可能已被修改或移除。";
+    case "INVALID_TRANSFER_SELECTION":
+      return "选中的文字范围无效，请重新拖选一段非空正文。";
+    case "TRANSFER_TOO_LONG":
+      return "选段超过想法暂存单条长度上限（100,000 字符），请缩小选区后再移动。";
+    default:
+      return code || "迁移失败，请刷新原文后重试。";
+  }
+}
+
+export function Journal({
+  kind,
+  focus,
+  onConsumeFocus,
+  onOpenTarget,
+  onOpenMemoir,
+}: {
+  kind: "chronicle" | "raw" | "idea";
+  focus?: JournalTarget;
+  onConsumeFocus?: () => void;
+  onOpenTarget?: (target: JournalTarget) => void;
+  onOpenMemoir?: () => void;
+}) {
+  const type = kind === "idea" ? "idea" : "journal";
   const pending = usePending();
   const [day, setDay] = useState(today());
   const [month, setMonth] = useState(monthNow());
+  const inMonth = day.startsWith(month + "-");
+  const monthRows = useDatedEntities(month + "-01", month + "-31", type);
+  const selectedRows = useDatedEntities(day, inMonth ? "" : day, type);
   const [draft, setDraft] = usePreference("draft-" + kind, "");
-  const [edit, setEdit] = useState<string>();
+  const [edit, setEdit] = useState<Entity>();
   const [editBody, setEditBody] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [status, setStatus] = useState("pending");
+  const [transferSource, setTransferSource] = useState<Entity>();
+  const [transferNotice, setTransferNotice] = useState<JournalTarget>();
+  const [focusedId, setFocusedId] = useState<string>();
   const text = copy[kind];
-  const rows = entities.filter((e) =>
+  const canTransfer = kind === "idea" || kind === "raw";
+  const targetKind: "idea" | "raw" = kind === "idea" ? "raw" : "idea";
+  const targetLabel = targetKind === "raw" ? "未加工信息原料" : "想法暂存";
+
+  useEffect(() => {
+    if (!focus || focus.kind !== kind) return;
+    setDay(focus.day);
+    setMonth(focus.day.slice(0, 7));
+    if (kind === "idea") setStatus("pending");
+    setFocusedId(focus.id);
+    onConsumeFocus?.();
+  }, [focus, kind, onConsumeFocus]);
+
+  useEffect(() => {
+    if (!focusedId) return;
+    const node = document.querySelector<HTMLElement>(
+      `[data-journal-id="${CSS.escape(focusedId)}"]`,
+    );
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = window.setTimeout(() => setFocusedId(undefined), 3200);
+    return () => window.clearTimeout(timer);
+  }, [focusedId, day, month, selectedRows.length, monthRows.length]);
+
+  const rows = monthRows.filter((e) =>
     kind === "idea" ? e.data.status === status : e.data.kind === kind,
   );
+  const allLoaded = useMemo(() => {
+    const map = new Map<string, Entity>();
+    for (const row of monthRows) map.set(row.id, row);
+    for (const row of selectedRows) map.set(row.id, row);
+    return map;
+  }, [monthRows, selectedRows]);
+  const liveTransferSource = transferSource
+    ? allLoaded.get(transferSource.id)
+    : undefined;
   async function add() {
     if (!draft.trim()) return;
     await put(kind === "idea" ? "idea" : "journal", {
@@ -83,15 +157,13 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
     setDraft("");
   }
   // The left side always shows the chosen day in full, whatever the status filter on the right.
-  const selected = entities
+  const selected = (inMonth ? monthRows : selectedRows)
     .filter(
       (e) =>
         e.data.day === day && (kind === "idea" ? true : e.data.kind === kind),
     )
     .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
-  const history = rows
-    .filter((e) => String(e.data.day).startsWith(month))
-    .sort(
+  const history = rows.sort(
       (a, b) =>
         String(b.data.day).localeCompare(String(a.data.day)) ||
         a.updatedAt.localeCompare(b.updatedAt),
@@ -115,11 +187,13 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
           "journal-row" +
           (kind === "idea" && e.data.status !== "pending"
             ? " " + str(e, "status")
-            : "")
+            : "") +
+          (focusedId === e.id ? " focused" : "")
         }
+        data-journal-id={e.id}
         key={e.id}
       >
-        {edit === e.id ? (
+        {edit?.id === e.id ? (
           <div className="journal-edit">
             <textarea
               autoFocus
@@ -137,7 +211,7 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
                   if (savingEdit) return;
                   setSavingEdit(true);
                   perform(
-                    put(e.type, { ...e.data, body: editBody }, e)
+                    saveEdit(e.type, e.id, edit.data, { ...edit.data, body: editBody })
                       .then(() => setEdit(undefined))
                       .finally(() => setSavingEdit(false)),
                   );
@@ -154,12 +228,22 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
             <div className="row-tools">
               <button
                 onClick={() => {
-                  setEdit(e.id);
+                  setEdit(e);
                   setEditBody(str(e, "body"));
                 }}
               >
                 编辑
               </button>
+              {canTransfer && (
+                <button
+                  onClick={() => {
+                    setEdit(undefined);
+                    setTransferSource(e);
+                  }}
+                >
+                  {targetKind === "raw" ? "移至原料" : "移至想法"}
+                </button>
+              )}
               {kind === "idea" && (
                 <>
                   <button onClick={() => setIdea(e, "completed")}>
@@ -189,7 +273,44 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
         eyebrow={text.eyebrow}
         title={text.title}
         description={text.description}
-      />
+      >
+        {kind === "chronicle" && onOpenMemoir && (
+          <button type="button" onClick={onOpenMemoir}>
+            回忆录 <Icon name="arrow" size={13} />
+          </button>
+        )}
+      </Heading>
+      {transferNotice && (
+        <div className="transfer-banner" role="status">
+          <span>
+            已移至{transferNotice.kind === "raw" ? "未加工信息原料" : "想法暂存"}
+            （保留日期 {transferNotice.day}）
+          </span>
+          <div className="transfer-banner-actions">
+            {onOpenTarget && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  const dest = transferNotice;
+                  setTransferNotice(undefined);
+                  onOpenTarget(dest);
+                }}
+              >
+                去查看 <Icon name="arrow" size={12} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="ghost"
+              aria-label="关闭提示"
+              onClick={() => setTransferNotice(undefined)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       <div className={"columns journal " + kind}>
         <Panel
           className="journal-capture"
@@ -277,12 +398,16 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
                 className={"day-block" + (date === day ? " current" : "")}
                 key={date}
               >
-                <header>
+                <header
+                  role="button"
+                  tabIndex={0}
+                  title="点日期，在左边编辑这一天"
+                  onClick={() => setDay(date)}
+                  onKeyDown={(e) => e.key === "Enter" && setDay(date)}
+                >
                   <h3>{date.slice(8)}</h3>
                   <small>周{weekday(date)}</small>
-                  <button onClick={() => setDay(date)}>
-                    {date === day ? "正在编辑" : "补记"}
-                  </button>
+                  {date === day && <em className="editing-mark">编辑中</em>}
                 </header>
                 {history.filter((e) => e.data.day === date).map(line)}
               </section>
@@ -290,7 +415,242 @@ export function Journal({ kind }: { kind: "chronicle" | "raw" | "idea" }) {
           </div>
         </Panel>
       </div>
+      {transferSource && canTransfer && (
+        <JournalTransferModal
+          source={transferSource}
+          liveSource={liveTransferSource}
+          targetKind={targetKind}
+          targetLabel={targetLabel}
+          onReloadLatest={() => {
+            if (liveTransferSource) setTransferSource(liveTransferSource);
+          }}
+          onClose={() => setTransferSource(undefined)}
+          onTransferred={(target) => {
+            setTransferSource(undefined);
+            setTransferNotice(target);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function JournalTransferModal({
+  source,
+  liveSource,
+  targetKind,
+  targetLabel,
+  onReloadLatest,
+  onClose,
+  onTransferred,
+}: {
+  source: Entity;
+  liveSource?: Entity;
+  targetKind: "idea" | "raw";
+  targetLabel: string;
+  onReloadLatest: () => void;
+  onClose: () => void;
+  onTransferred: (target: JournalTarget) => void;
+}) {
+  const body = str(source, "body");
+  const day = str(source, "day");
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const [range, setRange] = useState<{ start: number; end: number } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setRange(null);
+    setError("");
+  }, [source.id, source.version, body]);
+
+  const removedExternally = !liveSource || liveSource.deleted;
+  const changedExternally =
+    !removedExternally &&
+    (liveSource.version !== source.version ||
+      str(liveSource, "body") !== body ||
+      str(liveSource, "day") !== day);
+
+  const selectedText = range ? body.slice(range.start, range.end) : "";
+  const hasSelection = Boolean(range && range.end > range.start);
+  const selectionBlank = hasSelection && !selectedText.trim();
+  const remainingText = hasSelection
+    ? body.slice(0, range!.start) + body.slice(range!.end)
+    : "";
+  const removesWholeSource = !hasSelection || !remainingText.trim();
+  const payloadUnits = hasSelection ? selectedText.length : body.length;
+  const tooLong = targetKind === "idea" && payloadUnits > MAX_IDEA_TRANSFER_UNITS;
+
+  function syncSelection() {
+    const el = areaRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    setError("");
+    if (end > start) {
+      setRange({ start, end });
+    } else {
+      setRange(null);
+    }
+  }
+
+  function clearSelection() {
+    setRange(null);
+    setError("");
+    const el = areaRef.current;
+    if (el) el.setSelectionRange(0, 0);
+  }
+
+  async function submit() {
+    if (submitting || removedExternally || changedExternally || selectionBlank || tooLong) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const createdId = await transferJournalText(
+        source,
+        hasSelection && range ? { start: range.start, end: range.end } : undefined,
+      );
+      onTransferred({ kind: targetKind, day, id: createdId });
+    } catch (err) {
+      setError(formatTransferError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !submitting) onClose();
+      }}
+    >
+      <div
+        className="modal transfer-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="journal-transfer-title"
+      >
+        <header>
+          <h2 id="journal-transfer-title">移至{targetLabel}</h2>
+          <button
+            type="button"
+            aria-label="关闭迁移窗口"
+            disabled={submitting}
+            onClick={onClose}
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </header>
+
+        <div className="transfer-meta">
+          <span>移动而非复制</span>
+          <span className="transfer-dot">·</span>
+          <span>保留原日期 {day}</span>
+          {targetKind === "idea" && (
+            <>
+              <span className="transfer-dot">·</span>
+              <span>进入待实现想法</span>
+            </>
+          )}
+        </div>
+
+        {removedExternally ? (
+          <div className="transfer-alert">
+            这条记录已在另一端移除，无法继续迁移。请关闭窗口查看最新列表。
+          </div>
+        ) : changedExternally ? (
+          <div className="transfer-alert">
+            <span>另一台设备刚更新了这条原文，请先载入最新内容再重新选段。</span>
+            <button type="button" onClick={onReloadLatest}>
+              载入最新原文
+            </button>
+          </div>
+        ) : null}
+
+        <div className="transfer-picker">
+          <div className="transfer-picker-head">
+            <small>在下方原文里拖选一段文字可仅移动选段；不选则移动整条。</small>
+            {hasSelection && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={clearSelection}
+              >
+                清除选区
+              </button>
+            )}
+          </div>
+          <textarea
+            ref={areaRef}
+            className="transfer-source"
+            readOnly
+            value={body}
+            aria-label="选择要移动的正文范围"
+            onSelect={syncSelection}
+            onMouseUp={syncSelection}
+            onKeyUp={syncSelection}
+          />
+        </div>
+
+        <div className="transfer-summary">
+          {selectionBlank ? (
+            <p className="transfer-warn">当前选区只有空白字符，请重新选择有效文字。</p>
+          ) : tooLong ? (
+            <p className="transfer-warn">
+              当前内容共 {payloadUnits.toLocaleString("zh-CN")} 字符，超过想法暂存单条上限（100,000），请拖选更短的一段。
+            </p>
+          ) : hasSelection ? (
+            <>
+              <div className="transfer-summary-head">
+                <strong>移动选段（{selectedText.length} 字符）→ {targetLabel}</strong>
+                <small>
+                  {removesWholeSource
+                    ? "选区已覆盖全部正文，移动后原条目会从当前列表移除。"
+                    : "未选中的其余文字会留在原条目中。"}
+                </small>
+              </div>
+              <blockquote className="transfer-preview">
+                {selectedText.length > 260
+                  ? selectedText.slice(0, 260) + "…"
+                  : selectedText}
+              </blockquote>
+            </>
+          ) : (
+            <div className="transfer-summary-head">
+              <strong>移动整条（{body.length} 字符）→ {targetLabel}</strong>
+              <small>整条移动后，原条目将从当前列表移除，并在 {day} 生成新记录。</small>
+            </div>
+          )}
+        </div>
+
+        {error && <p className="inline-error">{error}</p>}
+
+        <div className="form-actions">
+          <button type="button" disabled={submitting} onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={
+              submitting ||
+              removedExternally ||
+              changedExternally ||
+              selectionBlank ||
+              tooLong
+            }
+            onClick={() => void submit()}
+          >
+            {submitting
+              ? "正在移动…"
+              : hasSelection
+                ? `移动选段至${targetKind === "raw" ? "原料" : "想法"}`
+                : `移动整条至${targetKind === "raw" ? "原料" : "想法"}`}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
@@ -306,44 +666,60 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
     false,
   );
   const [newMode, setNewMode] = usePreference("document-new-" + kind, false);
-  const allDocuments = entities
+  const [copied, setCopied] = useState(false);
+  const [persistenceError, setPersistenceError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const allDocuments = useMemo(() => entities
     .filter((e) => e.data.kind === kind)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const list = allDocuments
-    .filter((e) =>
-      (str(e, "title") + " " + str(e, "body"))
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-    )
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const current =
-    allDocuments.find((e) => e.id === selected) ?? allDocuments[0];
-  const draftKey = kind + ":" + (newMode ? "new" : (current?.id ?? "new"));
-  const [draft, setDraft] = useDocumentDraft(draftKey, current?.data ?? {});
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [entities, kind]);
+  const matches = useDocumentSearch(entities, search);
+  const list = search ? allDocuments.filter((e) => matches?.has(e.id)) : allDocuments;
+  const current = allDocuments.find((e) => e.id === selected) ??
+    (editing && !newMode && selected ? undefined : allDocuments[0]);
+  const editedId = editing && !newMode ? selected ?? current?.id : current?.id;
+  const draftKey = kind + ":" + (newMode ? "new" : (editedId ?? "new"));
+  const savedDraft = useDocumentDraft(draftKey);
+  const dirty = savedDraft && (!savedDraft.base ||
+    Object.keys(fieldPatch(savedDraft.base.data, savedDraft.data)).length > 0);
+  const draft = dirty || newMode ? savedDraft?.data ?? {} : current?.data ?? {};
+  const hasConflict = !newMode && Boolean(savedDraft?.base && current &&
+    hasFieldConflict(savedDraft.base.data, current.data, fieldPatch(savedDraft.base.data, draft)));
+  const unknownBase = !newMode && Boolean(savedDraft && !savedDraft.base);
+  const canSave = newMode || Boolean(current && !hasConflict && !unknownBase);
+  const anotherDraft = editing && !dirty ? anotherDocumentDraft(draftKey) : undefined;
+  function persist(key: string, data: Data, original: Pick<Entity, "version" | "data"> | null | undefined) {
+    setPersistenceError(!writeDocumentDraft(key, { data, base: original }));
+  }
+  function setDraft(data: Data) {
+    persist(draftKey, data, dirty ? savedDraft?.base : newMode ? null : current &&
+      { version: current.version, data: current.data });
+  }
   function open(e: Entity) {
     setSelected(e.id);
     setEditing(false);
     setNewMode(false);
   }
   function create() {
-    if (!hasDocumentDraft(kind + ":new"))
-      writeDocumentDraft(kind + ":new", {
+    if (!readDocumentDraft(kind + ":new"))
+      persist(kind + ":new", {
         title: kind === "monthly" ? monthNow() + " · 月报" : "",
         body: "",
         kind,
         day: today(),
         ...(kind === "monthly" ? { month: monthNow() } : {}),
-      });
+      }, null);
     setNewMode(true);
     setEditing(true);
   }
   function edit() {
-    if (current && !hasDocumentDraft(kind + ":" + current.id))
-      writeDocumentDraft(kind + ":" + current.id, current.data);
+    if (!current) return;
+    setSelected(current.id);
     setNewMode(false);
     setEditing(true);
   }
   async function save() {
+    if (saving || !canSave) return;
     if (!String(draft.title ?? "").trim()) throw new Error("请填写标题");
     const data: Data = { ...draft, kind };
     if (kind !== "note") {
@@ -351,14 +727,41 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
       delete data.domainId;
       delete data.activityId;
     }
-    const id = await put("document", data, newMode ? undefined : current);
-    setSelected(id);
-    setEditing(false);
-    setNewMode(false);
-    clearDocumentDraft(draftKey);
+    setSaving(true);
+    try {
+      const id = newMode
+        ? await put("document", data)
+        : await saveEdit("document", current!.id, savedDraft?.base?.data ?? current!.data, data);
+      if (readDocumentDraft(draftKey) !== savedDraft) return;
+      clearDocumentDraft(draftKey);
+      setSelected(id);
+      setEditing(false);
+      setNewMode(false);
+    } finally {
+      setSaving(false);
+    }
   }
   const title =
     kind === "thought" ? "个人思考" : kind === "monthly" ? "月报" : "资料笔记";
+  async function exportMarkdown() {
+    const day = today();
+    setExporting(true);
+    try {
+      await downloadFile(`${title}-${day}.md`, "text/markdown;charset=utf-8", async (write) => {
+        let chunk = "";
+        for (const part of documentMarkdownParts(allDocuments, title, day)) {
+          chunk += part;
+          if (chunk.length >= 262_144) {
+            await write(chunk);
+            chunk = "";
+          }
+        }
+        if (chunk) await write(chunk);
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
   return (
     <>
       <Heading
@@ -372,6 +775,27 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
               : "在领域中积累资料，让知识有迹可循。"
         }
       >
+        <button
+          disabled={!allDocuments.length}
+          title="把全部文章合并成一份 Markdown 复制到剪贴板，可以直接粘贴给 AI"
+          onClick={() =>
+            perform(
+              navigator.clipboard
+                .writeText(documentsMarkdown(allDocuments, title, today()))
+                .then(() => setCopied(true))
+                .then(() => setTimeout(() => setCopied(false), 2000)),
+            )
+          }
+        >
+          {copied ? "已复制" : "复制全部"}
+        </button>
+        <button
+          disabled={!allDocuments.length || exporting}
+          title="把全部文章合并成一份 Markdown 文件下载"
+          onClick={() => perform(exportMarkdown())}
+        >
+          {exporting ? "正在导出…" : "导出 .md"}
+        </button>
         <button className="primary" onClick={create}>
           ＋ {kind === "monthly" ? "写月报" : "新建文章"}
         </button>
@@ -389,12 +813,12 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div className="article-list">
+          <div className="article-list" aria-busy={Boolean(search && !matches)}>
             {!list.length && (
               <Empty
                 text={
                   search
-                    ? "没有找到相关文章，试试其他关键词"
+                    ? matches ? "没有找到相关文章，试试其他关键词" : "正在搜索文章…"
                     : "文章会按最近修改排列在这里"
                 }
               />
@@ -461,6 +885,32 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
         >
           {editing ? (
             <>
+              {(hasConflict || unknownBase || (!newMode && !current)) && (
+                <div role="status" className="editor-hint">
+                  {!current ? "这条记录已被移除，仍可复制草稿。"
+                    : unknownBase ? "这是旧版草稿，请先对照当前版本。"
+                      : "另一台设备修改了相同字段，请先对照当前版本。"}
+                  {current && (
+                    <details>
+                      <summary>查看当前同步版本</summary>
+                      <strong>{str(current, "title")}</strong>
+                      <pre className="editor-current-version">{str(current, "body")}</pre>
+                      <button onClick={() => persist(draftKey,
+                        savedDraft?.base
+                          ? applyPatch(current.data, fieldPatch(savedDraft.base.data, draft))
+                          : { ...current.data, ...draft },
+                        { version: current.version, data: current.data })}>
+                        保留草稿修改，从当前版本继续
+                      </button>
+                    </details>
+                  )}
+                </div>
+              )}
+              {anotherDraft && (
+                <button onClick={() => persist(draftKey, anotherDraft.data, anotherDraft.base)}>
+                  恢复其他窗口的草稿
+                </button>
+              )}
               <input
                 aria-label="文章标题"
                 placeholder="文章标题"
@@ -527,11 +977,11 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
                 onChange={(e) => setDraft({ ...draft, body: e.target.value })}
               />
               <div className="form-actions">
-                <button className="primary" onClick={() => perform(save())}>
+                <button className="primary" disabled={saving || !canSave} onClick={() => perform(save())}>
                   保存文章
                 </button>
                 <button onClick={() => setEditing(false)}>返回阅读</button>
-                <small>草稿自动保存在此设备</small>
+                {persistenceError && <small role="alert">草稿无法写入本机存储，请先保存文章或复制正文。</small>}
               </div>
             </>
           ) : current ? (

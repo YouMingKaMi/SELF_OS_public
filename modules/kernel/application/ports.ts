@@ -5,12 +5,14 @@ import type {
   EntityType,
   Value,
 } from "../../../packages/contracts/entities.ts";
+import type { Snapshot, SnapshotPage, SyncScope, SyncState } from "../../../packages/contracts/snapshot.ts";
 
 /** Live (not deleted) rows of one type matching every condition. */
 export type Filter = {
   eq?: Record<string, Value>;
   /** Inclusive lower bound, e.g. `{ day: "2026-11-01" }`. */
   gte?: Record<string, Value>;
+  lte?: Record<string, Value>;
 };
 
 /** What a business rule may ask about already-confirmed data. No SQL crosses this line. */
@@ -18,6 +20,11 @@ export type Reader = {
   /** Returns tombstones too; check `deleted`. */
   get<T extends EntityType>(type: T, id: string): Promise<Entity<T> | null>;
   count(type: EntityType, filter: Filter): Promise<number>;
+  latest<T extends EntityType>(
+    type: T,
+    filter: Filter,
+    field: keyof EntityData<T> & string,
+  ): Promise<Entity<T> | null>;
 };
 
 /**
@@ -26,6 +33,8 @@ export type Reader = {
  * Rules signal failure by throwing `Error("CODE")` or `Error("CODE:field")`.
  */
 export type EntityRule<T extends EntityType> = {
+  /** Preserve live dependencies before tombstoning. A restore runs the ordinary write rules. */
+  checkDelete?(current: Entity<T>, reader: Reader): Promise<void>;
   validate?(data: EntityData<T>): void;
   /** Derive server-owned fields (e.g. a completion instant) before saving. */
   prepare?(input: {
@@ -33,6 +42,11 @@ export type EntityRule<T extends EntityType> = {
     current: Entity<T> | null;
     occurredAt: string;
   }): EntityData<T>;
+  /** Resolve a reference from the owner's current records under the write lock. */
+  resolve?(
+    input: { data: EntityData<T>; current: Entity<T> | null },
+    reader: Reader,
+  ): Promise<EntityData<T>>;
   check?(
     input: {
       id: string;
@@ -56,6 +70,7 @@ export type StoredReceipt = {
 
 /** One serialised unit of work for one owner. Everything in it commits or nothing does. */
 export type Transaction = Reader & {
+  state(): Promise<SyncState>;
   receipt(device: string, operationId: string): Promise<StoredReceipt | null>;
   saveReceipt(
     device: string,
@@ -76,5 +91,8 @@ export type Store = {
     owner: string,
     cursor: string,
     limit: number,
+    scope?: SyncScope,
   ): Promise<{ revision: string; entity: AnyEntity }[]>;
+  snapshot(owner: string, scope: SyncScope): Promise<Snapshot>;
+  snapshotPage(owner: string, id: string, after: string, limit: number): Promise<SnapshotPage>;
 };

@@ -13,13 +13,16 @@ struct MetricsScreen: View {
   var metrics: [Record] { studio.all("metric") }
   var focus: Record? { metrics.first { $0.id == selected } ?? metrics.first }
   var body: some View {
+    let logs = Dictionary(grouping: studio.all("metricLog")) { $0.text("metricId") }
+    let recentDays = (0..<14).reversed().map { Day.shift(day, -$0) }
     Page {
       DayStrip(day: $day).padding(.horizontal, 4)
       Card {
         VStack(spacing: 0) {
           ForEach(Array(metrics.enumerated()), id: \.element.id) { index, metric in
             if index > 0 { Hairline() }
-            MetricRow(metric: metric, day: day, selected: metric.id == focus?.id)
+            MetricRow(metric: metric, day: day, selected: metric.id == focus?.id,
+                      logs: logs[metric.id] ?? [], recentDays: recentDays)
               .contentShape(Rectangle()).onTapGesture { withAnimation(.snappy) { selected = metric.id } }
               .contextMenu {
                 Button("编辑指标", systemImage: "pencil") { form = EntityForm(type: "metric", record: metric) }
@@ -28,7 +31,7 @@ struct MetricsScreen: View {
           if metrics.isEmpty { EmptyNote(text: "添加睡眠、心情或你关心的指标", icon: "waveform.path.ecg") }
         }
       }
-      if let focus { MetricMonth(metric: focus, month: $month) }
+      if let focus { MetricMonth(metric: focus, month: $month, logs: logs[focus.id] ?? []) }
     }
     .studioScreen("每日指标")
     .toolbar {
@@ -47,13 +50,17 @@ struct MetricRow: View {
   let metric: Record
   let day: String
   let selected: Bool
+  let logs: [Record]
+  let recentDays: [String]
   var body: some View {
-    let logs = studio.all("metricLog").filter { $0.text("metricId") == metric.id }
-    let log = logs.first { $0.text("day") == day }
-    let recent = (0..<14).reversed().map { offset -> Double? in
-      let d = Day.shift(day, -offset)
-      return logs.first { $0.text("day") == d }.map { $0.number("value") }
-    }
+    let firstDay = recentDays.first ?? day
+    let byDay = Dictionary(grouping: logs.filter {
+      let date = $0.text("day")
+      return date >= firstDay && date <= day
+    }) { $0.text("day") }
+    let candidates = byDay[day] ?? []
+    let value = MetricRules.value(candidates)
+    let recent = recentDays.map { MetricRules.value(byDay[$0] ?? []) }
     let lo = metric.data["minimum"]?.double ?? 0
     let hi = metric.data["maximum"]?.double ?? 10
     let step = hi - lo > 20 ? 1.0 : 0.5
@@ -67,37 +74,45 @@ struct MetricRow: View {
       Spark(values: recent).frame(width: 58, height: 22)
       HStack(spacing: 0) {
         Button {
-          set(max(lo, (log?.number("value") ?? lo + step) - step))
+          set(max(lo, (value ?? lo + step) - step), existing: candidates.first)
         } label: {
-          Image(systemName: "minus").frame(width: 32, height: 34)
+          Image(systemName: "minus").frame(width: 38, height: 38).contentShape(Rectangle())
         }
-        Text(log.map { TodayMetricsCard.number($0.number("value")) } ?? "—")
+        Text(candidates.count > 1 ? "待核对" : value.map(TodayMetricsCard.number) ?? "—")
           .font(.system(size: 17, weight: .semibold, design: .rounded)).monospacedDigit()
-          .foregroundStyle(log == nil ? Ink.text3 : Ink.text).frame(minWidth: 34).contentTransition(.numericText())
+          .foregroundStyle(value == nil ? Ink.text3 : Ink.text).frame(minWidth: 36).contentTransition(.numericText())
         Button {
-          set(min(hi, (log?.number("value") ?? lo) + (log == nil ? 0 : step)))
+          set(min(hi, (value ?? lo) + (value == nil ? 0 : step)), existing: candidates.first)
         } label: {
-          Image(systemName: "plus").frame(width: 32, height: 34)
+          Image(systemName: "plus").frame(width: 38, height: 38).contentShape(Rectangle())
         }
       }.buttonStyle(.plain).font(.system(size: 12, weight: .bold)).foregroundStyle(Ink.text)
-        .background(Ink.raised, in: Capsule()).sensoryFeedback(.selection, trigger: log?.number("value"))
+        .background(Ink.raised, in: Capsule()).sensoryFeedback(.selection, trigger: value)
+        .disabled(candidates.count > 1)
     }.padding(.vertical, 11)
   }
-  func set(_ value: Double) {
+  func set(_ value: Double, existing: Record?) {
     Task {
-      await studio.save(
-        "metricLog", ["metricId": .string(metric.id), "day": .string(day), "value": .number(value)])
+      if let existing {
+        await studio.update(existing, ["value": .number(value)])
+      } else {
+        await studio.save(
+          "metricLog", ["metricId": .string(metric.id), "day": .string(day), "value": .number(value)])
+      }
     }
   }
 }
 
 struct MetricMonth: View {
-  @Environment(Studio.self) private var studio
   let metric: Record
   @Binding var month: String
+  let logs: [Record]
   var body: some View {
-    let logs = studio.all("metricLog").filter { $0.text("metricId") == metric.id && $0.text("day").hasPrefix(month) }
-    let summary = MetricRules.summary(logs)
+    let monthLogs = logs.filter { $0.text("day").hasPrefix(month) }
+    let summary = MetricRules.summary(monthLogs)
+    let days = Dictionary(grouping: monthLogs) { $0.text("day") }
+    let samples = days.keys.sorted().compactMap { key in MetricRules.value(days[key] ?? []).map { (key, $0) } }
+    let duplicates = days.values.filter { $0.count > 1 }.flatMap { $0 }.sorted { ($0.text("day"), $0.id) < ($1.text("day"), $1.id) }
     Card(icon: "chart.xyaxis.line", title: metric.title, meta: "缺失的日子不计入平均") {
       MonthBar(month: $month)
       StatRow(items: [
@@ -106,17 +121,27 @@ struct MetricMonth: View {
         ("最高", summary.maximum.map(TodayMetricsCard.number) ?? "—"),
         ("最低", summary.minimum.map(TodayMetricsCard.number) ?? "—"),
       ])
-      if !logs.isEmpty {
-        Chart(logs.sorted { $0.text("day") < $1.text("day") }) { log in
-          LineMark(x: .value("日", Int(log.text("day").suffix(2)) ?? 0), y: .value("值", log.number("value")))
+      if !samples.isEmpty {
+        Chart(samples, id: \.0) { sample in
+          LineMark(x: .value("日", Int(sample.0.suffix(2)) ?? 0), y: .value("值", sample.1))
             .foregroundStyle(Ink.text).interpolationMethod(.monotone)
-          PointMark(x: .value("日", Int(log.text("day").suffix(2)) ?? 0), y: .value("值", log.number("value")))
+          PointMark(x: .value("日", Int(sample.0.suffix(2)) ?? 0), y: .value("值", sample.1))
             .foregroundStyle(Ink.text).symbolSize(18)
         }
         .chartXScale(domain: 1...31)
         .chartXAxis { AxisMarks(values: [1, 8, 15, 22, 29]) { AxisValueLabel().foregroundStyle(Ink.text3) } }
         .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine().foregroundStyle(Ink.line); AxisValueLabel().foregroundStyle(Ink.text3) } }
         .frame(height: 140)
+      }
+      if !duplicates.isEmpty {
+        Text("待核对的重复记录").font(Ink.meta).foregroundStyle(Ink.text3)
+        ForEach(duplicates) { row in
+          let value = row.data["value"]?.numberValue
+          let amount = value.map(TodayMetricsCard.number) ?? "未填数值"
+          Text("\(row.text("day")) · \(amount) · \(row.text("note", row.id))")
+            .font(Ink.meta)
+            .foregroundStyle(Ink.text3)
+        }
       }
     }
   }
@@ -287,39 +312,51 @@ struct DayEditor: View {
 struct ChecklistsScreen: View {
   @Environment(Studio.self) private var studio
   @State private var selected = ""
-  @State private var form: EntityForm?
+  @State private var editing: Record?
+  @State private var adding = false
   var templates: [Record] { studio.all("checklist") }
   var current: Record? { templates.first { $0.id == selected } ?? templates.first }
   var body: some View {
+    let day = Day.today
     let run = current.flatMap { list in
-      studio.all("checklistRun").first { $0.text("checklistId") == list.id && $0.text("day") == Day.today }
+      studio.all("checklistRun").filter { $0.text("checklistId") == list.id && $0.text("day") == day }
+        .sorted { lhs, rhs in
+          if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
+          if lhs.version != rhs.version { return lhs.version > rhs.version }
+          return lhs.id < rhs.id
+        }.first
     }
-    let checked = run?.data["checked"]?.strings ?? []
-    let items = current?.data["items"]?.strings ?? []
+    let state = ChecklistRules.state(current, run: run)
     Page {
       ChipBar(options: templates.map { ($0.id, $0.title) }, selection: Binding(get: { current?.id ?? "" }, set: { selected = $0 }))
       if let current {
         Card {
           HStack(alignment: .firstTextBaseline) {
-            Text("\(checked.filter(items.contains).count)").font(Ink.figure).monospacedDigit()
+            Text("\(state.checked.count)").font(Ink.figure).monospacedDigit()
               .contentTransition(.numericText())
-            Text("/ \(items.count)").font(Ink.figureSmall).foregroundStyle(Ink.text3)
+            Text("/ \(state.items.count)").font(Ink.figureSmall).foregroundStyle(Ink.text3)
             Spacer()
-            if !checked.isEmpty {
-              Button("重置本次") { save(current, run: run, checked: []) }.buttonStyle(.chip)
+            if !state.checked.isEmpty {
+              Button("重置本次") { save(current, run: run, day: day, state: state, checked: []) }.buttonStyle(.chip)
             }
           }.foregroundStyle(Ink.text)
-          Meter(value: items.isEmpty ? 0 : Double(checked.filter(items.contains).count) / Double(items.count))
+          Meter(value: state.items.isEmpty ? 0 : Double(state.checked.count) / Double(state.items.count))
+          if !state.ambiguous.isEmpty {
+            Text("旧记录需核对 · " + state.ambiguous.sorted().joined(separator: "、"))
+              .font(Ink.meta).foregroundStyle(Ink.text3)
+          }
           VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element) { index, item in
+            ForEach(Array(state.items.enumerated()), id: \.element.id) { index, item in
               if index > 0 { Hairline(inset: 40) }
-              let on = checked.contains(item)
+              let on = state.checked.contains(item.id)
               Button {
-                save(current, run: run, checked: on ? checked.filter { $0 != item } : checked + [item])
+                var checked = state.checked
+                if on { checked.remove(item.id) } else { checked.insert(item.id) }
+                save(current, run: run, day: day, state: state, checked: checked)
               } label: {
                 HStack(spacing: 14) {
                   Ring(value: on ? 1 : 0, size: 24)
-                  Text(item).font(.system(size: 17)).foregroundStyle(on ? Ink.text3 : Ink.text)
+                  Text(item.label).font(.system(size: 17)).foregroundStyle(on ? Ink.text3 : Ink.text)
                     .strikethrough(on, color: Ink.text3)
                   Spacer()
                 }.padding(.vertical, 13)
@@ -336,20 +373,92 @@ struct ChecklistsScreen: View {
     .studioScreen("准备清单")
     .toolbar {
       Menu {
-        Button("新清单", systemImage: "plus") { form = EntityForm(type: "checklist") }
-        if let current { Button("编辑这份清单", systemImage: "pencil") { form = EntityForm(type: "checklist", record: current) } }
+        Button("新清单", systemImage: "plus") { adding = true }
+        if let current { Button("编辑这份清单", systemImage: "pencil") { editing = current } }
       } label: {
         Image(systemName: "ellipsis")
       }
     }
-    .sheet(item: $form) { EntityFormSheet(form: $0) }
+    .sheet(item: $editing) { ChecklistSheet(record: $0) { selected = $0 } }
+    .sheet(isPresented: $adding) { ChecklistSheet(record: nil) { selected = $0 } }
   }
-  func save(_ list: Record, run: Record?, checked: [String]) {
+  func save(_ list: Record, run: Record?, day: String, state: ChecklistState, checked: Set<String>) {
+    var data = state.fields(checked: checked)
+    data["checklistId"] = .string(list.id)
+    data["day"] = .string(day)
     Task {
       await studio.save(
-        "checklistRun",
-        ["checklistId": .string(list.id), "day": .string(Day.today), "checked": .array(checked.map(JSONValue.string))],
-        id: run?.id)
+        "checklistRun", data, id: run?.id ?? StableID.forKey("checklistRun:" + list.id + ":" + day))
+    }
+  }
+}
+
+private struct ChecklistSheet: View {
+  @Environment(Studio.self) private var studio
+  @Environment(\.dismiss) private var dismiss
+  let record: Record?
+  let onSaved: (String) -> Void
+  @State private var name = ""
+  @State private var input = ""
+  @State private var items: [ChecklistItem] = []
+  @State private var saving = false
+  @State private var confirmDelete = false
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        TextField("场景名称", text: $name)
+        if record == nil {
+          TextField("每行一个要准备的东西", text: $input, axis: .vertical).lineLimit(3...10)
+        } else {
+          ForEach($items) { $item in
+            TextField("项目名称", text: $item.label)
+          }.onDelete { items.remove(atOffsets: $0) }
+          Button("添加项目", systemImage: "plus") {
+            items.append(ChecklistItem(id: UUID().uuidString.lowercased(), label: ""))
+          }
+          Button("移入回收站", role: .destructive) { confirmDelete = true }
+        }
+      }
+      .navigationTitle(record == nil ? "新清单" : "编辑清单")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+        ToolbarItem(placement: .confirmationAction) {
+          Button("保存", action: save)
+            .disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+              (record == nil ? input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty :
+                  !items.contains { !$0.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }))
+        }
+      }
+      .confirmationDialog("移入回收站？", isPresented: $confirmDelete) {
+        Button("移入回收站", role: .destructive) {
+          guard let record else { return }
+          Task { await studio.remove(record); dismiss() }
+        }
+      }
+    }.studioSheet()
+      .onAppear { name = record?.title ?? ""; items = ChecklistRules.items(record) }
+  }
+
+  private func save() {
+    let source = record != nil ? items : input.split(separator: "\n").map {
+      ChecklistItem(id: UUID().uuidString.lowercased(), label: String($0))
+    }
+    let rows = source.map { ChecklistItem(id: $0.id, label: $0.label.trimmingCharacters(in: .whitespacesAndNewlines)) }
+      .filter { !$0.label.isEmpty }
+    guard !saving, !rows.isEmpty else { return }
+    saving = true
+    Task {
+      let data: [String: JSONValue] = [
+        "name": .string(name.trimmingCharacters(in: .whitespacesAndNewlines)),
+        "items": .array(rows.map { .string($0.label) }),
+        "itemIds": .array(rows.map { .string($0.id) }),
+      ]
+      if let id = await studio.save("checklist", data, id: record?.id) {
+        onSaved(id)
+        dismiss()
+      }
+      saving = false
     }
   }
 }

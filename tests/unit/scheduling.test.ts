@@ -11,14 +11,18 @@ const task: Task = {
   title: "x",
   status: "pending",
   version: 1,
+  note: "",
+  scheduleTime: "",
+  listId: "",
+  prerequisiteIds: [],
   schedule: { kind: "range", start: "2026-11-28", end: "2026-12-03" },
 };
-test("month/day filters intersect intervals and keep undated only outside exact-day searches", () => {
+test("month/day filters intersect intervals and exclude undated from calendar searches", () => {
   assert.equal(inPeriod(task, "2026-12", ""), true);
   assert.equal(inPeriod(task, "2026-12", "2026-12-04"), false);
   assert.equal(
     inPeriod({ ...task, schedule: { kind: "recent" } }, "2026-12", ""),
-    true,
+    false,
   );
   assert.equal(
     inPeriod(

@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import "./habits.css";
 import {
   useEntities,
   put,
   putKey,
+  saveEdit,
+  enqueueTogether,
   type AnyEntity as Entity,
 } from "../data/entities.ts";
 import {
@@ -23,34 +25,7 @@ import {
   perform,
   daysInMonth,
 } from "../ui/shared.tsx";
-export function habitRule(habit: Entity, day: string, all: Entity[]) {
-  return all
-    .filter(
-      (e) =>
-        e.type === "habitRule" &&
-        e.data.habitId === habit.id &&
-        str(e, "effectiveFrom") <= day,
-    )
-    .sort(
-      (a, b) =>
-        str(b, "effectiveFrom").localeCompare(str(a, "effectiveFrom")) ||
-        b.updatedAt.localeCompare(a.updatedAt),
-    )[0];
-}
-export function habitDone(
-  habit: Entity,
-  log: Entity | undefined,
-  rule: Entity | undefined,
-) {
-  if (!log) return false;
-  if ((rule?.data.kind ?? habit.data.kind) === "binary")
-    return num(log, "value") > 0;
-  if ((rule?.data.kind ?? habit.data.kind) === "checklist")
-    return (rule?.data.items ? arr(rule, "items") : arr(habit, "items")).every(
-      (item) => arr(log, "items").includes(item),
-    );
-  return num(log, "value") >= num(rule, "target", 1);
-}
+import { habitDone, habitRule, habitScheduled, habitTarget, habitWeekdays, latestHabitLogs } from "./habit-model.ts";
 export function HabitRow({
   habit,
   day,
@@ -62,17 +37,10 @@ export function HabitRow({
   all: Entity[];
   home?: boolean;
 }) {
-  const logs = all.filter(
-    (e) =>
-      e.type === "habitLog" &&
-      e.data.habitId === habit.id &&
-      e.data.day === day &&
-      !e.deleted,
-  );
-  const log = logs[0];
-  const rule = log?.data.ruleId
-    ? all.find((e) => e.id === log.data.ruleId)
-    : habitRule(habit, day, all);
+  const log = useMemo(() => latestHabitLogs(habit.id, all).get(day), [habit.id, all, day]);
+  const rule = (log?.data.ruleId && all.find((e) =>
+    e.type === "habitRule" && !e.deleted && e.id === log.data.ruleId && e.data.habitId === habit.id)) ||
+    habitRule(habit, day, all);
   const kind = String(rule?.data.kind ?? habit.data.kind),
     items = rule?.data.items ? arr(rule, "items") : arr(habit, "items");
   const done = habitDone(habit, log, rule);
@@ -92,7 +60,7 @@ export function HabitRow({
   const ratio =
     kind === "quantity"
       ? Math.min(
-          num(log, "value") / Math.max(num(rule, "target", 1), 0.0001),
+          num(log, "value") / habitTarget(rule),
           1,
         )
       : kind === "checklist"
@@ -112,7 +80,7 @@ export function HabitRow({
         <strong>{str(habit, "name")}</strong>
         <small>
           {kind === "quantity"
-            ? `${num(log, "value")} / ${num(rule, "target", 1)} ${str(habit, "unit")}`
+            ? `${num(log, "value")} / ${habitTarget(rule)} ${str(rule, "unit", str(habit, "unit"))}`
             : done
               ? "已完成"
               : habit.data.status === "paused"
@@ -197,30 +165,39 @@ export function Habits() {
     (e) => e.type === "habit" && (archived || e.data.status !== "archived"),
   );
   const habit = habits.find((e) => e.id === selected) ?? habits[0];
-  const logs = entities.filter(
-    (e) =>
-      e.type === "habitLog" &&
-      e.data.habitId === habit?.id &&
-      str(e, "day").startsWith(month),
+  const logsByDay = useMemo(
+    () => latestHabitLogs(habit?.id ?? "", entities),
+    [habit?.id, entities],
   );
-  const values = logs.map((e) => num(e, "value"));
+  const rulesById = useMemo(
+    () => new Map(entities.filter((e) => e.type === "habitRule" && !e.deleted).map((e) => [e.id, e])),
+    [entities],
+  );
+  const logs = [...logsByDay.values()].filter((e) => str(e, "day").startsWith(month));
   const days = daysInMonth(month);
   const lead = days.length ? new Date(days[0] + "T12:00:00Z").getUTCDay() : 0;
-  const ruleFor = (log: Entity) =>
-    entities.find((e) => e.id === log.data.ruleId) ??
-    (habit ? habitRule(habit, str(log, "day"), entities) : undefined);
+  const asOf = today();
+  const ruleFor = (log: Entity) => {
+    const snapshot = rulesById.get(str(log, "ruleId"));
+    return snapshot?.data.habitId === habit?.id ? snapshot :
+      habit ? habitRule(habit, str(log, "day"), entities) : undefined;
+  };
+  const kindFor = (log: Entity) => str(ruleFor(log), "kind", str(habit, "kind", "binary"));
   const completed = logs.filter(
     (log) => habit && habitDone(habit, log, ruleFor(log)),
   ).length;
-  const kind = str(habit, "kind", "binary");
-  const recordedDays = new Set(logs.map((e) => e.data.day)).size;
-  // Days of this month that have already begun; the rate is never diluted by the future.
-  const elapsed = days.filter((d) => d <= today()).length || days.length;
+  const recordedDays = logs.length;
+  const elapsedDays = days.filter((d) => d <= asOf);
+  const plannedDays = habit ? elapsedDays.filter((d) =>
+    habitScheduled(habitRule(habit, d, entities), d)) : [];
   const doneDays = new Set(
-    entities
-      .filter((e) => e.type === "habitLog" && e.data.habitId === habit?.id && habit && habitDone(habit, e, ruleFor(e)))
+    [...logsByDay.values()]
+      .filter((e) => habit && habitDone(habit, e, ruleFor(e)))
       .map((e) => str(e, "day")),
   );
+  const completedElapsed = elapsedDays.filter((d) => doneDays.has(d)).length;
+  const rate = (count: number, days: number) =>
+    days > 0 ? Math.round((count / days) * 100) + "%" : "—";
   const streaks = (() => {
     const sorted = [...doneDays].sort();
     let longest = 0,
@@ -238,6 +215,7 @@ export function Habits() {
   })();
   // The month's latest plan lists the items; anything checked earlier in the month stays visible.
   const monthRule = habit ? habitRule(habit, days.at(-1) ?? today(), entities) : undefined;
+  const kind = str(monthRule, "kind", str(habit, "kind", "binary"));
   const checklistItems = habit
     ? [
         ...new Set([
@@ -246,31 +224,37 @@ export function Habits() {
         ]),
       ]
     : [];
-  const total = values.reduce((a, b) => a + b, 0);
+  const quantityRows = logs.filter((e) => kindFor(e) === "quantity" && typeof e.data.value === "number");
+  const units = new Set(quantityRows.map((e) => str(ruleFor(e), "unit", str(habit, "unit"))));
+  const unit = units.values().next().value ?? str(monthRule, "unit", str(habit, "unit"));
+  const total = quantityRows.reduce((sum, e) => sum + num(e, "value"), 0);
+  const comparable = units.size <= 1;
   const monthStats: [string, string][] =
     kind === "quantity"
       ? [
           ["记录天数", recordedDays + " / " + days.length],
           ["完成天数", String(completed)],
-          ["合计", total + " " + str(habit, "unit")],
-          ["有记录日均", values.length ? (total / values.length).toFixed(2) : "—"],
+          ["合计", comparable ? total + " " + unit : "单位有变更"],
+          ["有记录日均", comparable && quantityRows.length ? (total / quantityRows.length).toFixed(2) : "—"],
         ]
       : kind === "checklist"
         ? [
-            ["有记录天数", recordedDays + " / " + elapsed],
+            ["有记录天数", recordedDays + " / " + days.length],
             ["全部完成", completed + " 天"],
-            ["完成率", Math.round((completed / elapsed) * 100) + "%"],
+            ["日历日完成率", rate(completedElapsed, elapsedDays.length)],
+            ["计划日完成率", rate(plannedDays.filter((d) => doneDays.has(d)).length, plannedDays.length)],
             ["当前连续", streaks.current + " 天"],
           ]
         : [
-            ["打卡天数", completed + " / " + elapsed],
-            ["完成率", Math.round((completed / elapsed) * 100) + "%"],
+            ["打卡天数", completed + " / " + days.length],
+            ["日历日完成率", rate(completedElapsed, elapsedDays.length)],
+            ["计划日完成率", rate(plannedDays.filter((d) => doneDays.has(d)).length, plannedDays.length)],
             ["当前连续", streaks.current + " 天"],
             ["最长连续", streaks.longest + " 天"],
           ];
   const scheduleText = (e: Entity) => {
     const rule = habitRule(e, day, entities);
-    const weekdays = arr(rule, "weekdays");
+    const weekdays = habitWeekdays(rule);
     const plan =
       weekdays.length === 7 || !rule
         ? "每天"
@@ -376,7 +360,7 @@ export function Habits() {
               <span key={"lead" + i} />
             ))}
             {days.map((date) => {
-              const log = logs.find((e) => e.data.day === date);
+              const log = logsByDay.get(date);
               const done = !!(
                 log &&
                 habit &&
@@ -396,7 +380,7 @@ export function Habits() {
                   <span>{Number(date.slice(-2))}</span>
                   <small>
                     {log
-                      ? habit?.data.kind === "quantity"
+                      ? kindFor(log) === "quantity"
                         ? num(log, "value")
                         : done
                           ? "✓"
@@ -407,23 +391,16 @@ export function Habits() {
               );
             })}
           </div>
-          {kind === "quantity" && (
+          {kind === "quantity" && comparable && (
           <BarChart
               label="每日记录"
-              unit={habit?.data.kind === "quantity" ? " " + str(habit, "unit") : ""}
-              note="未记录按 0 显示；亮色为当天达成，灰色为有记录但未达成。"
+              unit={unit ? " " + unit : ""}
+              note="亮色为当天达成，灰色为有记录但未达成。"
               points={days.map((date) => {
-                const log = logs.find((e) => e.data.day === date);
+                const log = logsByDay.get(date);
                 const done = !!(log && habit && habitDone(habit, log, ruleFor(log)));
-                const value = log
-                  ? habit?.data.kind === "checklist"
-                    ? (Array.isArray(log.data.items) ? log.data.items.length : num(log, "value"))
-                    : log.data.value !== undefined
-                      ? num(log, "value")
-                      : done
-                        ? 1
-                        : 0
-                  : null;
+                const value = log && kindFor(log) === "quantity" && typeof log.data.value === "number"
+                  ? num(log, "value") : null;
                 return { x: date, y: value, done };
               })}
             />
@@ -471,7 +448,7 @@ function HabitEditor({
   const [show, setShow] = useState(habit?.data.showHome ?? true);
   const [target, setTarget] = useState(num(current, "target", 1));
   const [weekdays, setWeekdays] = useState<string[]>(
-    current ? arr(current, "weekdays") : ["1", "2", "3", "4", "5", "6", "0"],
+    habitWeekdays(current),
   );
   const [effective, setEffective] = useState(today());
   const [error, setError] = useState("");
@@ -483,12 +460,14 @@ function HabitEditor({
         perform(
           (async () => {
             if (!name.trim()) throw new Error("请填写名称");
+            if (kind === "quantity" && !(target > 0)) throw new Error("最低目标必须大于 0");
+            const actualTarget = kind === "quantity" ? target : 1;
             const ruleChanged =
               !habit ||
               kind !== (current?.data.kind ?? habit.data.kind) ||
-              target !== num(current, "target", 1) ||
+              actualTarget !== habitTarget(current) ||
               JSON.stringify([...weekdays].sort()) !==
-                JSON.stringify([...arr(current, "weekdays")].sort()) ||
+                JSON.stringify([...habitWeekdays(current)].sort()) ||
               unit !== (current?.data.unit ?? habit.data.unit) ||
               items !==
                 (current?.data.items
@@ -508,33 +487,31 @@ function HabitEditor({
               throw new Error(
                 "生效日及之后已有记录，请选尚未记录的日期；历史规则不会被覆盖",
               );
-            const id = await put(
-              "habit",
-              {
-                name,
-                kind,
-                unit,
-                items: items.split("\n").filter(Boolean),
-                status,
-                showHome: Boolean(show),
-                order: num(
-                  habit,
-                  "order",
-                  all.filter((e) => e.type === "habit").length,
-                ),
-              },
-              habit,
-            );
-            if (ruleChanged)
-              await put("habitRule", {
-                habitId: id,
-                effectiveFrom: effective,
-                target,
-                weekdays,
-                kind,
-                unit,
-                items: items.split("\n").filter(Boolean),
-              });
+            const id = habit?.id ?? crypto.randomUUID();
+            const list = items.split("\n").filter(Boolean);
+            const definition = {
+              ...habit?.data,
+              name, kind, unit, items: list, status, showHome: Boolean(show),
+              order: num(habit, "order", all.filter((e) => e.type === "habit").length),
+            };
+            if (ruleChanged) {
+              const matching = habit && habitRule(habit, effective, all);
+              const existing = matching?.data.effectiveFrom === effective ? matching : undefined;
+              await enqueueTogether([
+                { type: "habit", id, action: "put", data: definition, baseVersion: habit?.version ?? 0 },
+                {
+                  type: "habitRule", id: existing?.id ?? crypto.randomUUID(), action: "put",
+                  baseVersion: existing?.version ?? 0,
+                  data: {
+                    ...existing?.data,
+                    habitId: id, effectiveFrom: effective, target: actualTarget,
+                    weekdays, kind, unit, items: list,
+                  },
+                },
+              ]);
+            } else if (habit) {
+              await saveEdit("habit", id, habit.data, definition);
+            }
             onClose();
           })().catch((e) => setError(e.message)),
         );

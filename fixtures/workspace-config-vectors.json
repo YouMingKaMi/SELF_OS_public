@@ -1,0 +1,37 @@
+{
+  "presetEnabledFeatures": {
+    "council": [
+      "practice", "tasks", "achievements", "habits", "ideas", "reading", "checklists",
+      "thoughts", "expenses", "treasury", "freedom", "chronicle", "memoir", "storage",
+      "raw", "monthly", "metrics", "days", "notes"
+    ],
+    "standard": ["tasks", "achievements", "habits", "ideas", "expenses", "chronicle", "storage", "days", "notes"],
+    "minimal": ["tasks", "habits", "expenses", "chronicle", "notes"]
+  },
+  "aliasCases": [
+    {
+      "raw": "{\"treasury\":\" 资产账户 \",\"home\":\" \\t \",\"notes\":45,\"chronicle\":\"每日日志\\n\"}",
+      "parsed": {"treasury": "资产账户", "chronicle": "每日日志"},
+      "canonical": "{\"chronicle\":\"每日日志\",\"treasury\":\"资产账户\"}"
+    },
+    {
+      "raw": "{\"财政部\":\" 理财 / 预算 \",\"档案库\":\"\\ufeff我的\\\"资料\\\"\\u3000\",\"中科院\":\"\\u0085\"}",
+      "parsed": {"财政部": "理财 / 预算", "档案库": "我的\"资料\"", "中科院": "\u0085"},
+      "canonical": "{\"中科院\":\"\u0085\",\"档案库\":\"我的\\\"资料\\\"\",\"财政部\":\"理财 / 预算\"}"
+    },
+    {
+      "raw": "{\"2\":\"two\",\"10\":\"ten\",\"𐀀\":\"first\",\"\":\"second\"}",
+      "parsed": {"2": "two", "10": "ten", "𐀀": "first", "": "second"},
+      "canonical": "{\"10\":\"ten\",\"2\":\"two\",\"𐀀\":\"first\",\"\":\"second\"}"
+    },
+    {"raw": "[\"当日\"]", "parsed": {}, "canonical": null},
+    {"raw": "{broken", "parsed": {}, "canonical": null},
+    {"raw": "{\"tasks\":\" \\n \",\"habits\":null}", "parsed": {}, "canonical": null},
+    {"raw": "{\"home\":\"value,}\"}", "parsed": {"home": "value,}"}, "canonical": "{\"home\":\"value,}\"}"},
+    {"raw": "{\"home\":\"value\",}", "parsed": {}, "canonical": null},
+    {"raw": "{\"home\":\"value\",\"notes\":[1,]}", "parsed": {}, "canonical": null},
+    {"raw": "\ufeff{\"home\":\"value\"}", "parsed": {}, "canonical": null},
+    {"raw": "{\"home\":\"value\",\"tasks\":\"\\ud800\"}", "parsed": {}, "canonical": null},
+    {"raw": null, "parsed": {}, "canonical": null}
+  ]
+}

@@ -122,3 +122,44 @@ test("a rejected write changes nothing", async () => {
   );
   assert.equal((await sync.changes("owner")).changes.length, 0);
 });
+
+test("legacy replacement preserves additive fields and a patch can clear them explicitly", async () => {
+  const sync = service();
+  const c = client(sync, "owner");
+  const domain = await c.create("domain", { name: "初稿", goal: "长期目标" });
+  const legacy = await c.send(c.command("domain", domain.id, 1, { name: "旧客户端改名称" }));
+  assert.equal(legacy.outcome, "accepted");
+  assert.equal(legacy.entity.data.goal, "长期目标");
+
+  const patch = { ...c.command("domain", domain.id, 2, { goal: null }), action: "patch" } as const;
+  const receipt = await c.send(patch);
+  assert.equal(receipt.outcome, "accepted");
+  assert.deepEqual(receipt.entity.data, { name: "旧客户端改名称" });
+  assert.deepEqual(await c.send(patch), receipt);
+  assert.equal((await c.send({ ...patch, operationId: randomUUID() })).outcome, "conflict");
+  await assert.rejects(
+    c.send({ ...c.command("domain", domain.id, 3, { name: null }), action: "patch" }),
+    /REQUIRED:name/,
+  );
+  await assert.rejects(
+    c.send({ ...c.command("domain", domain.id, 3, { bogus: null }), action: "patch" }),
+    /UNKNOWN_FIELD:bogus/,
+  );
+  const deleted = await c.remove(receipt.entity);
+  await assert.rejects(
+    c.send({ ...c.command("domain", domain.id, deleted.version, { name: "草稿" }), action: "patch" }),
+    /NOT_FOUND/,
+  );
+});
+
+test("one owner cannot reuse an ID across types even after deletion", async () => {
+  const sync = service();
+  const c = client(sync, "owner");
+  const domain = await c.create("domain", { name: "一条领域" });
+  const tombstone = await c.remove(domain);
+  const sameId = c.command("taskList", domain.id, 0, { name: "不同类型" });
+  await assert.rejects(c.send(sameId), /ENTITY_TYPE_COLLISION/);
+  const other = await client(sync, "other").send(sameId);
+  assert.equal(other.outcome, "accepted");
+  assert.deepEqual((await sync.changes("owner")).changes, [{ revision: "2", entity: tombstone }]);
+});

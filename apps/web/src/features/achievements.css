@@ -1,0 +1,804 @@
+/*
+ * SELF OS · 成就 (Achievements V4)
+ *
+ * Unified card proportions across both the main scrollable grid ("全部成就")
+ * and custom-ordered progression trees ("进度树").
+ * Strictly monochrome hairline design: every card uses a 46x46 icon square
+ * paired with a balanced 3-row content layout (Title, Description, Progress/Meta).
+ */
+
+.ach-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+  padding-bottom: 28px;
+}
+
+/* ───────────── Quiet Filter Popover & Active Summary ───────────── */
+.ach-filter-wrap {
+  position: relative;
+}
+
+.ach-filter-trigger.has-active {
+  border-color: var(--line-3);
+  color: var(--text);
+  background: var(--selected);
+}
+
+.ach-filter-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: 310px;
+  padding: 12px 13px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-3);
+  background: var(--bg-elevated, var(--surface-2));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.ach-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ach-filter-label {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.ach-filter-search {
+  width: 100%;
+  height: 28px;
+  font-size: var(--fs-xs);
+}
+
+.ach-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ach-filter-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 25px;
+  padding: 0 9px;
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.ach-filter-opt:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--line-3);
+  color: var(--text);
+}
+
+.ach-filter-opt.active {
+  background: var(--selected);
+  border-color: var(--line-3);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.ach-filter-opt small {
+  font: 10px var(--mono);
+  color: var(--text-3);
+}
+
+.ach-filter-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.ach-active-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-active-filters button {
+  height: auto;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.ach-active-filters button:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+/* ───────────── Summary Progress Strip ───────────── */
+.ach-overview-strip {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  flex: none;
+}
+
+.ach-overview-counts {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ach-overview-counts strong {
+  font: 600 18px / 1 var(--mono);
+  color: var(--text);
+}
+
+.ach-overview-counts span {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-overview-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.ach-overview-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--text);
+  transition: width 0.24s ease;
+}
+
+.ach-overview-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-overview-stats b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* ───────────── Unified Achievement Card (.ach-card) ─────────────
+   Used in BOTH the multi-column grid and the progression tree!
+   Matches the exact proportions from the user's reference screenshot:
+   46x46 rounded square icon on the left + 3 harmonious rows on the right. */
+.ach-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  height: 88px;
+  padding: 13px 15px 13px 13px;
+  border-radius: 14px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.14s,
+    border-color 0.14s,
+    transform 0.12s;
+}
+
+.ach-card:hover {
+  background: var(--surface-2);
+  border-color: var(--line-3);
+}
+
+.ach-card.done {
+  background: var(--surface-2);
+  border-color: var(--line-3);
+}
+
+.ach-card.selected {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+/* 46x46 Rounded Square Icon Box */
+.ach-icon-box {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  border: 1px solid var(--line-3);
+  background: var(--surface-2);
+  color: var(--text-2);
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.ach-card.done .ach-icon-box,
+.ach-icon-box.done {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--solid-text);
+}
+
+/* 3-Row Content Stack inside the Card */
+.ach-card-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 60px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ach-card-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ach-card-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-card:not(.done) .ach-card-title {
+  color: var(--text-2);
+}
+
+.ach-card:hover .ach-card-title {
+  color: var(--text);
+}
+
+.ach-card-tag {
+  flex: none;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.ach-card-row2 {
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-card-row3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 14px;
+}
+
+.ach-card-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.ach-card-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--text-2);
+  transition: width 0.2s ease;
+}
+
+.ach-card.done .ach-card-bar > i {
+  background: var(--text);
+}
+
+.ach-card-num {
+  flex: none;
+  font: 500 var(--fs-xs) var(--mono);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.ach-card.done .ach-card-num {
+  color: var(--text-2);
+}
+
+.ach-card-meta-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font: var(--fs-xs) var(--mono);
+  color: var(--text-3);
+}
+
+.ach-card-meta-line .status-done {
+  color: var(--text-2);
+}
+
+.ach-card-meta-line .status-pending {
+  color: var(--text-4);
+}
+
+/* ───────────── View 1: Multi-Column Scrollable Grid (全部成就) ───────────── */
+.ach-sections-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ach-group-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ach-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.ach-group-head-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ach-group-head h2 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ach-group-head small {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
+  gap: 12px;
+}
+
+/* ───────────── View 2: Custom-Ordered Progression Trees (进度树) ───────────── */
+.ach-trees-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ach-tree-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+.ach-tree-toolbar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-tree-toolbar-info strong {
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.ach-tree-board-card {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ach-tree-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ach-tree-board-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ach-tree-board-title strong {
+  font-size: var(--fs);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ach-tree-board-title small {
+  font: var(--fs-xs) var(--mono);
+  color: var(--text-3);
+}
+
+.ach-tree-board-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ach-tree-board-actions button {
+  height: 26px;
+  padding: 0 9px;
+  font-size: var(--fs-xs);
+}
+
+.ach-tree-canvas-wrap {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--line) 60%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--line) 60%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+}
+
+.ach-tree-canvas {
+  position: relative;
+  min-width: 100%;
+}
+
+.ach-tree-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.ach-tree-path {
+  fill: none;
+  stroke: var(--line-3);
+  stroke-width: 1.65;
+}
+
+.ach-tree-path.done {
+  stroke: var(--text-2);
+  stroke-width: 2;
+}
+
+.ach-tree-arrow-head {
+  fill: none;
+  stroke: var(--line-3);
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ach-tree-arrow-head.done {
+  stroke: var(--text-2);
+}
+
+.ach-tree-node-wrap {
+  position: absolute;
+}
+
+/* Reorder / Edit controls overlay on tree nodes when arranging */
+.ach-node-order-bar {
+  position: absolute;
+  right: 8px;
+  top: -11px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--line-3);
+  background: var(--surface-3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.ach-node-order-bar button {
+  height: 20px;
+  min-width: 22px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font: 11px var(--mono);
+  color: var(--text-2);
+}
+
+.ach-node-order-bar button:hover:not(:disabled) {
+  background: var(--fill-hover);
+  color: var(--text);
+}
+
+/* Unlinked pool below trees when in Tree view */
+.ach-unlinked-pool {
+  padding: 14px;
+  border-radius: var(--r-lg);
+  border: 1px dashed var(--line-3);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ach-unlinked-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ach-unlinked-head strong {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.ach-unlinked-head small {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ───────────── Detail & Progress Modal ───────────── */
+.ach-modal-card {
+  width: min(520px, 100%);
+}
+
+.ach-modal-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ach-modal-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ach-modal-hero-text h2 {
+  font-size: var(--fs-lg);
+  line-height: 1.3;
+}
+
+.ach-modal-hero-text p {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.ach-modal-status-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+}
+
+.ach-modal-status-box strong {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.ach-modal-status-box small {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.ach-modal-counter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+}
+
+.ach-modal-counter-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ach-modal-counter-top strong {
+  font: 600 var(--fs-md) var(--mono);
+}
+
+.ach-modal-counter-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ach-modal-counter-input input {
+  width: 108px;
+  height: 28px;
+  text-align: right;
+  font: var(--fs-sm) var(--mono);
+}
+
+.ach-modal-counter-unit {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-modal-counter-input button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+}
+
+.ach-completion-box {
+  padding: 11px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+}
+
+.ach-completion-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-completion-date input {
+  height: 25px;
+  font: var(--fs-xs) var(--mono);
+}
+
+.ach-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ach-modal-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.ach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ach-chip {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.ach-chip.done {
+  background: var(--surface-3);
+  border-color: var(--line-3);
+  color: var(--text);
+}
+
+.ach-icon-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 6px;
+}
+
+.ach-icon-btn {
+  height: 36px;
+  padding: 0;
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--text-3);
+}
+
+.ach-icon-btn.active {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--solid-text);
+}
+
+.ach-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.ach-modal-footer-left,
+.ach-modal-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 760px) {
+  .ach-overview-strip {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .ach-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

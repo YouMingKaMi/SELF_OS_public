@@ -52,11 +52,13 @@ export function usage(
   current = false,
 ): Fraction {
   if (e.data.mode === "immediate")
-    return e.data.day === day ? { n: net(e), d: 1n } : { n: 0n, d: 1n };
+    return day <= asOf && e.data.day === day
+      ? { n: net(e), d: 1n }
+      : { n: 0n, d: 1n };
   if (
     day > asOf ||
     day < str(e, "startDay") ||
-    day > str(e, "endedDay", e.data.mode === "fixed" ? str(e, "endDay") : asOf)
+    day > effectiveEnd(e, asOf)
   )
     return { n: 0n, d: 1n };
   return daily(e, asOf, current) ?? { n: 0n, d: 1n };
@@ -70,6 +72,42 @@ export function effectiveEnd(e: CostEntry, asOf: string) {
   }
   return confirmed || asOf;
 }
+
+/** Build one month's exact accruals with two updates per relevant expense. */
+export function monthlyUsage(
+  entries: CostEntry[], calendarDays: string[], asOf: string, current = false,
+): { days: { day: string; value: Fraction }[]; total: Fraction } {
+  const zero = { n: 0n, d: 1n };
+  const days = calendarDays.filter((day) => day <= asOf);
+  if (!days.length) return { days: [], total: zero };
+  const first = days[0], last = days[days.length - 1];
+  const indices = new Map(days.map((day, index) => [day, index]));
+  const changes = Array<Fraction>(days.length + 1).fill(zero);
+  let total = zero;
+  for (const entry of entries) {
+    const immediate = entry.data.mode === "immediate";
+    const start = immediate ? str(entry, "day") : str(entry, "startDay");
+    const end = immediate ? start : effectiveEnd(entry, asOf);
+    if (!start || !end || start > last || end < first) continue;
+    const from = indices.get(start > first ? start : first);
+    const through = indices.get(end < last ? end : last);
+    if (from === undefined || through === undefined || from > through) continue;
+    const rate = immediate ? { n: net(entry), d: 1n } : daily(entry, asOf, current);
+    if (!rate || rate.n === 0n) continue;
+    changes[from] = add(changes[from], rate);
+    changes[through + 1] = add(changes[through + 1], { n: -rate.n, d: rate.d });
+    total = add(total, { n: rate.n * BigInt(through - from + 1), d: rate.d });
+  }
+  let rate = zero;
+  return {
+    days: days.map((day, index) => {
+      rate = add(rate, changes[index]);
+      return { day, value: rate };
+    }),
+    total,
+  };
+}
+
 export const isHistory = (e: CostEntry, asOf: string) =>
   e.data.mode !== "immediate" && effectiveEnd(e, asOf) < asOf;
 /**

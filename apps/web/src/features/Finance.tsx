@@ -28,7 +28,7 @@ import {
   money,
   net,
   daily,
-  usage,
+  monthlyUsage,
   add,
   round,
   effectiveEnd,
@@ -67,7 +67,7 @@ export function Finance() {
   const nextUnclassified = useMemo(
     () =>
       expenses.reduce<Entity | undefined>((latest, entry) => {
-        if (entry.data.categoryId || !entry.data.wechatMerchant) return latest;
+        if (entry.data.categoryId) return latest;
         if (!latest || str(entry, "day") > str(latest, "day")) return entry;
         return latest;
       }, undefined),
@@ -98,23 +98,13 @@ export function Finance() {
         (necessity === "all" || e.data.necessary === (necessity === "yes")),
     );
     const monthly = filtered.filter((e) => str(e, "day").startsWith(month));
-    const zero = { n: 0n, d: 1n };
-    const exact = daysInMonth(month)
-      .filter((day) => day <= asOf)
-      .map((day) => ({
-        day,
-        value: filtered.reduce(
-          (sum, e) => add(sum, usage(e, day, asOf, current)),
-          zero,
-        ),
-      }));
+    const exact = monthlyUsage(filtered, daysInMonth(month), asOf, current);
     return {
       filtered,
       monthly,
       total: monthly.reduce((n, e) => n + net(e), 0n),
-      cost: exact.map(({ day, value }) => ({ day, value: round(value) })),
-      // Sum exact daily shares first, round once: the total never drifts from the days.
-      costTotal: round(exact.reduce((sum, d) => add(sum, d.value), zero)),
+      cost: exact.days.map(({ day, value }) => ({ day, value: round(value) })),
+      costTotal: round(exact.total),
     };
   }, [expenses, category, necessity, month, current, asOf]);
   const budgetRecord = entities.find(

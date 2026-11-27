@@ -31,6 +31,16 @@ export const schema = {
     name: text(true),
     features: strings,
   }),
+  workspaceConfig: entity("workspace", "workspace_configs", {
+    preset: choice(["council", "standard", "minimal", "custom"], false),
+    disabledFeatures: strings,
+    featureAliases: text(false, 4000),
+    hiddenDepartments: strings,
+    departmentAliases: text(false, 2000),
+    sidebarFavorites: strings,
+    phoneShortcuts: strings,
+    homeCards: strings,
+  }),
 
   // practice
   domain: entity("practice", "practice_domains", {
@@ -61,9 +71,19 @@ export const schema = {
     status: choice(progressState),
     reason: text(false, 10000),
   }),
+  practiceEvent: entity("practice", "practice_events", {
+    domainId: ref("domain", true),
+    activityId: ref("activity"),
+    // Retain the source ID even if its bookmark is later removed.
+    readingItemId: text(false, 36),
+    title: text(true, 2000),
+    note: text(false, 20000),
+    status: choice(["pending", "active", "resolved", "discarded"]),
+  }),
   session: entity("practice", "practice_sessions", {
     domainId: ref("domain", true),
     activityId: ref("activity"),
+    eventId: ref("practiceEvent"),
     problemId: ref("problem"),
     solutionId: ref("solution"),
     title: text(true),
@@ -80,6 +100,7 @@ export const schema = {
   progress: entity("practice", "practice_progress", {
     domainId: ref("domain", true),
     activityId: ref("activity"),
+    eventId: ref("practiceEvent"),
     problemId: ref("problem"),
     solutionId: ref("solution"),
     day: day(true),
@@ -87,24 +108,52 @@ export const schema = {
   }),
 
   // tasks
+  taskList: entity("tasks", "task_lists", {
+    name: text(true, 80),
+    parentId: text(false, 36),
+  }),
   task: entity("tasks", "tasks", {
     title: text(true),
     status: choice(["pending", "completed", "discarded"]),
     scheduleKind: choice(["unscheduled", "recent", "day", "deadline", "range"]),
     scheduleDate: day(),
+    scheduleTime: text(false, 5),
     scheduleStart: day(),
     scheduleEnd: day(),
     createdAt: timestamp(),
     completedAt: timestamp(),
+    note: text(false, 10000),
+    listId: text(false, 36),
+    prerequisiteIds: strings,
   }),
   checklist: entity("tasks", "preparation_checklists", {
     name: text(true),
     items: strings,
+    itemIds: strings,
   }),
   checklistRun: entity("tasks", "preparation_runs", {
     checklistId: ref("checklist", true),
     day: day(true),
     checked: strings,
+    itemIds: strings,
+    itemLabels: strings,
+    checkedItemIds: strings,
+    ambiguousChecked: strings,
+  }),
+  achievement: entity("tasks", "achievements", {
+    title: text(true),
+    description: text(false, 2000),
+    scope: choice(["lifetime", "annual"]),
+    year: text(false, 10),
+    category: text(false, 80),
+    icon: text(false, 40),
+    prevIds: strings,
+    current: number(0),
+    target: number(1),
+    unit: text(false, 40),
+    completed: flag,
+    completedAt: day(),
+    note: text(false, 10000),
   }),
 
   // habits
@@ -238,6 +287,23 @@ export const schema = {
     status: choice(["pending", "completed", "discarded"]),
   }),
 
+  memoir: entity("journal", "memoir_entries", {
+    period: choice(["high_school", "middle_school", "primary_and_below"]),
+    title: text(true, 400),
+    approxTime: text(false, 80),
+    detail: text(false, 1000000),
+    order: number(),
+  }),
+
+  // External reading bookmarks, separate from documents and tasks.
+  readingItem: entity("journal", "reading_items", {
+    title: text(true, 2000),
+    source: text(false, 120),
+    tags: strings,
+    note: text(false, 10000),
+    status: choice(["unread", "read"]),
+  }),
+
   // metrics
   metric: entity("metrics", "metric_definitions", {
     name: text(true),
@@ -267,6 +333,28 @@ export const schema = {
     remindDays: integer(0, 3650),
     dismissedDate: text(),
     note: text(false, 10000),
+  }),
+
+  // storage
+  storageBox: entity("storage", "storage_boxes", {
+    zone: text(true, 80),
+    name: text(true, 120),
+    parentId: ref("storageBox"),
+    icon: text(false, 40),
+    location: text(false, 400),
+    order: number(),
+  }),
+  storageItem: entity("storage", "storage_items", {
+    name: text(true, 160),
+    icon: text(false, 40),
+    status: choice(["in_box", "out"]),
+    boxId: ref("storageBox"),
+    homeBoxId: ref("storageBox"),
+    takenAt: timestamp(),
+    quantity: integer(1, 9999),
+    aliases: text(false, 200),
+    note: text(false, 2000),
+    verifiedAt: timestamp(),
   }),
 } as const satisfies Record<string, EntitySpec>;
 

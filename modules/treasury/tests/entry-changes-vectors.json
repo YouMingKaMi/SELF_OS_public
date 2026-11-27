@@ -1,0 +1,1091 @@
+{
+  "wallets": [
+    {
+      "id": "cash",
+      "data": {
+        "category": "cny",
+        "currency": "CNY"
+      },
+      "deleted": false
+    },
+    {
+      "id": "cash2",
+      "data": {
+        "category": "external",
+        "currency": "CNY"
+      },
+      "deleted": false
+    },
+    {
+      "id": "tg",
+      "data": {
+        "category": "crypto",
+        "currency": "CNY"
+      },
+      "deleted": false
+    },
+    {
+      "id": "ok",
+      "data": {
+        "category": "crypto",
+        "currency": "CNY"
+      },
+      "deleted": false
+    },
+    {
+      "id": "deleted",
+      "data": {
+        "category": "cny",
+        "currency": "CNY"
+      },
+      "deleted": true
+    }
+  ],
+  "assets": [
+    {
+      "id": "btc",
+      "data": {},
+      "deleted": false
+    },
+    {
+      "id": "eth",
+      "data": {},
+      "deleted": false
+    },
+    {
+      "id": "deleted",
+      "data": {},
+      "deleted": true
+    }
+  ],
+  "cases": [
+    {
+      "name": "consecutive sets: exact increase, decrease, unchanged, zero and negative",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "8788.34"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "8809.83"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "8788.34"
+          }
+        },
+        {
+          "id": "d",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-04T00:00:00Z",
+            "mode": "set",
+            "quantity": "8788.34"
+          }
+        },
+        {
+          "id": "e",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-05T00:00:00Z",
+            "mode": "set",
+            "quantity": "0"
+          }
+        },
+        {
+          "id": "f",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-06T00:00:00Z",
+            "mode": "set",
+            "quantity": "-0.01"
+          }
+        },
+        {
+          "id": "g",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-07T00:00:00Z",
+            "mode": "set",
+            "quantity": "0"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "8788.34"
+        ],
+        "b": [
+          "8788.34",
+          "21.49",
+          "8809.83"
+        ],
+        "c": [
+          "8809.83",
+          "-21.49",
+          "8788.34"
+        ],
+        "d": [
+          "8788.34",
+          "0",
+          "8788.34"
+        ],
+        "e": [
+          "8788.34",
+          "-8788.34",
+          "0"
+        ],
+        "f": [
+          "0",
+          "-0.01",
+          "-0.01"
+        ],
+        "g": [
+          "-0.01",
+          "0.01",
+          "0"
+        ]
+      },
+      "balances": {
+        "cash": "0"
+      }
+    },
+    {
+      "name": "initial zero is known for subsequent sets in wallets and holdings",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "0"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "0"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "1"
+          }
+        },
+        {
+          "id": "x",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "0",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "y",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "0",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "z",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "0.000000000001",
+            "assetId": "btc"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "0"
+        ],
+        "b": [
+          "0",
+          "0",
+          "0"
+        ],
+        "c": [
+          "0",
+          "1",
+          "1"
+        ],
+        "x": [
+          null,
+          null,
+          "0"
+        ],
+        "y": [
+          "0",
+          "0",
+          "0"
+        ],
+        "z": [
+          "0",
+          "0.000000000001",
+          "0.000000000001"
+        ]
+      },
+      "balances": {
+        "cash": "1"
+      },
+      "holdings": {
+        "btc": {
+          "tg": "0.000000000001"
+        }
+      }
+    },
+    {
+      "name": "first delta starts at zero; set and delta interleave independently",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "delta",
+            "quantity": "-0.05"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "delta",
+            "quantity": "2.20"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "3.10"
+          }
+        },
+        {
+          "id": "d",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-04T00:00:00Z",
+            "mode": "delta",
+            "quantity": "-3.10"
+          }
+        },
+        {
+          "id": "e",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-05T00:00:00Z",
+            "mode": "set",
+            "quantity": "0"
+          }
+        },
+        {
+          "id": "x",
+          "data": {
+            "walletId": "cash2",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "delta",
+            "quantity": "0"
+          }
+        },
+        {
+          "id": "y",
+          "data": {
+            "walletId": "cash2",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "0.01"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          "-0.05",
+          "-0.05"
+        ],
+        "b": [
+          "-0.05",
+          "2.2",
+          "2.15"
+        ],
+        "c": [
+          "2.15",
+          "0.95",
+          "3.1"
+        ],
+        "d": [
+          "3.1",
+          "-3.1",
+          "0"
+        ],
+        "e": [
+          "0",
+          "0",
+          "0"
+        ],
+        "x": [
+          null,
+          "0",
+          "0"
+        ],
+        "y": [
+          "0",
+          "0.01",
+          "0.01"
+        ]
+      },
+      "balances": {
+        "cash": "0",
+        "cash2": "0.01"
+      }
+    },
+    {
+      "name": "wallet and asset pairs remain independent with full 12 digit precision",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "0.123456789123",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "ok",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "2",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "0.123456789124",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "d",
+          "data": {
+            "walletId": "ok",
+            "at": "2026-01-04T00:00:00Z",
+            "mode": "delta",
+            "quantity": "-0.5",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "e",
+          "data": {
+            "walletId": "ok",
+            "at": "2026-01-05T00:00:00Z",
+            "mode": "set",
+            "quantity": "1.25",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "f",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "delta",
+            "quantity": "-0.000000000001",
+            "assetId": "eth"
+          }
+        },
+        {
+          "id": "g",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-06T00:00:00Z",
+            "mode": "set",
+            "quantity": "0",
+            "assetId": "eth"
+          }
+        },
+        {
+          "id": "h",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "50"
+          }
+        },
+        {
+          "id": "i",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-07T00:00:00Z",
+            "mode": "set",
+            "quantity": "55"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "0.123456789123"
+        ],
+        "b": [
+          null,
+          null,
+          "2"
+        ],
+        "c": [
+          "0.123456789123",
+          "0.000000000001",
+          "0.123456789124"
+        ],
+        "d": [
+          "2",
+          "-0.5",
+          "1.5"
+        ],
+        "e": [
+          "1.5",
+          "-0.25",
+          "1.25"
+        ],
+        "f": [
+          null,
+          "-0.000000000001",
+          "-0.000000000001"
+        ],
+        "g": [
+          "-0.000000000001",
+          "0.000000000001",
+          "0"
+        ],
+        "h": [
+          null,
+          null,
+          "50"
+        ],
+        "i": [
+          "50",
+          "5",
+          "55"
+        ]
+      },
+      "holdings": {
+        "btc": {
+          "tg": "0.123456789124",
+          "ok": "1.25"
+        },
+        "eth": {
+          "tg": "0"
+        }
+      }
+    },
+    {
+      "name": "contract maximum precision and large signed differences",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "999999999999999999.999999999999"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "999999999999999999.999999999998"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "-999999999999999999.999999999999"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "999999999999999999.999999999999"
+        ],
+        "b": [
+          "999999999999999999.999999999999",
+          "-0.000000000001",
+          "999999999999999999.999999999998"
+        ],
+        "c": [
+          "999999999999999999.999999999998",
+          "-1999999999999999999.999999999997",
+          "-999999999999999999.999999999999"
+        ]
+      }
+    },
+    {
+      "name": "baseline before backdated set",
+      "entries": [
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "130"
+          }
+        },
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "100"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "100"
+        ],
+        "c": [
+          "100",
+          "30",
+          "130"
+        ]
+      }
+    },
+    {
+      "name": "backdated insertion changes later set delta despite input order",
+      "entries": [
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "130"
+          }
+        },
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "100"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "120"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "100"
+        ],
+        "b": [
+          "100",
+          "20",
+          "120"
+        ],
+        "c": [
+          "120",
+          "10",
+          "130"
+        ]
+      }
+    },
+    {
+      "name": "deleted middle entry no longer changes subsequent delta",
+      "entries": [
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "130"
+          }
+        },
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "100"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "120"
+          },
+          "deleted": true
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "100"
+        ],
+        "c": [
+          "100",
+          "30",
+          "130"
+        ]
+      }
+    },
+    {
+      "name": "deleted opening makes next set an initial balance",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "100"
+          },
+          "deleted": true
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "130"
+          }
+        }
+      ],
+      "expected": {
+        "c": [
+          null,
+          null,
+          "130"
+        ]
+      }
+    },
+    {
+      "name": "sort by instant then id; timestamps can have different offsets",
+      "entries": [
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T01:00:00Z",
+            "mode": "set",
+            "quantity": "15"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T08:00:00+08:00",
+            "mode": "delta",
+            "quantity": "2"
+          }
+        },
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "10"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "10"
+        ],
+        "b": [
+          "10",
+          "2",
+          "12"
+        ],
+        "c": [
+          "12",
+          "3",
+          "15"
+        ]
+      }
+    },
+    {
+      "name": "filters exclude deleted or absent owners and invalid quantities and dates",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "10"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "invalid"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "12"
+          }
+        },
+        {
+          "id": "date",
+          "data": {
+            "walletId": "cash",
+            "at": "invalid",
+            "mode": "set",
+            "quantity": "90"
+          }
+        },
+        {
+          "id": "missingWallet",
+          "data": {
+            "walletId": "absent",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "90"
+          }
+        },
+        {
+          "id": "deletedWallet",
+          "data": {
+            "walletId": "deleted",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "90"
+          }
+        },
+        {
+          "id": "missingAsset",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "90",
+            "assetId": "absent"
+          }
+        },
+        {
+          "id": "deletedAsset",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "90",
+            "assetId": "deleted"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "10"
+        ],
+        "c": [
+          "10",
+          "2",
+          "12"
+        ]
+      }
+    },
+    {
+      "name": "until inclusive and before exclusive constrain entry changes",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "10"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "12"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "15"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "10"
+        ],
+        "b": [
+          "10",
+          "2",
+          "12"
+        ]
+      },
+      "until": "2026-01-02T00:00:00Z"
+    },
+    {
+      "name": "before excludes exact instant",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "10"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "12"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "10"
+        ]
+      },
+      "before": "2026-01-02T00:00:00Z"
+    },
+    {
+      "name": "history selection and price observations never omit unselected entry changes",
+      "entries": [
+        {
+          "id": "a",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "10"
+          }
+        },
+        {
+          "id": "b",
+          "data": {
+            "walletId": "cash",
+            "at": "2026-01-02T00:00:00Z",
+            "mode": "set",
+            "quantity": "12"
+          }
+        },
+        {
+          "id": "c",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "2",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "d",
+          "data": {
+            "walletId": "tg",
+            "at": "2026-01-03T00:00:00Z",
+            "mode": "set",
+            "quantity": "3",
+            "assetId": "btc"
+          }
+        },
+        {
+          "id": "e",
+          "data": {
+            "walletId": "cash2",
+            "at": "2026-01-01T00:00:00Z",
+            "mode": "set",
+            "quantity": "4"
+          }
+        }
+      ],
+      "expected": {
+        "a": [
+          null,
+          null,
+          "10"
+        ],
+        "b": [
+          "10",
+          "2",
+          "12"
+        ],
+        "c": [
+          null,
+          null,
+          "2"
+        ],
+        "d": [
+          "2",
+          "1",
+          "3"
+        ],
+        "e": [
+          null,
+          null,
+          "4"
+        ]
+      },
+      "historyOf": {
+        "wallets": [
+          "cash"
+        ],
+        "assets": []
+      },
+      "prices": [
+        {
+          "id": "price",
+          "data": {
+            "assetId": "btc",
+            "at": "2026-01-02T00:00:00Z",
+            "price": "100"
+          }
+        }
+      ]
+    },
+    {
+      "name": "repeated IDs replay once using the latest snapshot and respect tombstones",
+      "entries": [
+        { "id": "start", "data": { "walletId": "cash", "at": "2026-01-01T00:00:00Z", "mode": "set", "quantity": "10" } },
+        { "id": "duplicate", "version": 2, "data": { "walletId": "cash", "at": "2026-01-02T00:00:00Z", "mode": "delta", "quantity": "3" } },
+        { "id": "duplicate", "version": 1, "data": { "walletId": "cash", "at": "2026-01-02T00:00:00Z", "mode": "delta", "quantity": "50" } },
+        { "id": "duplicate", "version": 2, "data": { "walletId": "cash", "at": "2026-01-02T00:00:00Z", "mode": "delta", "quantity": "3" } },
+        { "id": "same-version", "updatedAt": "2026-02-02T00:00:00Z", "data": { "walletId": "cash", "at": "2026-01-03T00:00:00Z", "mode": "delta", "quantity": "2" } },
+        { "id": "same-version", "data": { "walletId": "cash", "at": "2026-01-03T00:00:00Z", "mode": "delta", "quantity": "80" } },
+        { "id": "removed", "version": 2, "deleted": true, "data": {} },
+        { "id": "removed", "version": 1, "data": { "walletId": "cash", "at": "2026-01-04T00:00:00Z", "mode": "set", "quantity": "99" } },
+        { "id": "last", "data": { "walletId": "cash", "at": "2026-01-05T00:00:00Z", "mode": "set", "quantity": "20" } }
+      ],
+      "expected": {
+        "start": [null, null, "10"],
+        "duplicate": ["10", "3", "13"],
+        "same-version": ["13", "2", "15"],
+        "last": ["15", "5", "20"]
+      },
+      "balances": { "cash": "20" }
+    },
+    {
+      "name": "partial and out-of-contract decimal strings do not establish balances",
+      "entries": [
+        { "id": "trailing", "data": { "walletId": "cash", "at": "2026-01-01T00:00:00Z", "mode": "set", "quantity": "12junk" } },
+        { "id": "exponent", "data": { "walletId": "cash", "at": "2026-01-02T00:00:00Z", "mode": "set", "quantity": "1e2" } },
+        { "id": "fraction", "data": { "walletId": "cash", "at": "2026-01-03T00:00:00Z", "mode": "set", "quantity": "0.0000000000001" } },
+        { "id": "integer", "data": { "walletId": "tg", "assetId": "btc", "at": "2026-01-03T00:00:00Z", "mode": "set", "quantity": "1000000000000000000" } },
+        { "id": "cash", "data": { "walletId": "cash", "at": "2026-01-04T00:00:00Z", "mode": "set", "quantity": "15" } },
+        { "id": "asset", "data": { "walletId": "tg", "assetId": "btc", "at": "2026-01-04T00:00:00Z", "mode": "set", "quantity": "0.000000000001" } }
+      ],
+      "expected": { "cash": [null, null, "15"], "asset": [null, null, "0.000000000001"] },
+      "balances": { "cash": "15" },
+      "holdings": { "btc": { "tg": "0.000000000001" } }
+    },
+    {
+      "name": "empty replay",
+      "entries": [],
+      "expected": {}
+    }
+  ]
+}

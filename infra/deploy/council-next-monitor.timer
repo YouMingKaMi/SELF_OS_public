@@ -1,0 +1,10 @@
+[Unit]
+Description=SELF OS · sample health and capacity every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/15:00
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

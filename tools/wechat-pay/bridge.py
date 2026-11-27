@@ -1,6 +1,7 @@
 """Import WeChat Pay notifications into the existing SELF OS expense ledger."""
 
 import argparse
+from contextlib import closing, contextmanager
 from datetime import date, datetime, time, timedelta, timezone
 from hashlib import sha256
 from html import escape
@@ -9,13 +10,14 @@ import json
 import os
 from pathlib import Path
 import secrets
+import sqlite3
 import sys
 import tempfile
 from threading import Lock, Thread
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 import webbrowser
 
 from source import BUSINESS_TIME, WeChatSourceError, fetch_notifications
@@ -32,6 +34,10 @@ class BridgeError(Exception):
 
 
 class ConnectionExpired(BridgeError):
+    pass
+
+
+class LegacySync(BridgeError):
     pass
 
 
@@ -68,6 +74,10 @@ def api_call(endpoint, path, token="", body=None):
             pass
         if error.code in (401, 403):
             raise ConnectionExpired("SELF OS 连接已失效，需要重新连接") from None
+        if error.code == 404 and path == "/v1/sync-state":
+            raise LegacySync() from None
+        if code in ("DATASET_MISMATCH", "GENERATION_MISMATCH", "CURSOR_AHEAD", "SYNC_UPGRADE_REQUIRED"):
+            raise BridgeError("SELF OS 正在切换恢复后的账本，请刷新后再试") from None
         if code == "INVALID_CODE":
             raise BridgeError("连接码无效或已过期") from None
         if code.startswith("MISSING_REFERENCE"):
@@ -103,6 +113,17 @@ def command_for(payment, category=None, title=None):
     }
 
 
+def read_private(path, default):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return default
+
+
+def empty_state():
+    return {"rules": {}, "automaticSince": None}
+
+
 def write_private(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with tempfile.NamedTemporaryFile(dir=path.parent, mode="w", encoding="utf-8", delete=False) as file:
@@ -113,6 +134,102 @@ def write_private(path, value):
             os.replace(file.name, path)
         finally:
             Path(file.name).unlink(missing_ok=True)
+
+
+class ConnectionLedger:
+    def __init__(self, path, legacy_path):
+        self.path = path
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.close(os.open(path, os.O_CREAT | os.O_WRONLY, 0o600))
+        with closing(sqlite3.connect(path)) as db:
+            db.executescript("""
+                CREATE TABLE IF NOT EXISTS ledger (
+                    id INTEGER PRIMARY KEY, revision INTEGER NOT NULL DEFAULT 0,
+                    state TEXT NOT NULL, cursor TEXT NOT NULL DEFAULT '0',
+                    categories TEXT NOT NULL DEFAULT '{}'
+                );
+                CREATE TABLE IF NOT EXISTS sent (
+                    ledger_id INTEGER NOT NULL, source_id TEXT NOT NULL, occurred_at TEXT NOT NULL,
+                    PRIMARY KEY (ledger_id, source_id)
+                ) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS learned (
+                    ledger_id INTEGER NOT NULL, expense_id TEXT NOT NULL, rule TEXT NOT NULL,
+                    PRIMARY KEY (ledger_id, expense_id)
+                ) WITHOUT ROWID;
+            """)
+        with self.transaction() as db:
+            if db.execute("SELECT 1 FROM ledger LIMIT 1").fetchone():
+                return
+            legacy = read_private(legacy_path, {})
+            sent = legacy.pop("sent", {})
+            learned = legacy.pop("learnedRules", {})
+            ledger = db.execute(
+                "INSERT INTO ledger(state) VALUES (?)", (json.dumps({**empty_state(), **legacy}),)
+            ).lastrowid
+            db.executemany(
+                "INSERT INTO sent VALUES (?, ?, ?)",
+                ((ledger, key, occurred) for key, occurred in sent.items()),
+            )
+            db.executemany(
+                "INSERT INTO learned VALUES (?, ?, ?)",
+                ((ledger, key, json.dumps(rule)) for key, rule in learned.items()),
+            )
+
+    @contextmanager
+    def transaction(self):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("BEGIN IMMEDIATE")
+            yield db
+
+    def read(self):
+        with closing(sqlite3.connect(self.path)) as db:
+            ledger, revision, state, cursor, categories = db.execute(
+                "SELECT id, revision, state, cursor, categories FROM ledger ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        return ledger, revision, json.loads(state), cursor, json.loads(categories)
+
+    def sent_ids(self, ledger, ids):
+        found = set()
+        with closing(sqlite3.connect(self.path)) as db:
+            for index in range(0, len(ids), BATCH):
+                batch = ids[index:index+BATCH]
+                query = "SELECT source_id FROM sent WHERE ledger_id=? AND source_id IN (" + ",".join("?" for _ in batch) + ")"
+                found.update(row[0] for row in db.execute(query, (ledger, *batch)))
+        return found
+
+    def learned_rules(self, ledger, ids):
+        found = {}
+        with closing(sqlite3.connect(self.path)) as db:
+            for index in range(0, len(ids), BATCH):
+                batch = ids[index:index+BATCH]
+                query = "SELECT expense_id, rule FROM learned WHERE ledger_id=? AND expense_id IN (" + ",".join("?" for _ in batch) + ")"
+                found.update((key, json.loads(rule)) for key, rule in db.execute(query, (ledger, *batch)))
+        return found
+
+    def update(self, ledger, revision, state, *, cursor=None, categories=None, sent=(), learned=None, reset=False):
+        with self.transaction() as db:
+            active = db.execute("SELECT id, revision FROM ledger ORDER BY id DESC LIMIT 1").fetchone()
+            if active != (ledger, revision):
+                raise BridgeError("另一个微信记账进程已更新进度，请重试")
+            if reset:
+                # Keep the previous ledger for reconciliation and start a new generation.
+                db.execute("INSERT INTO ledger(state) VALUES (?)", (json.dumps(state),))
+                return
+            db.execute(
+                "UPDATE ledger SET revision=revision+1, state=?, cursor=COALESCE(?, cursor), "
+                "categories=COALESCE(?, categories) WHERE id=?",
+                (json.dumps(state), cursor, json.dumps(categories) if categories is not None else None, ledger),
+            )
+            db.executemany(
+                "INSERT INTO sent VALUES (?, ?, ?) ON CONFLICT(ledger_id, source_id) DO NOTHING",
+                ((ledger, key, occurred) for key, occurred in sent),
+            )
+            if learned:
+                db.executemany(
+                    "INSERT INTO learned VALUES (?, ?, ?) "
+                    "ON CONFLICT(ledger_id, expense_id) DO UPDATE SET rule=excluded.rule",
+                    ((ledger, key, json.dumps(rule)) for key, rule in learned.items()),
+                )
 
 
 class Bridge:
@@ -129,93 +246,145 @@ class Bridge:
         self.payments = {}
         self.visible_payments = []
         self.note = ""
-        auth = self.load(self.auth_path, {})
+        auth = read_private(self.auth_path, {})
         self.token = auth.get("credential", "") if auth.get("endpoint") == endpoint else ""
+        self.state = empty_state()
+        self.store = None
         self.state_path = self.connection_state_path(self.token)
-        self.state = self.load(self.state_path, self.empty_state())
-        if self.token and not auth.get("stateVersion"):
-            # Only the previously saved connection may inherit its legacy state.
-            if not self.state_path.exists():
-                self.state = self.load(state_dir / "state.json", self.state)
-                self.save_state()
-            write_private(self.auth_path, {**auth, "stateVersion": 1})
-
-    @staticmethod
-    def empty_state():
-        return {"sent": {}, "rules": {}, "automaticSince": None}
+        if self.token:
+            legacy = self.state_path.with_suffix(".json")
+            if not legacy.exists() and not auth.get("stateVersion"):
+                # Only the previously saved connection may inherit its unscoped state.
+                legacy = state_dir / "state.json"
+            self.store = ConnectionLedger(self.state_path, legacy)
+            self.load_ledger()
+            if not auth.get("stateVersion"):
+                write_private(self.auth_path, {**auth, "stateVersion": 1})
 
     def connection_state_path(self, token):
         key = sha256((self.endpoint + "\n" + token).encode()).hexdigest()
-        return self.state_dir / ("connection-state-" + key + ".json")
+        return self.state_dir / ("connection-state-" + key + ".sqlite3")
 
-    @staticmethod
-    def load(path, default):
+    def load_ledger(self):
+        self.ledger, self.revision, self.state, self.category_cursor, self.known_categories = self.store.read()
+
+    def save_state(self, state=None, *, cursor=None, categories=None, sent=(), learned=None, reset=False):
+        state = self.state if state is None else state
         try:
-            return json.loads(path.read_text())
-        except FileNotFoundError:
-            return default
+            self.store.update(
+                self.ledger, self.revision, state, cursor=cursor, categories=categories,
+                sent=sent, learned=learned, reset=reset,
+            )
+        except (BridgeError, sqlite3.Error):
+            self.load_ledger()
+            raise
+        if reset:
+            self.load_ledger()
+        else:
+            self.revision += 1
+            self.state = state
+            if cursor is not None:
+                self.category_cursor = cursor
+            if categories is not None:
+                self.known_categories = categories
 
-    def save_state(self):
-        write_private(self.state_path, self.state)
+    def sent_ids(self, ids):
+        ids = list(ids)
+        return self.store.sent_ids(self.ledger, ids) if self.store and ids else set()
 
-    def merchant_rule(self, merchant):
-        saved = self.state["rules"].get(merchant, "")
+    def merchant_rule(self, merchant, state=None):
+        saved = (self.state if state is None else state)["rules"].get(merchant, "")
         # Before custom names, this value was only a category ID.
         return saved if isinstance(saved, dict) else {"category": saved}
 
-    def remember_merchant(self, merchant, category, title=None):
-        rule = {**self.merchant_rule(merchant), "category": category}
+    def remember_merchant(self, merchant, category, title=None, *, state=None):
+        state = self.state if state is None else state
+        rule = {**self.merchant_rule(merchant, state), "category": category}
         if title is not None:
             rule["title"] = title
-        self.state["rules"][merchant] = rule
+        state["rules"][merchant] = rule
 
     def pair(self, code):
         response = self.api(self.endpoint, "/v1/pair", body={"code": code})
         token = response.get("credential")
         if not token:
             raise BridgeError("请使用为微信记账工具生成的 CLI 连接码")
+        state_path = self.connection_state_path(token)
+        store = ConnectionLedger(state_path, state_path.with_suffix(".json"))
         write_private(self.auth_path, {"endpoint": self.endpoint, "credential": token, "stateVersion": 1})
         self.token = token
-        self.state_path = self.connection_state_path(token)
-        self.state = self.load(self.state_path, self.empty_state())
-        self.known_categories = {}
-        self.category_cursor = "0"
+        self.state_path = state_path
+        self.store = store
+        self.load_ledger()
         self.payments.clear()
         self.visible_payments = []
 
+    def prepare_scope(self):
+        previous = self.state.get("scope")
+        try:
+            state = self.api(self.endpoint, "/v1/sync-state", self.token)
+        except LegacySync:
+            if previous:
+                raise BridgeError("服务暂未提供账本代际，已暂停记账") from None
+            return None
+        try:
+            scope = {key: str(UUID(state[key])) for key in ("datasetId", "generation")}
+            watermark = int(state["watermark"])
+            if watermark < 0:
+                raise ValueError
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise BridgeError("无法确认当前账本，请刷新后再试") from None
+        if ((previous and previous != scope) or (not previous and state.get("scopeRequired"))
+                or int(self.category_cursor) > watermark):
+            self.save_state({**empty_state(), "scope": scope}, reset=True)
+            self.note = "账本已从备份恢复，微信自动记账已暂停。请先核对最近支付。"
+        elif previous != scope:
+            self.save_state({**self.state, "scope": scope})
+        return scope
+
     def refresh_categories(self):
         if not self.token:
-            return
-        learned = self.state.setdefault("learnedRules", {})
+            return None
+        scope = self.prepare_scope()
+        query = "&" + urlencode(scope) if scope else ""
         while True:
             response = self.api(
-                self.endpoint, "/v1/changes?cursor=" + self.category_cursor + "&limit=300", self.token
+                self.endpoint, "/v1/changes?cursor=" + self.category_cursor + "&limit=300" + query, self.token
             )
-            learned_changed = False
+            cursor = response["nextCursor"]
+            if not isinstance(cursor, str) or not cursor.isascii() or not cursor.isdecimal() or (
+                int(cursor) < int(self.category_cursor)
+                or response["hasMore"] and int(cursor) == int(self.category_cursor)
+            ):
+                raise BridgeError("分类同步暂时无法继续")
+
+            categories = dict(self.known_categories)
+            confirmations = {}
             for change in response["changes"]:
                 item = change["entity"]
                 if item["type"] == "category":
                     if item["deleted"]:
-                        self.known_categories.pop(item["id"], None)
+                        categories.pop(item["id"], None)
                     else:
-                        self.known_categories[item["id"]] = {**item["data"], "id": item["id"]}
+                        categories[item["id"]] = {**item["data"], "id": item["id"]}
                 elif item["type"] == "expense" and not item["deleted"]:
-                    data = item["data"]
-                    confirmed = data.get("wechatMerchantRule")
-                    if isinstance(confirmed, list) and len(confirmed) in (3, 4) and learned.get(item["id"]) != confirmed:
-                        merchant, category, _ = confirmed[:3]
-                        title = confirmed[3] if len(confirmed) == 4 else None
-                        self.remember_merchant(merchant, category, title)
-                        learned[item["id"]] = confirmed
-                        learned_changed = True
-            if learned_changed:
-                self.save_state()
-            cursor = response["nextCursor"]
-            if response["hasMore"] and cursor == self.category_cursor:
-                raise BridgeError("分类同步暂时无法继续")
-            self.category_cursor = cursor
+                    confirmed = item["data"].get("wechatMerchantRule")
+                    if isinstance(confirmed, list) and len(confirmed) in (3, 4):
+                        confirmations[item["id"]] = confirmed
+
+            known = self.store.learned_rules(self.ledger, list(confirmations)) if confirmations else {}
+            learned = {key: rule for key, rule in confirmations.items() if known.get(key) != rule}
+            if cursor != self.category_cursor or categories != self.known_categories or learned:
+                state = {**self.state, "rules": dict(self.state["rules"])}
+                for confirmed in learned.values():
+                    merchant, category, _ = confirmed[:3]
+                    title = confirmed[3] if len(confirmed) == 4 else None
+                    self.remember_merchant(merchant, category, title, state=state)
+                self.save_state(state, cursor=cursor,
+                                categories=categories if categories != self.known_categories else None,
+                                learned=learned)
             if not response["hasMore"]:
-                return
+                return scope
 
     def scan(self, start, end=None, *, display=True):
         try:
@@ -240,8 +409,12 @@ class Bridge:
             raise BridgeError("请刷新支付记录后重试")
         if not ids:
             return (0, 0)
-        self.refresh_categories()
+        scope = self.refresh_categories()
+        return self.apply_payments(ids, categories, remember, scope)
+
+    def apply_payments(self, ids, categories, remember, scope):
         added = existing = 0
+        known_sent = self.sent_ids(ids)
         for key in ids:
             payment = self.payments[key]
             rule = self.merchant_rule(payment.merchant)
@@ -250,10 +423,12 @@ class Bridge:
             parent = category.get("parentId") if category else None
             if parent and parent not in self.known_categories:
                 category = None
-            if key in self.state["sent"]:
+            if key in known_sent:
                 existing += 1
                 continue
             command = command_for(payment, category, rule.get("title"))
+            if scope:
+                command["scope"] = scope
             result = self.api(self.endpoint, "/v1/commands", self.token, command)
             if result["outcome"] == "accepted":
                 added += 1
@@ -270,16 +445,20 @@ class Bridge:
                 existing += 1  # Includes a deleted expense; do not recreate it.
             else:
                 raise BridgeError("有一笔支付暂时未保存，稍后可重试")
-            self.state["sent"][key] = payment.occurred_at
+            state = self.state
             if key in remember and category:
-                self.remember_merchant(payment.merchant, category["id"])
-            self.save_state()
+                state = {**self.state, "rules": dict(self.state["rules"])}
+                self.remember_merchant(payment.merchant, category["id"], state=state)
+            self.save_state(state, sent=((key, payment.occurred_at),))
+            known_sent.add(key)
         return added, existing
 
     def tick(self, now=None):
         if not self.state["automaticSince"] or not self.token:
             return
-        self.refresh_categories()
+        scope = self.refresh_categories()
+        if not self.state["automaticSince"]:
+            return
         now = now or datetime.now(UTC)
         # Run the wider overlap once daily to catch messages synced late by the phone.
         since = datetime.fromisoformat(self.state["automaticSince"])
@@ -291,10 +470,11 @@ class Bridge:
             through = datetime.fromisoformat(self.state.get("scanThrough") or self.state["automaticSince"])
             start = max(since, through - timedelta(days=2), now - LATE_WINDOW)
         seen = self.scan(start, now, display=False)
-        upcoming = list(dict.fromkeys(item.source_id for item in seen
-                                       if item.source_id not in self.state["sent"]))
+        candidates = list(dict.fromkeys(item.source_id for item in seen))
+        known_sent = self.sent_ids(candidates)
+        upcoming = [key for key in candidates if key not in known_sent]
         for index in range(0, len(upcoming), BATCH):
-            self.import_selected(upcoming[index:index+BATCH], {})
+            self.apply_payments(upcoming[index:index+BATCH], {}, frozenset(), scope)
         self.state["scanThrough"] = now.isoformat()
         if sweep:
             self.state["lateSweepThrough"] = now.isoformat()
@@ -341,12 +521,13 @@ def render(bridge, nonce=None):
         rules += (f'<li><div>{merchant}{alias}</div><span>{category}</span><form method="post" action="/forget">'
                   f'{form}<button name="merchant" value="{merchant}" class="secondary">移除</button></form></li>')
     list_rows = ""
+    known_sent = bridge.sent_ids(item.source_id for item in records)
     for item in records:
         key = escape(item.source_id)
         major, minor = divmod(int(item.amount_minor), 100)
         merchant = escape(item.merchant)
         rule = bridge.merchant_rule(item.merchant)
-        sent = item.source_id in bridge.state["sent"]
+        sent = item.source_id in known_sent
         fields = '<span class="subtle">已记账</span>' if sent else f"""
           <label><select name="category-{key}" aria-label="{merchant}用途">{''.join(bridge.category_options(rule["category"]))}</select></label>
           <label class="remember"><input type="checkbox" name="remember" value="{key}">记住用途</label>"""
@@ -448,8 +629,12 @@ def run_server(bridge, port, browse):
                 policy += f"; frame-ancestors {bridge.endpoint}; script-src 'nonce-{nonce}'"
             else:
                 policy += "; frame-ancestors 'none'"
-            with bridge.lock:
-                html = render(bridge, nonce).encode()
+            try:
+                with bridge.lock:
+                    html = render(bridge, nonce).encode()
+            except sqlite3.Error:
+                self.send_error(503)
+                return
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
@@ -479,7 +664,7 @@ def run_server(bridge, port, browse):
                     if isinstance(error, ConnectionExpired):
                         bridge.token = ""
                     bridge.note = str(error)
-                except (OSError, ValueError, KeyError):
+                except (OSError, ValueError, KeyError, sqlite3.Error):
                     bridge.note = "操作暂时失败，请稍后重试"
             self.send_response(303)
             self.send_header("Location", "/embedded" if fields.get("embedded") == ["1"] else "/")
@@ -530,7 +715,7 @@ def run_server(bridge, port, browse):
                 key = fields.get("payment", [""])[0]
                 category = fields.get("category-" + key, [""])[0]
                 bridge.refresh_categories()
-                if key not in bridge.state["sent"] or key not in bridge.payments or category not in bridge.known_categories:
+                if key not in bridge.sent_ids([key]) or key not in bridge.payments or category not in bridge.known_categories:
                     raise BridgeError("请选择要记住的用途")
                 bridge.remember_merchant(bridge.payments[key].merchant, category)
                 bridge.save_state()
@@ -548,7 +733,7 @@ def run_server(bridge, port, browse):
                     if isinstance(error, ConnectionExpired):
                         bridge.token = ""
                     bridge.note = str(error)
-                except (OSError, ValueError, KeyError):
+                except (OSError, ValueError, KeyError, sqlite3.Error):
                     bridge.note = "自动同步暂时失败，会稍后重试"
             time.sleep(300)
 

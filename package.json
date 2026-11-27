@@ -1,6 +1,6 @@
 {
   "name": "self-os",
-  "version": "0.3.0",
+  "version": "0.3.14",
   "type": "module",
   "engines": {
     "node": ">=24.0.0 <25"
@@ -10,16 +10,20 @@
     "verify": "node scripts/check.mjs && npm run contracts:check && npm run typecheck && npm test",
     "typecheck": "tsc",
     "api": "node services/api/server.ts",
-    "test:integration": "node --test \"tests/integration/*.test.ts\"",
+    "test:integration": "node --test --test-concurrency=1 \"tests/integration/*.test.ts\"",
     "web": "vite --config apps/web/vite.config.ts",
     "build:web": "vite build --config apps/web/vite.config.ts",
     "dev": "npm run build:web && node scripts/dev.mjs",
     "contracts:generate": "node scripts/generate-contracts.ts",
     "test:wechat": "python3 -m unittest discover -s tools/wechat-pay -p 'test_*.py'",
     "contracts:check": "node scripts/generate-contracts.ts --check && node scripts/generate-migration.ts --check",
+    "test:browser": "playwright test tests/browser --workers=1",
+    "test:native": "node scripts/verify-native-sync.mjs",
     "backup:local": "node scripts/backup-local.mjs --verify",
     "db:migration": "node scripts/generate-migration.ts",
-    "seed": "node scripts/seed-system.ts && node scripts/prepare-demo.ts"
+    "seed": "node scripts/seed-system.ts && node scripts/prepare-demo.ts",
+    "start": "node scripts/start.mjs",
+    "import:legacy": "node tools/migration/import-legacy.ts"
   },
   "dependencies": {
     "fastify": "^5.12.8",

@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from "react";
 import "./treasury.css";
-import { useEntities, put, remove, type AnyEntity as Entity } from "../data/entities.ts";
+import { useEntities, put, putKey, remove, type AnyEntity as Entity } from "../data/entities.ts";
 import { useQuotes, searchQuotes, fetchQuotes } from "../data/quotes.ts";
 import { Heading, Panel, Empty, RecordForm, Stats, Chart, str, perform } from "../ui/shared.tsx";
 import { money } from "./finance-model.ts";
-import { treasury, formatDecimal } from "../../../../modules/treasury/index.ts";
+import { treasury, treasuryTrend, formatDecimal } from "../../../../modules/treasury/index.ts";
 import type { AssetKind, Quote, QuoteMatch } from "../../../../packages/contracts/quotes.ts";
 
 type Selection =
@@ -46,13 +46,16 @@ const pct = (n: number | undefined) =>
 
 export function Treasury() {
   const { entities } = useEntities("wallet", "walletEntry", "asset", "assetPrice");
-  const prices = entities.filter((e) => e.type === "assetPrice");
-  const wallets = entities.filter((e) => e.type === "wallet");
-  const entries = entities.filter((e) => e.type === "walletEntry");
-  const assets = entities
-    .filter((e) => e.type === "asset")
-    .sort((a, b) => Number(a.data.order ?? 0) - Number(b.data.order ?? 0) || str(a, "name").localeCompare(str(b, "name")));
-  const { quotes, live, setQuotes } = useQuotes(assets.map((a) => str(a, "quoteId")).filter(Boolean));
+  const { prices, wallets, entries, assets } = useMemo(() => ({
+    prices: entities.filter((e) => e.type === "assetPrice"),
+    wallets: entities.filter((e) => e.type === "wallet"),
+    entries: entities.filter((e) => e.type === "walletEntry"),
+    assets: entities.filter((e) => e.type === "asset")
+      .sort((a, b) => Number(a.data.order ?? 0) - Number(b.data.order ?? 0) || str(a, "name").localeCompare(str(b, "name"))),
+  }), [entities]);
+  const quoteIds = assets.map((a) => str(a, "quoteId")).filter(Boolean);
+  const { quotes, statusOf, accept } = useQuotes(quoteIds);
+  const recentlyUpdated = quoteIds.filter((id) => ["市场报价", "最近获取"].includes(statusOf(id))).length;
   const quoteOf = (a: Entity): Quote | undefined => quotes[str(a, "quoteId")];
   const livePrices = useMemo(
     () => Object.fromEntries(assets.map((a) => [a.id, quotes[str(a, "quoteId")]?.priceCNY])),
@@ -89,12 +92,14 @@ export function Treasury() {
   async function recordPrices() {
     setRefreshing("正在刷新…");
     try {
-      const fresh = await fetchQuotes(assets.map((a) => str(a, "quoteId")).filter(Boolean));
-      setQuotes((old) => ({ ...old, ...fresh }));
-      const at = new Date().toISOString();
-      const quoted = assets.filter((a) => fresh[str(a, "quoteId")]);
-      await Promise.all(quoted.map((a) => put("assetPrice", { assetId: a.id, at, price: fresh[str(a, "quoteId")].priceCNY })));
-      setRefreshing(`已记录 ${quoted.length} 个标的的价格`);
+      const result = await fetchQuotes(quoteIds);
+      accept(result);
+      const quoted = assets.filter((a) => result.quotes[str(a, "quoteId")]);
+      await Promise.all(quoted.map((a) => {
+        const { at, priceCNY: price } = result.quotes[str(a, "quoteId")];
+        return putKey("assetPrice", a.id + ":" + at, { assetId: a.id, at, price });
+      }));
+      setRefreshing(quoted.length ? `已记录 ${quoted.length} 个标的的价格` : "本次没有返回报价");
     } catch {
       setRefreshing("行情暂时取不到");
     }
@@ -145,14 +150,16 @@ export function Treasury() {
     }
     return { name: "全部资产", unit: CNY, filter: () => true, wallets, assets };
   }, [sel, wallets, assets, quotes, report]);
-  const scoped = useMemo(
-    () => treasury({ wallets: scope.wallets, assets: scope.assets, entries: entries.filter(scope.filter), prices, live: livePrices, now }),
-    [scope, entries, livePrices],
-  );
-  const from = days === "all" ? "" : new Date(Date.now() - Number(days) * 86400000).toISOString();
+  const scoped = useMemo(() => sel.kind === "all" ? report :
+    treasury({ wallets: scope.wallets, assets: scope.assets, entries: entries.filter(scope.filter), prices, live: livePrices, now }),
+  [sel.kind, report, scope, entries, prices, livePrices]);
+  const from = useMemo(() => days === "all" ? "" : new Date(Date.now() - Number(days) * 86400000).toISOString(), [days, scoped.points]);
   const toUnit = (cents: bigint) => Number(cents) / 100 / (scope.unit.rate ?? 1);
-  const points = scoped.points.filter((p) => p.at >= from).map((p) => ({ x: p.at, y: toUnit(p.value) }));
-  const change = points.length > 1 ? points[points.length - 1].y - points[0].y : null;
+  const points = useMemo(() => treasuryTrend(scoped.points, from).map((p) => ({
+    x: p.at, y: p.value === null ? null : toUnit(p.value),
+  })), [scoped.points, from, scope.unit.rate]);
+  const firstPoint = points[0]?.y, lastPoint = points.at(-1)?.y;
+  const change = points.length > 1 && firstPoint != null && lastPoint != null ? lastPoint - firstPoint : null;
   const flow = entries.filter(scope.filter).sort((a, b) => str(b, "at").localeCompare(str(a, "at")));
   const walletName = (id: unknown) => str(wallets.find((w) => w.id === id), "name", "已删除钱包");
   const assetOf = (id: unknown) => assets.find((a) => a.id === id);
@@ -278,7 +285,9 @@ export function Treasury() {
             <div>
               <small>
                 {scope.name} · {scope.unit.currency === "CNY" ? "折合人民币" : `以${scope.unit.currency}计价`} ·{" "}
-                {live ? "实时行情" : "行情暂不可用，使用最近价格"}
+                {quoteIds.length
+                  ? `${recentlyUpdated}/${quoteIds.length} 个标的近期更新`
+                  : "账本估值"}
                 <button
                   className="ghost hero-refresh"
                   title="刷新行情，并把当前价格记入历史"
@@ -329,6 +338,7 @@ export function Treasury() {
               asset={selectedAsset}
               total={report.assets[selectedAsset.id]}
               quote={quoteOf(selectedAsset)}
+              quoteStatus={str(selectedAsset, "quoteId") ? statusOf(str(selectedAsset, "quoteId")) : undefined}
               unit={unitOf(selectedAsset)}
               accounts={accounts}
               walletName={walletName}
@@ -399,6 +409,41 @@ export function Treasury() {
                 const unitName = a ? str(a, "symbol") || str(a, "name") : "元";
                 const amount = str(e, "quantity");
                 const set = e.data.mode === "set";
+                const change = report.entryChanges[e.id];
+                const hasSetDelta = set && change !== undefined && change.delta !== null;
+                const setDelta = hasSetDelta ? change.delta! : null;
+                const deltaAbs = setDelta !== null ? formatDecimal(setDelta < 0n ? -setDelta : setDelta, 12) : "";
+                const afterText = change ? formatDecimal(change.after, 12) : amount;
+                const reason = str(e, "reason");
+                const desc = set
+                  ? hasSetDelta
+                    ? setDelta! > 0n
+                      ? `增加 ${deltaAbs} ${unitName}（余额 ${afterText} ${unitName}）`
+                      : setDelta! < 0n
+                        ? `减少 ${deltaAbs} ${unitName}（余额 ${afterText} ${unitName}）`
+                        : `余额未变（${afterText} ${unitName}）`
+                    : `初始设为 ${amount} ${unitName}`
+                  : `${amount.startsWith("-") ? "减少" : "增加"} ${amount.replace("-", "")} ${unitName}`;
+                const qtyClass = set
+                  ? hasSetDelta
+                    ? setDelta! > 0n
+                      ? " up"
+                      : setDelta! < 0n
+                        ? " down"
+                        : ""
+                    : ""
+                  : amount.startsWith("-")
+                    ? " down"
+                    : " up";
+                const qtyText = set
+                  ? hasSetDelta
+                    ? setDelta! > 0n
+                      ? "+" + deltaAbs
+                      : setDelta! < 0n
+                        ? "-" + deltaAbs
+                        : "0"
+                    : "= " + amount
+                  : (amount.startsWith("-") ? "" : "+") + amount;
                 return (
                   <div key={e.id}>
                     <span className="mono when">
@@ -407,12 +452,12 @@ export function Treasury() {
                     <span className="row-main">
                       <strong>{a ? `${str(a, "name")} · ${walletName(e.data.walletId)}` : walletName(e.data.walletId)}</strong>
                       <small>
-                        {set ? `设为 ${amount} ${unitName}` : `${amount.startsWith("-") ? "减少" : "增加"} ${amount.replace("-", "")} ${unitName}`}
-                        {str(e, "reason") ? " · " + str(e, "reason") : ""}
+                        {desc}
+                        {reason ? " · " + reason : ""}
                       </small>
                     </span>
-                    <strong className={"mono qty" + (set ? "" : amount.startsWith("-") ? " down" : " up")}>
-                      {set ? "= " + amount : (amount.startsWith("-") ? "" : "+") + amount}
+                    <strong className={"mono qty" + qtyClass}>
+                      {qtyText}
                     </strong>
                     <span className="row-tools">
                       <button
@@ -522,12 +567,12 @@ export function Treasury() {
                   walletId: modal.walletId,
                   ...(modal.assetId ? { assetId: modal.assetId } : {}),
                   mode: modal.assetId ? "set" : entries.some((e) => e.data.walletId === modal.walletId) ? "delta" : "set",
-                  quantity: modal.assetId ? formatDecimal(report.assets[modal.assetId]?.byWallet[modal.walletId] ?? 0n) : "",
+                  quantity: modal.assetId ? formatDecimal(report.assets[modal.assetId]?.byWallet[modal.walletId] ?? 0n, 12) : "",
                   at: new Date().toISOString(),
                   reason: "",
                   // Remember the price of the moment, so history stays valued without live data.
                   ...(modal.assetId && report.assets[modal.assetId]?.price != null
-                    ? { unitPrice: formatDecimal(report.assets[modal.assetId].price!, 6), exchangeRate: "1" }
+                    ? { unitPrice: formatDecimal(report.assets[modal.assetId].price!, 12), exchangeRate: "1" }
                     : {}),
                 }}
                 fields={[
@@ -578,6 +623,7 @@ function AssetDetail({
   asset,
   total,
   quote,
+  quoteStatus,
   unit,
   accounts,
   walletName,
@@ -588,6 +634,7 @@ function AssetDetail({
   asset: Entity;
   total: ReturnType<typeof treasury>["assets"][string] | undefined;
   quote: Quote | undefined;
+  quoteStatus?: string;
   unit: Unit;
   accounts: Entity[];
   walletName: (id: unknown) => string;
@@ -625,7 +672,7 @@ function AssetDetail({
         items={[
           ["总数量", `${qty(total?.quantity)} ${symbol}`],
           [
-            "现价",
+            quoteStatus ?? "价格",
             quote
               ? sign(quote.currency) +
                 Number(quote.price).toLocaleString("zh-CN", { maximumFractionDigits: Number(quote.price) < 1 ? 6 : 2 }) +

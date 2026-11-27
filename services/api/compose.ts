@@ -9,23 +9,35 @@ import {
   migrate,
 } from "../../modules/kernel/server.ts";
 import { schema, type EntityType } from "../../packages/contracts/entities.ts";
-import { rules as calendar } from "../../modules/calendar/index.ts";
+import { calendarRules } from "../../modules/calendar/index.ts";
+import { LunarMonth } from "lunar-typescript";
 import { rules as documents } from "../../modules/documents/index.ts";
 import { rules as finance } from "../../modules/finance/index.ts";
 import { rules as habits } from "../../modules/habits/index.ts";
 import { rules as metrics } from "../../modules/metrics/index.ts";
 import { rules as practice } from "../../modules/practice/index.ts";
+import { rules as storage } from "../../modules/storage/index.ts";
 import { rules as tasks } from "../../modules/tasks/index.ts";
+import { rules as workspace } from "../../modules/workspace/index.ts";
 
 /** module name → the rules it contributes. Modules without server rules are absent. */
 const modules: Record<string, Rules> = {
-  calendar,
+  calendar: calendarRules((year, month, day) => {
+    try {
+      const lunarMonth = LunarMonth.fromYm(year, month);
+      return !!lunarMonth && day <= lunarMonth.getDayCount();
+    } catch {
+      return false;
+    }
+  }),
   documents,
   finance,
   habits,
   metrics,
   practice,
+  storage,
   tasks,
+  workspace,
 };
 
 /** Composition root: the only place that knows every module. */

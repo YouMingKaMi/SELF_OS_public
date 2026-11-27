@@ -21,6 +21,7 @@
     "tests/**/*.ts",
     "apps/web/**/*.ts",
     "apps/web/**/*.tsx",
-    "packages/contracts/**/*.ts"
+    "packages/contracts/**/*.ts",
+    "tools/**/*.ts"
   ]
 }

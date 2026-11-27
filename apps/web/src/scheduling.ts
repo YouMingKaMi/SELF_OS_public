@@ -36,7 +36,7 @@ export function inPeriod(task: Task, month: string, day: string) {
   const completed = task.status === "completed" ? completionDay(task) : null;
   if (completed) return day ? completed === day : completed.startsWith(month);
   const s = task.schedule ?? { kind: "unscheduled" };
-  if (s.kind === "unscheduled" || s.kind === "recent") return !day;
+  if (s.kind === "unscheduled" || s.kind === "recent") return false;
   const start = day || month + "-01";
   const end =
     day ||
@@ -49,28 +49,38 @@ export function inPeriod(task: Task, month: string, day: string) {
       ).getDate();
   return validDay(start) && validDay(end) && overlaps(s, start, end);
 }
-export function groupTasks(tasks: Task[]) {
+export function groupTasks(tasks: Task[], today = localDay()) {
   const groups = new Map<
     string,
     { label: string; tasks: Task[]; sort: string }
   >();
   for (const task of tasks) {
     const completed = task.status === "completed" ? completionDay(task) : null;
+    const s = task.schedule;
+    const overdue =
+      task.status === "pending" && s.kind === "deadline" && s.date < today;
+    const todayGroup = task.status === "pending" && inPeriod(task, "", today);
     const label = completed
       ? "完成于 " + completed
-      : scheduleLabel(task.schedule);
-    const s = task.schedule;
-    const sort =
-      completed ||
-      (!s || s.kind === "unscheduled"
-        ? "9999-2"
-        : s.kind === "recent"
-          ? "0000"
-          : s.kind === "range"
-            ? s.start
-            : "date" in s
-              ? s.date
-              : "9999-2");
+      : overdue
+        ? "已过截止"
+        : todayGroup
+          ? "今天"
+          : scheduleLabel(s);
+    const sort = completed
+      ? "0-" + String(99_999_999 - Number(completed.replaceAll("-", "")))
+      : overdue
+        ? "1"
+        : todayGroup
+          ? "2"
+          : s.kind === "unscheduled"
+            ? "6"
+            : s.kind === "recent"
+              ? "4"
+              : (s.kind === "range" ? s.start : "date" in s ? s.date : "") <=
+                  today
+                ? "3" + label
+                : "5" + label;
     const group = groups.get(label) ?? { label, tasks: [], sort };
     group.tasks.push(task);
     groups.set(label, group);

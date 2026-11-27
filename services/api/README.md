@@ -14,4 +14,4 @@
 
 数据库见 infra/compose.yaml，默认 127.0.0.1:55439/council_next。表建在 PostgreSQL schema `council` 中，由 infra/migrations 的编号迁移创建（启动时自动执行，已执行的迁移文件不可修改）。重构前的开发表仍留在 `public` schema，未被读取也未被删除。
 
-验证：`npm run verify`、`npm run test:integration`。数据库测试只清理各自随机测试身份的合成资料。
+验证：`npm run verify`、`npm run test:integration`、`npm run test:native`。数据库测试只清理各自随机测试身份的合成资料。

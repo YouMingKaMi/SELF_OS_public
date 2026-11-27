@@ -5,15 +5,19 @@ import SwiftUI
 
 struct ShortcutsScreen: View {
   @Environment(Studio.self) private var studio
-  @AppStorage("studio-shortcuts") private var stored = "practice,expenses,chronicle,habits,tasks,checklists"
+  @AppStorage("studio-shortcuts") private var stored = "practice,expenses,chronicle,habits,tasks,achievements,checklists"
   @State private var editing = false
-  var keys: [Feature] { stored.split(separator: ",").compactMap { Feature(rawValue: String($0)) } }
+  var keys: [Feature] {
+    stored.split(separator: ",")
+      .compactMap { Feature(rawValue: String($0)) }
+      .filter { studio.isFeatureEnabled($0) }
+  }
   var body: some View {
     Page {
       IconGrid {
         ForEach(keys) { feature in
           NavigationLink(value: feature) {
-            AppIcon(symbol: feature.symbol, name: feature.name, live: feature == .practice && studio.runningSession != nil)
+            AppIcon(symbol: feature.symbol, name: studio.featureName(feature), live: feature == .practice && studio.runningSession != nil)
           }.buttonStyle(.icon)
             .contextMenu {
               Text(glance(feature))
@@ -43,12 +47,21 @@ struct ShortcutsScreen: View {
       return studio.runningSession != nil ? "正在计时" : "今日 " + Clock.span(TimeMath.summarize(studio.all("session"), now: Date()).daily[today] ?? 0)
     case .chronicle:
       return "今天 \(studio.all("journal").filter { $0.text("kind") == "chronicle" && $0.text("day") == today }.count) 件事"
+    case .memoir:
+      return "已记 \(studio.all("memoir").count) 段回忆"
+    case .storage:
+      let out = studio.all("storageItem").filter { $0.text("status") == "out" }.count
+      let total = studio.all("storageItem").count
+      return out > 0 ? "\(total) 件物品 · \(out) 件在外" : "\(studio.all("storageBox").count) 个箱子 · \(total) 件"
     case .habits:
       let records = studio.habitRecords
       let list = studio.all("habit").filter { HabitRules.isScheduled(habit: $0, day: today, records: records) }
       return "\(list.filter { HabitRules.isComplete(habit: $0, day: today, records: records) }.count)/\(list.count) 已完成"
     case .tasks:
       return "\(studio.all("task").filter { TaskRules.belongsToday($0, day: today) }.count) 件今天要做"
+    case .achievements:
+      let list = studio.all("achievement")
+      return "\(list.filter { $0.flag("completed") }.count)/\(list.count) 已点亮"
     default:
       return feature.department
     }
@@ -56,6 +69,7 @@ struct ShortcutsScreen: View {
 }
 
 struct ShortcutEditor: View {
+  @Environment(Studio.self) private var studio
   @Binding var stored: String
   @Environment(\.dismiss) private var dismiss
   @State private var list: [Feature] = []
@@ -63,16 +77,16 @@ struct ShortcutEditor: View {
     NavigationStack {
       List {
         Section("已添加") {
-          ForEach(list) { f in Label(f.name, systemImage: f.symbol).listRowBackground(Ink.raised) }
+          ForEach(list) { f in Label(studio.featureName(f), systemImage: f.symbol).listRowBackground(Ink.raised) }
             .onMove { list.move(fromOffsets: $0, toOffset: $1) }
             .onDelete { list.remove(atOffsets: $0) }
         }
         Section("可添加") {
-          ForEach(Feature.allCases.filter { !list.contains($0) }) { f in
+          ForEach(Feature.allCases.filter { studio.isFeatureEnabled($0) && !list.contains($0) }) { f in
             Button {
               list.append(f)
             } label: {
-              Label(f.name, systemImage: f.symbol)
+              Label(studio.featureName(f), systemImage: f.symbol)
             }.listRowBackground(Ink.raised)
           }
         }
@@ -102,18 +116,18 @@ struct DepartmentInfo: Identifiable {
 }
 
 extension Studio {
-  static let builtInDepartments = ["执行部", "财政部", "档案库", "中科院"]
+  static let builtInDepartments = WorkspaceRules.builtinDepartments
   var departments: [DepartmentInfo] {
     let symbols = ["执行部": "bolt.horizontal", "财政部": "yensign", "档案库": "archivebox", "中科院": "atom"]
-    return Studio.builtInDepartments.map { name in
+    return Studio.builtInDepartments.filter { isDepartmentVisible($0) }.map { name in
       DepartmentInfo(
-        id: name, name: name, symbol: symbols[name] ?? "folder",
-        features: Feature.allCases.filter { $0.department == name }, record: nil)
+        id: name, name: departmentName(name), symbol: symbols[name] ?? "folder",
+        features: Feature.allCases.filter { $0.department == name && isFeatureEnabled($0) }, record: nil)
     }
       + all("department").map { custom in
         DepartmentInfo(
           id: custom.id, name: custom.title, symbol: "folder",
-          features: (custom.data["features"]?.strings ?? []).compactMap(Feature.init(rawValue:)), record: custom)
+          features: (custom.data["features"]?.strings ?? []).compactMap(Feature.init(rawValue:)).filter { isFeatureEnabled($0) }, record: custom)
       }
   }
 }
@@ -179,7 +193,7 @@ struct DepartmentDetail: View {
       IconGrid {
         ForEach(department?.features ?? []) { feature in
           NavigationLink(value: feature) {
-            AppIcon(symbol: feature.symbol, name: feature.name)
+            AppIcon(symbol: feature.symbol, name: studio.featureName(feature))
           }.buttonStyle(.icon)
         }
       }.padding(.top, 8)
@@ -256,7 +270,7 @@ struct DepartmentIcon: View {
         // A soft top sheen, like light on lacquer.
         shape.fill(
           RadialGradient(colors: [Color.white.opacity(0.10), .clear], center: .top, startRadius: 0, endRadius: 46))
-        if let symbol = DepartmentIcon.marks[department.name] {
+        if let symbol = DepartmentIcon.marks[department.id] {
           Image(systemName: symbol).font(.system(size: 26, weight: .light))
             .foregroundStyle(LinearGradient(colors: [.white, Color(white: 0.62)], startPoint: .top, endPoint: .bottom))
         } else {
@@ -324,7 +338,7 @@ struct ReviewScreen: View {
     let spend = FinanceRules.total(studio.all("expense"), month: month, basis: .actual, asOf: Day.today)
     let records = studio.habitRecords
     let habits = studio.all("habit").filter { $0.text("status") != "archived" }
-    let monthSummaries = habits.map { HabitRules.month(habit: $0, month: month, records: records) }
+    let monthSummaries = HabitRules.months(habits: habits, month: month, records: records)
     let doneTasks = studio.all("task").filter { TaskRules.completionDay($0)?.hasPrefix(month) == true }
     Page {
       MonthBar(month: $month).padding(.horizontal, 6)
@@ -337,14 +351,16 @@ struct ReviewScreen: View {
       Card(icon: "book.closed", title: "这个月发生的事", meta: "\(lines.count) 件") {
         VStack(alignment: .leading, spacing: 0) {
           let days = Array(Set(lines.map { $0.text("day") })).sorted(by: >)
-          ForEach(Array(days.prefix(12).enumerated()), id: \.element) { index, day in
+          // Every day of the month, every line in full: this is the month's record, not a teaser.
+          ForEach(Array(days.enumerated()), id: \.element) { index, day in
             if index > 0 { Hairline(inset: 44) }
             HStack(alignment: .top, spacing: 12) {
               Text(String(Int(day.suffix(2)) ?? 0)).font(.system(size: 18, weight: .semibold, design: .rounded))
                 .foregroundStyle(Ink.text).frame(width: 32, alignment: .leading)
               VStack(alignment: .leading, spacing: 4) {
                 ForEach(lines.filter { $0.text("day") == day }) { line in
-                  Text(line.text("body")).font(Ink.row).foregroundStyle(Ink.text2).lineLimit(2)
+                  Text(line.text("body")).font(Ink.row).foregroundStyle(Ink.text2)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
               }
             }.padding(.vertical, 10)
@@ -403,16 +419,20 @@ struct SearchScreen: View {
   }
   func kind(_ row: Record) -> String {
     [
-      "document": "文章", "journal": "记录", "idea": "想法", "task": "任务", "expense": "消费", "problem": "问题",
-      "solution": "方案", "progress": "进展", "habit": "习惯", "wallet": "账户", "importantDay": "日子",
+      "document": "文章", "journal": "记录", "memoir": "回忆录", "storageBox": "储物箱", "storageItem": "物品", "idea": "想法", "task": "任务", "achievement": "成就", "expense": "消费", "problem": "问题",
+      "readingItem": "收藏", "solution": "方案", "progress": "进展", "habit": "习惯", "wallet": "账户", "importantDay": "日子",
     ][row.type] ?? row.type
   }
   func feature(_ row: Record) -> Feature {
     switch row.type {
     case "document": return row.text("kind") == "monthly" ? .monthly : row.text("kind") == "thought" ? .thoughts : .notes
     case "journal": return row.text("kind") == "raw" ? .raw : .chronicle
+    case "memoir": return .memoir
+    case "storageBox", "storageItem": return .storage
     case "idea": return .ideas
+    case "readingItem": return .reading
     case "task": return .tasks
+    case "achievement": return .achievements
     case "expense", "category", "budget", "recurringExpense": return .expenses
     case "wallet", "walletEntry": return .treasury
     case "habit", "habitLog": return .habits
@@ -436,6 +456,24 @@ struct SettingsSheet: View {
     @Bindable var studio = studio
     NavigationStack {
       Form {
+        Section {
+          NavigationLink {
+            WorkspaceConfigScreen()
+          } label: {
+            HStack {
+              Label("工作区与模块定制", systemImage: "square.grid.2x2")
+                .foregroundStyle(Ink.text)
+              Spacer()
+              Text("\(studio.workspacePreset.title) · \(studio.enabledFeatureCount)/\(Feature.allCases.count)")
+                .font(.system(size: 13))
+                .foregroundStyle(Ink.text3)
+            }
+          }
+        } header: {
+          Text("工作区定制（跨端同步）")
+        } footer: {
+          Text("切换预设、开关功能模块或自定义名称会自动同步到 Mac、Web 与 iPhone。")
+        }.listRowBackground(Ink.raised)
         Section {
           LabeledContent("状态") {
             Label(studio.syncState.label, systemImage: studio.syncState.symbol)
@@ -466,14 +504,30 @@ struct SettingsSheet: View {
         }.listRowBackground(Ink.raised)
         Section("待发送与异常 · \(studio.pending.count)") {
           ForEach(studio.pending) { op in
+            let batchOps = op.batchId.map { bid in studio.pending.filter { $0.batchId == bid } } ?? []
+            let isTransferBatch = op.batchId != nil
+              && batchOps.contains(where: { $0.entityType == "idea" })
+              && batchOps.contains(where: { $0.entityType == "journal" })
             VStack(alignment: .leading, spacing: 6) {
               Text(studio.title(of: op)).lineLimit(2)
-              Text(op.state == "conflict" ? "另一端也改了这条" : op.state == "error" ? (op.error ?? "内容需要检查") : "等待同步")
+              Text(
+                isTransferBatch && ["conflict", "error"].contains(op.state)
+                  ? "另一端已修改原文，请采用服务器版本后再打开最新原文重新选段"
+                  : op.state == "conflict"
+                    ? "另一端也改了这条"
+                    : op.state == "error"
+                      ? (op.error ?? "内容需要检查")
+                      : "等待同步"
+              )
                 .font(.system(size: 12)).foregroundStyle(op.state == "queued" ? Ink.text3 : Ink.amber)
               if ["conflict", "error"].contains(op.state) {
                 HStack {
-                  Button("保留本机") { Task { await studio.resolve(op, keep: true) } }.buttonStyle(.chip)
-                  Button("采用服务器") { Task { await studio.resolve(op, keep: false) } }.buttonStyle(.chip)
+                  if !isTransferBatch {
+                    Button("保留本机") { Task { await studio.resolve(op, keep: true) } }.buttonStyle(.chip)
+                  }
+                  Button(isTransferBatch ? "采用服务器（之后重选）" : "采用服务器") {
+                    Task { await studio.resolve(op, keep: false) }
+                  }.buttonStyle(.chip)
                 }
               }
             }.listRowBackground(Ink.raised)

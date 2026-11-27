@@ -1,10 +1,11 @@
+import { sessionElapsedSeconds, timeSummary } from "../../../../modules/practice/index.ts";
 import React, { useState, useEffect } from "react";
 import {
   useEntities,
   put,
   type AnyEntity as Entity,
 } from "../data/entities.ts";
-import { str, num, arr, perform } from "../ui/shared.tsx";
+import { str, arr, perform } from "../ui/shared.tsx";
 export const duration = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds));
   return (
@@ -16,12 +17,7 @@ export const duration = (seconds: number) => {
   );
 };
 export function sessionSeconds(e: Entity, now = Date.now()) {
-  return e.data.status === "cancelled"
-    ? 0
-    : num(e, "elapsedSeconds") +
-        (e.data.status === "running" && e.data.runningSince
-          ? Math.max(0, (now - Date.parse(str(e, "runningSince"))) / 1000)
-          : 0);
+  return sessionElapsedSeconds(e, now);
 }
 export async function controlSession(
   e: Entity,
@@ -30,7 +26,7 @@ export async function controlSession(
   const data = { ...e.data };
   const now = new Date().toISOString();
   if (e.data.status === "running" && e.data.runningSince) {
-    data.elapsedSeconds = sessionSeconds(e);
+    data.elapsedSeconds = sessionSeconds(e, Date.parse(now));
     data.segments = [...arr(e, "segments"), str(e, "runningSince") + "/" + now];
   }
   delete data.runningSince;
@@ -90,5 +86,20 @@ export function FloatingTimer() {
         ×
       </button>
     </div>
+  );
+}
+
+export function EventTime({ sessions }: { sessions: Entity[] }) {
+  const running = sessions.some((session) => session.data.status === "running");
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => tick((value) => value + 1), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  return (
+    <time className="mono">
+      {duration(timeSummary(sessions, Date.now()).totalSeconds)}
+    </time>
   );
 }

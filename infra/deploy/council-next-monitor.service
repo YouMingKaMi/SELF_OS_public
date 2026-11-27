@@ -1,0 +1,31 @@
+[Unit]
+Description=SELF OS · local health and capacity monitor
+After=postgresql.service council-next-api.service
+
+[Service]
+Type=oneshot
+User=council-monitor
+StateDirectory=council-next-monitor
+StateDirectoryMode=0700
+EnvironmentFile=-/etc/council-next/monitor.env
+ExecStart=/opt/council-next/node/bin/node /opt/council-next/bin/monitor.ts
+TimeoutStartSec=20s
+StandardOutput=journal
+StandardError=journal
+SyslogLevelPrefix=yes
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+MemoryMax=96M

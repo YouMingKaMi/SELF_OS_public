@@ -5,7 +5,7 @@
 	<key>keychain-access-groups</key>
 	<array>
 		<string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-		<string>$(AppIdentifierPrefix)$(COUNCIL_WIDGET_GROUP)</string>
+		<string>$(AppIdentifierPrefix)org.personalcouncil.next.studio.widget-items</string>
 	</array>
 </dict>
 </plist>

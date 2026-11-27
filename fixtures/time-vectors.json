@@ -40,5 +40,39 @@
     "daily": { "2026-11-07": 1800 },
     "overlapSeconds": 0,
     "manualSeconds": 0
+  },
+  {
+    "name": "a legacy running session keeps its known duration without inventing an interval",
+    "now": "2026-01-01T02:01:00Z",
+    "sessions": [
+      { "status": "running", "day": "2026-01-01", "startedAt": "2026-01-01T01:00:00Z", "elapsedSeconds": 600, "runningSince": "2026-01-01T02:00:00Z" }
+    ],
+    "daily": { "2026-01-01": 660 },
+    "overlapSeconds": 0,
+    "manualSeconds": 0,
+    "unlocatedSeconds": 600
+  },
+  {
+    "name": "legacy duration stays separate after a resumed segment is saved and can overlap another device",
+    "now": "2026-01-02T00:00:00Z",
+    "sessions": [
+      { "status": "paused", "day": "2026-01-01", "elapsedSeconds": 660, "segments": ["2026-01-01T02:00:00Z/2026-01-01T02:01:00Z"] },
+      { "status": "finished", "segments": ["2026-01-01T02:00:30Z/2026-01-01T02:01:30Z"] }
+    ],
+    "daily": { "2026-01-01": 690 },
+    "overlapSeconds": 30,
+    "manualSeconds": 0,
+    "unlocatedSeconds": 600
+  },
+  {
+    "name": "explicit intervals before the Unix epoch merge without including unrelated time",
+    "now": "1965-01-02T00:00:00Z",
+    "sessions": [
+      { "status": "finished", "segments": ["1965-01-01T02:00:00Z/1965-01-01T02:03:00Z"] },
+      { "status": "finished", "segments": ["1965-01-01T02:01:00Z/1965-01-01T02:04:00Z"] }
+    ],
+    "daily": { "1965-01-01": 240 },
+    "overlapSeconds": 120,
+    "manualSeconds": 0
   }
 ]

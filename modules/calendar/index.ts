@@ -1,1 +1,2 @@
-export { rules } from "./rules.ts";
+export { calendarRules } from "./rules.ts";
+export { solarOccurrence } from "./domain/solar.ts";

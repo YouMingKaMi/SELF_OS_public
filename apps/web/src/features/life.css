@@ -296,11 +296,13 @@
   height: 22px;
   padding: 0 6px;
   border: 0;
+  background: transparent;
   color: var(--text-4);
   letter-spacing: 0.1em;
 }
-.day-card > header button:hover {
-  color: var(--text-2);
+.day-card > header button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
 }
 .day-count {
   all: unset;
@@ -308,6 +310,9 @@
   margin: 26px 0 24px;
   font-size: var(--fs-md);
   color: var(--text-2);
+}
+.day-count:hover:not(:disabled) {
+  background: transparent;
 }
 .day-count span {
   display: inline-flex;

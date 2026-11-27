@@ -7,6 +7,20 @@
     "foreignKeys": {},
     "indexes": {}
   },
+  "workspace_configs": {
+    "columns": {
+      "\"preset\"": "text CHECK (\"preset\" IN ('council', 'standard', 'minimal', 'custom'))",
+      "\"disabled_features\"": "jsonb",
+      "\"feature_aliases\"": "text",
+      "\"hidden_departments\"": "jsonb",
+      "\"department_aliases\"": "text",
+      "\"sidebar_favorites\"": "jsonb",
+      "\"phone_shortcuts\"": "jsonb",
+      "\"home_cards\"": "jsonb"
+    },
+    "foreignKeys": {},
+    "indexes": {}
+  },
   "practice_domains": {
     "columns": {
       "\"name\"": "text NOT NULL",
@@ -65,10 +79,29 @@
       "practice_solutions_parent_id_idx": "(owner_id, \"parent_id\") WHERE NOT deleted"
     }
   },
+  "practice_events": {
+    "columns": {
+      "\"domain_id\"": "uuid NOT NULL",
+      "\"activity_id\"": "uuid",
+      "\"reading_item_id\"": "text",
+      "\"title\"": "text NOT NULL",
+      "\"note\"": "text",
+      "\"status\"": "text NOT NULL CHECK (\"status\" IN ('pending', 'active', 'resolved', 'discarded'))"
+    },
+    "foreignKeys": {
+      "practice_events_domain_id_fk": "FOREIGN KEY (owner_id, \"domain_id\") REFERENCES practice_domains(owner_id, id)",
+      "practice_events_activity_id_fk": "FOREIGN KEY (owner_id, \"activity_id\") REFERENCES practice_activities(owner_id, id)"
+    },
+    "indexes": {
+      "practice_events_domain_id_idx": "(owner_id, \"domain_id\") WHERE NOT deleted",
+      "practice_events_activity_id_idx": "(owner_id, \"activity_id\") WHERE NOT deleted"
+    }
+  },
   "practice_sessions": {
     "columns": {
       "\"domain_id\"": "uuid NOT NULL",
       "\"activity_id\"": "uuid",
+      "\"event_id\"": "uuid",
       "\"problem_id\"": "uuid",
       "\"solution_id\"": "uuid",
       "\"title\"": "text NOT NULL",
@@ -85,12 +118,14 @@
     "foreignKeys": {
       "practice_sessions_domain_id_fk": "FOREIGN KEY (owner_id, \"domain_id\") REFERENCES practice_domains(owner_id, id)",
       "practice_sessions_activity_id_fk": "FOREIGN KEY (owner_id, \"activity_id\") REFERENCES practice_activities(owner_id, id)",
+      "practice_sessions_event_id_fk": "FOREIGN KEY (owner_id, \"event_id\") REFERENCES practice_events(owner_id, id)",
       "practice_sessions_problem_id_fk": "FOREIGN KEY (owner_id, \"problem_id\") REFERENCES practice_problems(owner_id, id)",
       "practice_sessions_solution_id_fk": "FOREIGN KEY (owner_id, \"solution_id\") REFERENCES practice_solutions(owner_id, id)"
     },
     "indexes": {
       "practice_sessions_domain_id_idx": "(owner_id, \"domain_id\") WHERE NOT deleted",
       "practice_sessions_activity_id_idx": "(owner_id, \"activity_id\") WHERE NOT deleted",
+      "practice_sessions_event_id_idx": "(owner_id, \"event_id\") WHERE NOT deleted",
       "practice_sessions_problem_id_idx": "(owner_id, \"problem_id\") WHERE NOT deleted",
       "practice_sessions_solution_id_idx": "(owner_id, \"solution_id\") WHERE NOT deleted",
       "practice_sessions_day_idx": "(owner_id, \"day\") WHERE NOT deleted"
@@ -100,6 +135,7 @@
     "columns": {
       "\"domain_id\"": "uuid NOT NULL",
       "\"activity_id\"": "uuid",
+      "\"event_id\"": "uuid",
       "\"problem_id\"": "uuid",
       "\"solution_id\"": "uuid",
       "\"day\"": "date NOT NULL",
@@ -108,16 +144,26 @@
     "foreignKeys": {
       "practice_progress_domain_id_fk": "FOREIGN KEY (owner_id, \"domain_id\") REFERENCES practice_domains(owner_id, id)",
       "practice_progress_activity_id_fk": "FOREIGN KEY (owner_id, \"activity_id\") REFERENCES practice_activities(owner_id, id)",
+      "practice_progress_event_id_fk": "FOREIGN KEY (owner_id, \"event_id\") REFERENCES practice_events(owner_id, id)",
       "practice_progress_problem_id_fk": "FOREIGN KEY (owner_id, \"problem_id\") REFERENCES practice_problems(owner_id, id)",
       "practice_progress_solution_id_fk": "FOREIGN KEY (owner_id, \"solution_id\") REFERENCES practice_solutions(owner_id, id)"
     },
     "indexes": {
       "practice_progress_domain_id_idx": "(owner_id, \"domain_id\") WHERE NOT deleted",
       "practice_progress_activity_id_idx": "(owner_id, \"activity_id\") WHERE NOT deleted",
+      "practice_progress_event_id_idx": "(owner_id, \"event_id\") WHERE NOT deleted",
       "practice_progress_problem_id_idx": "(owner_id, \"problem_id\") WHERE NOT deleted",
       "practice_progress_solution_id_idx": "(owner_id, \"solution_id\") WHERE NOT deleted",
       "practice_progress_day_idx": "(owner_id, \"day\") WHERE NOT deleted"
     }
+  },
+  "task_lists": {
+    "columns": {
+      "\"name\"": "text NOT NULL",
+      "\"parent_id\"": "text"
+    },
+    "foreignKeys": {},
+    "indexes": {}
   },
   "tasks": {
     "columns": {
@@ -125,10 +171,14 @@
       "\"status\"": "text NOT NULL CHECK (\"status\" IN ('pending', 'completed', 'discarded'))",
       "\"schedule_kind\"": "text NOT NULL CHECK (\"schedule_kind\" IN ('unscheduled', 'recent', 'day', 'deadline', 'range'))",
       "\"schedule_date\"": "date",
+      "\"schedule_time\"": "text",
       "\"schedule_start\"": "date",
       "\"schedule_end\"": "date",
       "\"created_at\"": "timestamptz",
-      "\"completed_at\"": "timestamptz"
+      "\"completed_at\"": "timestamptz",
+      "\"note\"": "text",
+      "\"list_id\"": "text",
+      "\"prerequisite_ids\"": "jsonb"
     },
     "foreignKeys": {},
     "indexes": {
@@ -140,7 +190,8 @@
   "preparation_checklists": {
     "columns": {
       "\"name\"": "text NOT NULL",
-      "\"items\"": "jsonb"
+      "\"items\"": "jsonb",
+      "\"item_ids\"": "jsonb"
     },
     "foreignKeys": {},
     "indexes": {}
@@ -149,7 +200,11 @@
     "columns": {
       "\"checklist_id\"": "uuid NOT NULL",
       "\"day\"": "date NOT NULL",
-      "\"checked\"": "jsonb"
+      "\"checked\"": "jsonb",
+      "\"item_ids\"": "jsonb",
+      "\"item_labels\"": "jsonb",
+      "\"checked_item_ids\"": "jsonb",
+      "\"ambiguous_checked\"": "jsonb"
     },
     "foreignKeys": {
       "preparation_runs_checklist_id_fk": "FOREIGN KEY (owner_id, \"checklist_id\") REFERENCES preparation_checklists(owner_id, id)"
@@ -157,6 +212,27 @@
     "indexes": {
       "preparation_runs_checklist_id_idx": "(owner_id, \"checklist_id\") WHERE NOT deleted",
       "preparation_runs_day_idx": "(owner_id, \"day\") WHERE NOT deleted"
+    }
+  },
+  "achievements": {
+    "columns": {
+      "\"title\"": "text NOT NULL",
+      "\"description\"": "text",
+      "\"scope\"": "text NOT NULL CHECK (\"scope\" IN ('lifetime', 'annual'))",
+      "\"year\"": "text",
+      "\"category\"": "text",
+      "\"icon\"": "text",
+      "\"prev_ids\"": "jsonb",
+      "\"current\"": "double precision",
+      "\"target\"": "double precision",
+      "\"unit\"": "text",
+      "\"completed\"": "boolean",
+      "\"completed_at\"": "date",
+      "\"note\"": "text"
+    },
+    "foreignKeys": {},
+    "indexes": {
+      "achievements_completed_at_idx": "(owner_id, \"completed_at\") WHERE NOT deleted"
     }
   },
   "habit_definitions": {
@@ -382,6 +458,28 @@
       "idea_entries_day_idx": "(owner_id, \"day\") WHERE NOT deleted"
     }
   },
+  "memoir_entries": {
+    "columns": {
+      "\"period\"": "text NOT NULL CHECK (\"period\" IN ('high_school', 'middle_school', 'primary_and_below'))",
+      "\"title\"": "text NOT NULL",
+      "\"approx_time\"": "text",
+      "\"detail\"": "text",
+      "\"order\"": "double precision"
+    },
+    "foreignKeys": {},
+    "indexes": {}
+  },
+  "reading_items": {
+    "columns": {
+      "\"title\"": "text NOT NULL",
+      "\"source\"": "text",
+      "\"tags\"": "jsonb",
+      "\"note\"": "text",
+      "\"status\"": "text NOT NULL CHECK (\"status\" IN ('unread', 'read'))"
+    },
+    "foreignKeys": {},
+    "indexes": {}
+  },
   "metric_definitions": {
     "columns": {
       "\"name\"": "text NOT NULL",
@@ -426,6 +524,44 @@
     "foreignKeys": {},
     "indexes": {
       "important_days_date_idx": "(owner_id, \"date\") WHERE NOT deleted"
+    }
+  },
+  "storage_boxes": {
+    "columns": {
+      "\"zone\"": "text NOT NULL",
+      "\"name\"": "text NOT NULL",
+      "\"parent_id\"": "uuid",
+      "\"icon\"": "text",
+      "\"location\"": "text",
+      "\"order\"": "double precision"
+    },
+    "foreignKeys": {
+      "storage_boxes_parent_id_fk": "FOREIGN KEY (owner_id, \"parent_id\") REFERENCES storage_boxes(owner_id, id)"
+    },
+    "indexes": {
+      "storage_boxes_parent_id_idx": "(owner_id, \"parent_id\") WHERE NOT deleted"
+    }
+  },
+  "storage_items": {
+    "columns": {
+      "\"name\"": "text NOT NULL",
+      "\"icon\"": "text",
+      "\"status\"": "text NOT NULL CHECK (\"status\" IN ('in_box', 'out'))",
+      "\"box_id\"": "uuid",
+      "\"home_box_id\"": "uuid",
+      "\"taken_at\"": "timestamptz",
+      "\"quantity\"": "integer",
+      "\"aliases\"": "text",
+      "\"note\"": "text",
+      "\"verified_at\"": "timestamptz"
+    },
+    "foreignKeys": {
+      "storage_items_box_id_fk": "FOREIGN KEY (owner_id, \"box_id\") REFERENCES storage_boxes(owner_id, id)",
+      "storage_items_home_box_id_fk": "FOREIGN KEY (owner_id, \"home_box_id\") REFERENCES storage_boxes(owner_id, id)"
+    },
+    "indexes": {
+      "storage_items_box_id_idx": "(owner_id, \"box_id\") WHERE NOT deleted",
+      "storage_items_home_box_id_idx": "(owner_id, \"home_box_id\") WHERE NOT deleted"
     }
   }
 }

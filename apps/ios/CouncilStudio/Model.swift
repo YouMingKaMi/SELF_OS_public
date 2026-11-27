@@ -23,11 +23,12 @@ import WidgetKit
   @ObservationIgnored private var observers: [Task<Void, Never>] = []
   let store: CouncilStore
   let coordinator: SyncCoordinator
-  var endpoint: String { didSet { UserDefaults.standard.set(endpoint, forKey: "studio-endpoint") } }
-  var token: String { didSet { Keychain.save(token) } }
+  private let demoMode: Bool
+  var endpoint: String { didSet { if !demoMode { UserDefaults.standard.set(endpoint, forKey: "studio-endpoint") } } }
+  var token: String { didSet { if !demoMode { Keychain.save(token) } } }
 
   enum SyncState: Equatable {
-    case idle, syncing, synced, offline, unauthorized, unreachable, attention, local
+    case idle, syncing, synced, offline, unauthorized, unreachable, attention, upgradeRequired, local
     var label: String {
       switch self {
       case .idle: "准备同步"
@@ -37,6 +38,7 @@ import WidgetKit
       case .unauthorized: "需重新连接"
       case .unreachable: "服务不可达 · 已存本机"
       case .attention: "有记录待处理"
+      case .upgradeRequired: "请更新 App 后继续同步"
       case .local: "仅本机"
       }
     }
@@ -44,7 +46,7 @@ import WidgetKit
       switch self {
       case .synced: "checkmark.circle"
       case .syncing, .idle: "arrow.triangle.2.circlepath"
-      case .attention, .unauthorized: "exclamationmark.circle"
+      case .attention, .unauthorized, .upgradeRequired: "exclamationmark.circle"
       case .local: "iphone"
       default: "icloud.slash"
       }
@@ -52,20 +54,24 @@ import WidgetKit
   }
 
   init() {
+    let env = ProcessInfo.processInfo.environment
+    let demo = env["STUDIO_DEMO"]
+    demoMode = demo != nil
     let folder = URL.applicationSupportDirectory.appendingPathComponent(
       "CouncilStudio", isDirectory: true)
     do {
       try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
       // Real data lives in council.sqlite; the synthetic demo has its own file and never mixes in.
       // STUDIO_DEMO=<name> opens its own database (studio-<name>.sqlite), so a new fixture set starts clean.
-      let demo = ProcessInfo.processInfo.environment["STUDIO_DEMO"]
       store = try CouncilStore(path: folder.appendingPathComponent(demo.map { "studio-\($0).sqlite" } ?? "council.sqlite").path)
     } catch { fatalError("无法打开本机数据库：\(error.localizedDescription)") }
     coordinator = SyncCoordinator(store: store)
-    let env = ProcessInfo.processInfo.environment
-    endpoint =
-      env["COUNCIL_API_URL"] ?? UserDefaults.standard.string(forKey: "studio-endpoint")
-      ?? Studio.defaultEndpoint
+    if demoMode {
+      endpoint = env["COUNCIL_API_URL"] ?? ""
+      token = env["COUNCIL_DEV_TOKEN"] ?? ""
+      return
+    }
+    endpoint = env["COUNCIL_API_URL"] ?? UserDefaults.standard.string(forKey: "studio-endpoint") ?? Studio.defaultEndpoint
     token = env["COUNCIL_DEV_TOKEN"] ?? Keychain.read()
     // One-time move from the local development server to the deployed one; the old shared token is not a device credential.
     if env["COUNCIL_API_URL"] == nil, [":8799", ":8899"].contains(where: endpoint.contains) {
@@ -123,7 +129,7 @@ import WidgetKit
         try await store.metadata("demo-seeded", value: "true")
       }
     } catch { self.error = error.localizedDescription }
-    for type in ["task", "habit", "habitRule", "habitLog", "session", "domain", "journal", "expense"] {
+    for type in ["workspaceConfig", "task", "achievement", "habit", "habitRule", "habitLog", "session", "domain", "journal", "expense"] {
       let feed = feed(type)
       if feed.revision == 0, let rows = try? await store.records(type: type) { feed.records = rows }
     }
@@ -163,6 +169,8 @@ import WidgetKit
       } catch {
         if case SyncCoordinator.SyncError.response(let code) = error, [401, 403].contains(code) {
           syncState = .unauthorized
+        } else if case CouncilStore.StoreError.unknownType = error {
+          syncState = .upgradeRequired
         } else if let e = error as? URLError, e.code == .notConnectedToInternet {
           syncState = .offline
         } else {
@@ -182,28 +190,36 @@ import WidgetKit
 
   var quotes: [String: Quote] = (try? JSONDecoder().decode(
     [String: Quote].self, from: UserDefaults.standard.data(forKey: "studio-quotes") ?? Data())) ?? [:]
-  var quotesLive = false
-  func refreshQuotes() async {
+  private var returnedQuotes: [String: Quote] = [:]
+  func quoteStatus(_ id: String) -> String? {
+    guard !id.isEmpty else { return nil }
+    guard quotes[id] != nil else { return "缺报价" }
+    let time = ISO8601DateFormatter()
+    time.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    guard let quote = returnedQuotes[id], let at = time.date(from: quote.at),
+      Date().timeIntervalSince(at) <= 300 else { return "最近报价" }
+    return quote.timeSource == "market" ? "市场报价" : "最近获取"
+  }
+  @discardableResult
+  func refreshQuotes() async -> [String: Quote] {
     // Read from the store: the observed feed may not have loaded yet on first open.
     let assets = (try? await store.records(type: "asset")) ?? all("asset")
     let ids = Set(assets.filter { !$0.deleted }.map { $0.text("quoteId") }.filter { !$0.isEmpty })
-    guard canSync, let url = URL(string: endpoint), !ids.isEmpty else { return }
-    do {
-      let fresh = try await SyncCoordinator.quotes(baseURL: url, token: token, ids: Array(ids))
-      quotes.merge(fresh) { $1 }
-      quotesLive = true
-      if let data = try? JSONEncoder().encode(quotes) { UserDefaults.standard.set(data, forKey: "studio-quotes") }
-    } catch { quotesLive = false }
+    guard canSync, let url = URL(string: endpoint), !ids.isEmpty else { returnedQuotes = [:]; return [:] }
+    let fresh = (try? await SyncCoordinator.quotes(baseURL: url, token: token, ids: Array(ids))) ?? [:]
+    returnedQuotes = fresh
+    quotes.merge(fresh) { $1 }
+    if let data = try? JSONEncoder().encode(quotes) { UserDefaults.standard.set(data, forKey: "studio-quotes") }
+    return fresh
   }
   /// Fetch live quotes and keep one price observation per quoted asset, so the history chart moves with the market.
   func recordPrices() async -> Int {
-    await refreshQuotes()
-    guard quotesLive else { return 0 }
-    let at = ISO8601DateFormatter().string(from: Date())
+    let fresh = await refreshQuotes()
     var count = 0
     for asset in all("asset") where !asset.deleted {
-      guard let q = quotes[asset.text("quoteId")], Decimal(string: q.priceCNY) != nil else { continue }
-      if await save("assetPrice", ["assetId": .string(asset.id), "at": .string(at), "price": .string(q.priceCNY)]) != nil {
+      guard let q = fresh[asset.text("quoteId")], Decimal(string: q.priceCNY) != nil else { continue }
+      let key = StableID.forKey("assetPrice:" + asset.id + ":" + q.at)
+      if await save("assetPrice", ["assetId": .string(asset.id), "at": .string(q.at), "price": .string(q.priceCNY)], id: key) != nil {
         count += 1
       }
     }
@@ -287,7 +303,9 @@ import WidgetKit
   // MARK: Writing — one row and one outbox entry each; observing screens update themselves.
 
   @discardableResult
-  func save(_ type: String, _ data: [String: JSONValue], id: String? = nil) async -> String? {
+  func save(
+    _ type: String, _ data: [String: JSONValue], id: String? = nil, editBase: Record? = nil
+  ) async -> String? {
     error = nil
     do {
       let daily = ["habitLog": "habitId", "metricLog": "metricId", "checklistRun": "checklistId"]
@@ -295,7 +313,7 @@ import WidgetKit
         StableID.forKey(type + ":" + $0 + ":" + (data["day"]?.text ?? ""))
       }
       let saved = try await store.put(
-        type: type, data: data, id: id ?? stable ?? UUID().uuidString.lowercased())
+        type: type, data: data, id: id ?? stable ?? UUID().uuidString.lowercased(), editBase: editBase)
       requestSync()
       return saved
     } catch {
@@ -310,6 +328,29 @@ import WidgetKit
     }
     await save(record.type, data, id: record.id)
   }
+  func saveTogether(_ writes: [BatchPut]) async -> Bool {
+    error = nil
+    do {
+      try await store.putTogether(writes)
+      requestSync()
+      return true
+    } catch {
+      self.error = error.localizedDescription
+      return false
+    }
+  }
+  func removeTogether(_ records: [Record]) async -> Bool {
+    error = nil
+    do {
+      if records.count == 1 { try await store.remove(records[0]) }
+      else { try await store.removeTogether(records) }
+      requestSync()
+      return true
+    } catch {
+      self.error = error.localizedDescription
+      return false
+    }
+  }
   func remove(_ record: Record) async {
     error = nil
     do {
@@ -317,17 +358,77 @@ import WidgetKit
       requestSync()
     } catch { self.error = error.localizedDescription }
   }
-  func completeWidgetTask(_ id: String, at date: Date = Date()) async throws {
+  enum JournalTransferFailure: Error {
+    case changed(String)
+    case invalid(String)
+    var message: String {
+      switch self {
+      case .changed(let text), .invalid(let text): return text
+      }
+    }
+  }
+  func transferJournalText(_ source: Record, selection: Range<Int>? = nil) async -> Result<String, JournalTransferFailure> {
+    error = nil
+    do {
+      let id = try await store.transferJournalText(source, selection: selection)
+      requestSync()
+      return .success(id)
+    } catch CouncilStore.StoreError.editChanged {
+      return .failure(.changed("另一台设备刚修改了这条原文，请先载入最新内容再重新选段。"))
+    } catch CouncilStore.StoreError.transferTooLong {
+      return .failure(.invalid("选段超过想法暂存单条长度上限（100,000 字符），请缩小选区后再移动。"))
+    } catch CouncilStore.StoreError.invalidTransfer {
+      return .failure(.invalid("选中的正文范围无效，或当前记录已被移除，请重新选择非空文字。"))
+    } catch {
+      return .failure(.invalid(error.localizedDescription))
+    }
+  }
+  @discardableResult
+  func task(
+    _ record: Record?, _ action: String, title: String? = nil, schedule: Schedule? = nil,
+    fields: [String: JSONValue] = [:]
+  ) async -> Bool {
+    if action == "complete", let record, title == nil, schedule == nil, fields.isEmpty {
+      error = nil
+      do {
+        try await store.completeTask(id: record.id)
+        requestSync()
+        return true
+      } catch {
+        self.error = error.localizedDescription
+        return false
+      }
+    }
+    var latest = record
+    if let record, let shown = try? await store.record(type: "task", id: record.id) {
+      latest = shown
+    }
+    if action == "complete", let latest {
+      if latest.text("status") == "discarded" {
+        error = "请先恢复待办。"
+        return false
+      }
+      for id in TaskRules.prerequisites(latest) {
+        guard let item = try? await store.record(type: "task", id: id),
+          !item.deleted, item.text("status") == "completed" else {
+          error = "请先完成前置任务。"
+          return false
+        }
+      }
+    }
+    var data = TaskRules.apply(
+      action, to: latest, title: title, schedule: schedule,
+      now: ISO8601DateFormatter().string(from: Date()))
+    data.merge(fields) { _, new in new }
+    return await save("task", data, id: record?.id) != nil
+  }
+
+  func completeWidgetTask(_ id: String) async throws {
     guard ProcessInfo.processInfo.environment["STUDIO_DEMO"] == nil else {
       throw WidgetTaskActionError.openApp
     }
-    guard UUID(uuidString: id) != nil else { throw WidgetTaskActionError.openApp }
-    guard let task = try await store.record(type: "task", id: id), !task.deleted,
-      task.text("status") == "pending"
-    else { throw WidgetTaskActionError.openApp }
-    let data = TaskRules.apply(
-      "complete", to: task, now: ISO8601DateFormatter().string(from: date))
-    guard await save("task", data, id: id) != nil else { throw WidgetTaskActionError.openApp }
+    guard UUID(uuidString: id) != nil else { throw CouncilStore.StoreError.missingTask }
+    try await store.completeTask(id: id)
     WidgetTasks.clearCompletion(id)
     WidgetTasks.publish(try await store.records(type: "task"))
     await sync()
@@ -339,31 +440,19 @@ import WidgetKit
     guard !requests.isEmpty else { return }
     for (id, date) in requests.sorted(by: { ($0.value, $0.key) < ($1.value, $1.key) }) {
       do {
-        try await completeWidgetTask(id, at: date)
-      } catch let error as WidgetTaskActionError {
+        try await store.completeTask(id: id, at: date)
+        WidgetTasks.clearCompletion(id)
+      } catch let error as CouncilStore.StoreError {
+        // The current database rules win over the projection used by the widget.
         WidgetTasks.clearCompletion(id)
         self.error = error.localizedDescription
       } catch {
+        // A temporary database failure leaves the request queued for the next activation.
         self.error = error.localizedDescription
       }
     }
     if let tasks = try? await store.records(type: "task") { WidgetTasks.publish(tasks) }
     WidgetCenter.shared.reloadTimelines(ofKind: WidgetTasks.kind)
-  }
-
-  func task(_ record: Record?, _ action: String, title: String? = nil, schedule: Schedule? = nil)
-    async
-  {
-    var latest = record
-    if let record, let shown = try? await store.record(type: "task", id: record.id) {
-      latest = shown
-    }
-    await save(
-      "task",
-      TaskRules.apply(
-        action, to: latest, title: title, schedule: schedule,
-        now: ISO8601DateFormatter().string(from: Date())),
-      id: record?.id)
   }
   func undo(_ op: PendingOperation) async {
     do { try await store.undo(op.id) } catch { self.error = error.localizedDescription }
@@ -375,7 +464,8 @@ import WidgetKit
     } catch { self.error = error.localizedDescription }
   }
   func title(of op: PendingOperation) -> String {
-    let data = (try? JSONDecoder().decode(Command.self, from: op.data))?.data ?? [:]
+    if op.recoveryDraft?.deleted == true { return "删除记录" }
+    let data = op.recoveryDraft?.data ?? (try? JSONDecoder().decode(Command.self, from: op.data))?.data ?? [:]
     let text = data["title"]?.text ?? data["name"]?.text ?? data["body"]?.text ?? ""
     return text.isEmpty ? "一条本机修改" : text
   }
@@ -385,7 +475,7 @@ import WidgetKit
   var runningSession: Record? {
     all("session").first { ["running", "paused"].contains($0.text("status")) }
   }
-  func start(domain: Record, activity: Record? = nil, problem: Record? = nil, solution: Record? = nil)
+  func start(domain: Record, activity: Record? = nil, problem: Record? = nil, solution: Record? = nil, event: Record? = nil)
     async
   {
     guard runningSession == nil else {
@@ -395,11 +485,12 @@ import WidgetKit
     let now = ISO8601DateFormatter().string(from: Date())
     var data: [String: JSONValue] = [
       "domainId": .string(domain.id),
-      "title": .string(solution?.title ?? problem?.title ?? activity?.title ?? domain.title),
+      "title": .string(String(decoding: (event?.title ?? solution?.title ?? problem?.title ?? activity?.title ?? domain.title).utf16.prefix(500), as: UTF16.self)),
       "day": .string(BusinessDate.day()), "startedAt": .string(now), "runningSince": .string(now),
       "elapsedSeconds": .number(0), "status": .string("running"), "manual": .bool(false),
       "segments": .array([]),
     ]
+    if let event { data["eventId"] = .string(event.id) }
     if let activity { data["activityId"] = .string(activity.id) }
     if let problem { data["problemId"] = .string(problem.id) }
     if let solution { data["solutionId"] = .string(solution.id) }
@@ -408,9 +499,10 @@ import WidgetKit
   /// pause · resume · finish · cancel. Elapsed time is folded into segments, never ticked into storage.
   func control(_ session: Record, _ action: String) async {
     var data = session.data
-    let now = ISO8601DateFormatter().string(from: Date())
+    let instant = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
+    let now = ISO8601DateFormatter().string(from: instant)
     if session.text("status") == "running" {
-      data["elapsedSeconds"] = .number(Clock.elapsed(session))
+      data["elapsedSeconds"] = .number(Clock.elapsed(session, instant))
       if !session.text("runningSince").isEmpty {
         data["segments"] = .array(
           (session.data["segments"]?.strings ?? []).map(JSONValue.string) + [
@@ -434,12 +526,7 @@ enum Clock {
     return f.date(from: text) ?? ISO8601DateFormatter().date(from: text)
   }
   static func elapsed(_ session: Record, _ now: Date = Date()) -> Double {
-    if session.text("status") == "cancelled" { return 0 }
-    let saved = session.number("elapsedSeconds")
-    if session.text("status") == "running", let since = parse(session.text("runningSince")) {
-      return saved + max(0, now.timeIntervalSince(since))
-    }
-    return saved
+    TimeMath.elapsed(session, now: now)
   }
   static func digits(_ seconds: Double) -> String {
     let n = Int(max(0, seconds))
@@ -468,35 +555,64 @@ enum DayRule {
   }
   static func date(_ record: Record) -> Date? {
     if record.text("calendar") == "lunar" {
-      guard
-        let middle = solar.date(
-          from: DateComponents(year: Int(record.number("lunarYear")), month: 7, day: 1))
-      else { return nil }
-      var parts = lunar.dateComponents([.era, .year], from: middle)
-      parts.month = Int(record.number("lunarMonth"))
-      parts.day = Int(record.number("lunarDay"))
-      parts.isLeapMonth = record.flag("leap")
-      return lunar.date(from: parts)
+      return lunarDate(
+        year: Int(record.number("lunarYear")), month: Int(record.number("lunarMonth")),
+        day: Int(record.number("lunarDay")), leap: record.flag("leap"))
     }
     return CalendarDays.date(record.text("date"))
   }
-  static func next(_ record: Record) -> Date? {
+  static func next(_ record: Record, from: Date = Date()) -> Date? {
     guard let initial = date(record) else { return nil }
     if record.text("repeat") == "once" { return initial }
-    let today = solar.startOfDay(for: Date())
-    let calendar = record.text("calendar") == "lunar" ? lunar : solar
+    let today = solar.startOfDay(for: from)
+    if initial >= today { return initial }
     let unit =
       ["weekly": "week", "monthly": "month", "yearly": "year"][record.text("repeat")]
-      ?? record.text("intervalUnit")
-    let component: Calendar.Component =
-      unit == "year" ? .year : unit == "month" ? .month : unit == "week" ? .weekOfYear : .day
+      ?? record.text("intervalUnit", "day")
     let step = record.text("repeat") == "custom" ? max(1, Int(record.number("interval"))) : 1
-    for index in 0..<10000 {
-      guard let candidate = calendar.date(byAdding: component, value: index * step, to: initial)
-      else { return nil }
+    if record.text("calendar") != "lunar" || unit == "day" || unit == "week" {
+      return SolarOccurrence.next(from: initial, onOrAfter: today, unit: unit, interval: step, calendar: solar)
+    }
+    let anchorDay = Int(record.number("lunarDay"))
+    if unit == "month" {
+      guard var month = lunar.dateInterval(of: .month, for: initial)?.start else { return nil }
+      let end = solar.date(from: DateComponents(year: 2101, month: 3, day: 1))!
+      while month < end {
+        guard let days = lunar.range(of: .day, in: .month, for: month)?.count,
+              let candidate = lunar.date(byAdding: .day, value: min(anchorDay, days) - 1, to: month)
+        else { return nil }
+        if candidate >= today { return candidate }
+        guard let following = lunar.date(byAdding: .month, value: step, to: month), following > month
+        else { return nil }
+        month = following
+      }
+      return nil
+    }
+    let firstYear = Int(record.number("lunarYear"))
+    let start = firstYear + max(0, (solar.component(.year, from: today) - 1 - firstYear) / step) * step
+    for year in stride(from: start, through: 2100, by: step) {
+      guard let candidate = lunarDate(
+        year: year, month: Int(record.number("lunarMonth")), day: anchorDay,
+        leap: record.flag("leap"), clamp: true) else { continue }
       if candidate >= today { return candidate }
     }
     return nil
+  }
+  private static func lunarDate(year: Int, month: Int, day: Int, leap: Bool, clamp: Bool = false) -> Date? {
+    guard (1900...2100).contains(year), (1...12).contains(month), (1...30).contains(day),
+          let middle = solar.date(from: DateComponents(year: year, month: 7, day: 1))
+    else { return nil }
+    var parts = lunar.dateComponents([.era, .year], from: middle)
+    parts.month = month
+    parts.day = 1
+    parts.isLeapMonth = leap
+    guard let first = lunar.date(from: parts),
+          let days = lunar.range(of: .day, in: .month, for: first)?.count,
+          clamp || day <= days else { return nil }
+    let actual = lunar.dateComponents([.era, .year, .month, .day], from: first)
+    guard actual.era == parts.era, actual.year == parts.year,
+          actual.month == month, actual.day == 1, actual.isLeapMonth == leap else { return nil }
+    return lunar.date(byAdding: .day, value: min(day, days) - 1, to: first)
   }
   static func daysUntil(_ record: Record) -> Int? {
     guard let date = next(record) else { return nil }

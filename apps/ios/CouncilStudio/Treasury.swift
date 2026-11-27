@@ -64,11 +64,14 @@ struct TreasuryScreen: View {
   var body: some View {
     let wallets = studio.all("wallet")
     let assets = studio.all("asset").sorted { ($0.number("order"), $0.title) < ($1.number("order"), $1.title) }
+    let quoteStatuses = assets.compactMap { studio.quoteStatus($0.text("quoteId")) }
+    let recent = quoteStatuses.filter { $0 == "市场报价" || $0 == "最近获取" }.count
     let report = studio.treasuryReport()
     let total = report.total ?? 0
     let share: (Decimal) -> Double = { total > 0 ? NSDecimalNumber(decimal: $0 / total).doubleValue : 0 }
     Page {
-      ValueHero(title: "全部资产", report: report, range: $range, note: studio.quotesLive ? "实时行情" : nil)
+      ValueHero(title: "全部资产", report: report, range: $range,
+        note: quoteStatuses.isEmpty ? nil : "\(recent)/\(quoteStatuses.count) 个标的近期更新")
       ForEach([("cny", "人民币", "yensign.circle"), ("external", "外部投资", "briefcase")], id: \.0) { kind in
         let list = wallets.filter { $0.text("category") == kind.0 }
         let sum = list.compactMap { report.balances[$0.id]?.value }.reduce(Decimal(), +)
@@ -285,7 +288,8 @@ struct AssetScreen: View {
     List {
       Section {
         ValueHero(
-          title: asset?.title ?? "标的", report: scoped, range: $range, note: total?.live == true ? "实时行情" : "最近价格",
+          title: asset?.title ?? "标的", report: scoped, range: $range,
+          note: asset.flatMap { studio.quoteStatus($0.text("quoteId")) } ?? "账本估值",
           unit: asset.map { studio.unit(of: $0) } ?? .cny)
           .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
       }
@@ -325,7 +329,12 @@ struct AssetScreen: View {
       } header: {
         Text("来自哪些钱包").font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text2).textCase(nil)
       }
-      FlowSection(entries: entries, label: { entry in wallets.first { $0.id == entry.text("walletId") }?.title ?? "钱包" }) {
+      FlowSection(
+        entries: entries,
+        changes: scoped.entryChanges,
+        unit: { _ in asset?.text("symbol") ?? "" },
+        label: { entry in wallets.first { $0.id == entry.text("walletId") }?.title ?? "钱包" }
+      ) {
         sheet = .holding(walletId: $0.text("walletId"), assetId: assetId)
       }
     }
@@ -381,7 +390,12 @@ struct AccountScreen: View {
       } header: {
         Text("持仓 · 点一项可调整").font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text2).textCase(nil)
       }
-      FlowSection(entries: entries, label: { studio.record($0.text("assetId"), in: "asset")?.title ?? "标的" }) {
+      FlowSection(
+        entries: entries,
+        changes: scoped.entryChanges,
+        unit: { studio.record($0.text("assetId"), in: "asset")?.text("symbol") ?? "" },
+        label: { studio.record($0.text("assetId"), in: "asset")?.title ?? "标的" }
+      ) {
         let asset = $0.text("assetId")
         sheet = .holding(walletId: walletId, assetId: asset.isEmpty ? nil : asset)
       }
@@ -401,29 +415,57 @@ struct AccountScreen: View {
 
 struct FlowSection: View {
   @Environment(Studio.self) private var studio
+  @State private var flowLimit = 100
   let entries: [Record]
+  let changes: [String: TreasuryEntryChange]
+  let unit: (Record) -> String
   let label: (Record) -> String
   let open: (Record) -> Void
   var body: some View {
+    let ordered = entries.sorted { ($0.text("at"), $0.id) > ($1.text("at"), $1.id) }
     Section {
-      ForEach(entries.sorted { $0.text("at") > $1.text("at") }.prefix(100)) { entry in
+      ForEach(ordered.prefix(flowLimit)) { entry in
         let set = entry.text("mode") == "set"
         let negative = entry.text("quantity").hasPrefix("-")
+        let change = changes[entry.id]
+        let timeText = Clock.parse(entry.text("at"))?.formatted(.dateTime.year().month().day().hour().minute()) ?? ""
+        let u = unit(entry)
+        let unitSuffix = u.isEmpty ? "" : " " + u
+        let amountDisplay: (text: String, color: Color, sub: String) = {
+          if set, let change, let delta = change.delta {
+            let afterText = Yuan.plain(change.after)
+            if delta > 0 {
+              return ("+" + Yuan.plain(delta), Ink.live, "\(timeText) · 余额 \(afterText)\(unitSuffix)")
+            } else if delta < 0 {
+              return (Yuan.plain(delta), Ink.danger, "\(timeText) · 余额 \(afterText)\(unitSuffix)")
+            } else {
+              return ("0", Ink.text3, "\(timeText) · 余额未变（\(afterText)\(unitSuffix)）")
+            }
+          }
+          if set {
+            return ("= " + entry.text("quantity"), Ink.text, "\(timeText) · 初始设定")
+          }
+          return ((negative ? "" : "+") + entry.text("quantity"), negative ? Ink.danger : Ink.live, timeText)
+        }()
         HStack {
           VStack(alignment: .leading, spacing: 3) {
             Text(label(entry) + (entry.text("reason").isEmpty ? "" : " · " + entry.text("reason"))).font(Ink.row)
               .foregroundStyle(Ink.text).lineLimit(1)
-            Text(Clock.parse(entry.text("at"))?.formatted(.dateTime.year().month().day().hour().minute()) ?? "")
-              .font(.system(size: 12)).foregroundStyle(Ink.text3)
+            Text(amountDisplay.sub)
+              .font(.system(size: 12)).monospacedDigit().foregroundStyle(Ink.text3).lineLimit(1)
           }
           Spacer()
-          Text((set ? "= " : negative ? "" : "+") + entry.text("quantity"))
+          Text(amountDisplay.text)
             .font(.system(size: 15, weight: .semibold, design: .rounded)).monospacedDigit()
-            .foregroundStyle(set ? Ink.text : negative ? Ink.danger : Ink.live)
+            .foregroundStyle(amountDisplay.color)
         }.contentShape(Rectangle()).onTapGesture { open(entry) }.cardRow()
           .swipeActions {
             Button("删除", systemImage: "trash", role: .destructive) { Task { await studio.remove(entry) } }
           }
+      }
+      if ordered.count > flowLimit {
+        Button("查看更多流水") { flowLimit += 100 }
+          .font(Ink.meta).foregroundStyle(Ink.text2).cardRow()
       }
       if entries.isEmpty { Text("还没有记录").font(Ink.meta).foregroundStyle(Ink.text3).cardRow() }
     } header: {
@@ -601,14 +643,23 @@ struct ValueHero: View {
   @Binding var range: Int
   var note: String? = nil
   var unit: MoneyUnit = .cny
+  private struct DisplayPoint: Identifiable {
+    let id: String
+    let at: Date
+    let amount: Double
+    let segment: Int
+  }
   var body: some View {
-    let from = range == 0 ? Date.distantPast : Date().addingTimeInterval(-Double(range) * 86400)
-    // One point per moment; balances move in steps, so draw steps.
-    var seen = Set<Date>()
+    let from = range == 0 ? nil : Date().addingTimeInterval(-Double(range) * 86400)
     let rate = NSDecimalNumber(decimal: unit.rate).doubleValue
-    let points = report.points.filter { $0.at >= from }.reversed().filter { seen.insert($0.at).inserted }.reversed()
-      .map { TreasuryPoint(id: $0.id, at: $0.at, amount: $0.amount / rate, unknownWallets: $0.unknownWallets) }
-    let change = (points.last?.amount ?? 0) - (points.first?.amount ?? 0)
+    let sampled = TreasuryRules.trend(report.points, from: from)
+    var segment = 0
+    let points = sampled.compactMap { point -> DisplayPoint? in
+      guard point.unknownWallets == 0 else { segment += 1; return nil }
+      return DisplayPoint(id: point.id, at: point.at, amount: point.amount / rate, segment: segment)
+    }
+    let change: Double? = sampled.count > 1 && sampled.first?.unknownWallets == 0 && sampled.last?.unknownWallets == 0
+      ? (sampled.last!.amount - sampled.first!.amount) / rate : nil
     Card {
       VStack(alignment: .leading, spacing: 4) {
         Text(title + (unit.isYuan ? " · 折合人民币" : " · 以\(unit.currency)计价") + (note.map { " · " + $0 } ?? ""))
@@ -619,7 +670,7 @@ struct ValueHero: View {
           Text("≈ " + Yuan.format(report.total)).font(.system(size: 13)).monospacedDigit().foregroundStyle(Ink.text3)
         }
         HStack(spacing: 6) {
-          if points.count > 1 {
+          if let change {
             Text((change >= 0 ? "+" : "−") + Yuan.format(Decimal(abs(change)) * unit.rate, in: unit))
               .foregroundStyle(change >= 0 ? Ink.live : Ink.danger)
             Text(range == 0 ? "全部时间" : "近 \(range) 天").foregroundStyle(Ink.text3)
@@ -631,7 +682,7 @@ struct ValueHero: View {
       }
       if points.count > 1 {
         Chart(points) { p in
-          LineMark(x: .value("时间", p.at), y: .value("估值", p.amount))
+          LineMark(x: .value("时间", p.at), y: .value("估值", p.amount), series: .value("区间", p.segment))
             .foregroundStyle(Ink.text).lineStyle(StrokeStyle(lineWidth: 2)).interpolationMethod(.stepEnd)
           if p.id == points.last?.id {
             PointMark(x: .value("时间", p.at), y: .value("估值", p.amount)).foregroundStyle(Ink.text).symbolSize(36)
@@ -675,19 +726,68 @@ struct WalletScreen: View {
         ]).cardRow()
       }
       Section {
-        ForEach(entries.sorted { $0.text("at") > $1.text("at") }) { entry in
+        ForEach(entries.sorted { ($0.text("at"), $0.id) > ($1.text("at"), $1.id) }) { entry in
           let set = entry.text("mode") == "set"
           let negative = entry.text("quantity").hasPrefix("-")
+          let change = report.entryChanges[entry.id]
+          let reason = entry.text("reason")
+          let timeText = Clock.parse(entry.text("at"))?.formatted(.dateTime.year().month().day().hour().minute()) ?? ""
+          let rowInfo: (title: String, sub: String, figure: String, color: Color) = {
+            if set, let change, let delta = change.delta {
+              let afterText = Yuan.plain(change.after)
+              if delta > 0 {
+                let dText = Yuan.plain(delta)
+                return (
+                  reason.isEmpty ? "增加 \(dText) 元" : reason,
+                  "\(timeText) · 余额 \(afterText) 元",
+                  "+" + dText,
+                  Ink.live
+                )
+              } else if delta < 0 {
+                let dText = Yuan.plain(delta)
+                let absText = Yuan.plain(-delta)
+                return (
+                  reason.isEmpty ? "减少 \(absText) 元" : reason,
+                  "\(timeText) · 余额 \(afterText) 元",
+                  dText,
+                  Ink.danger
+                )
+              } else {
+                return (
+                  reason.isEmpty ? "余额未变" : reason,
+                  "\(timeText) · 余额 \(afterText) 元",
+                  "0",
+                  Ink.text3
+                )
+              }
+            }
+            if set {
+              return (
+                reason.isEmpty ? "初始设为 \(entry.text("quantity")) 元" : reason,
+                timeText,
+                "= " + entry.text("quantity"),
+                Ink.text
+              )
+            }
+            let raw = entry.text("quantity")
+            let absRaw = raw.hasPrefix("-") ? String(raw.dropFirst()) : raw
+            return (
+              reason.isEmpty ? (negative ? "减少 \(absRaw) 元" : "增加 \(absRaw) 元") : reason,
+              timeText,
+              (negative ? "" : "+") + raw,
+              negative ? Ink.danger : Ink.live
+            )
+          }()
           HStack {
             VStack(alignment: .leading, spacing: 3) {
-              Text(entry.text("reason").ifEmpty(set ? "设余额" : "增减")).font(Ink.row).foregroundStyle(Ink.text)
-              Text(Clock.parse(entry.text("at"))?.formatted(.dateTime.year().month().day().hour().minute()) ?? "")
-                .font(.system(size: 12)).foregroundStyle(Ink.text3)
+              Text(rowInfo.title).font(Ink.row).foregroundStyle(Ink.text).lineLimit(1)
+              Text(rowInfo.sub)
+                .font(.system(size: 12)).monospacedDigit().foregroundStyle(Ink.text3).lineLimit(1)
             }
             Spacer()
-            Text((set ? "= " : negative ? "" : "+") + entry.text("quantity"))
+            Text(rowInfo.figure)
               .font(.system(size: 15, weight: .semibold, design: .rounded)).monospacedDigit()
-              .foregroundStyle(set ? Ink.text : negative ? Ink.danger : Ink.live)
+              .foregroundStyle(rowInfo.color)
           }.contentShape(Rectangle()).onTapGesture { correcting = entry }.cardRow()
             .swipeActions {
               Button("删除", systemImage: "trash", role: .destructive) { Task { await studio.remove(entry) } }
@@ -732,7 +832,8 @@ struct EntrySheet: View {
   @State private var quantity = ""
   @State private var reason = ""
   @State private var at = Date()
-  @FocusState private var focused: Bool
+  private enum EntryField { case quantity, reason }
+  @FocusState private var focusedField: EntryField?
   var valid: Bool {
     quantity.range(of: #"^-?[0-9]+(\.[0-9]{1,12})?$"#, options: .regularExpression) != nil
   }
@@ -745,9 +846,14 @@ struct EntrySheet: View {
         }.pickerStyle(.segmented)
         TextField(mode == "set" ? "现在的余额" : "+ 增加，- 减少", text: $quantity)
           .font(.system(size: 44, weight: .semibold, design: .rounded)).monospacedDigit()
-          .keyboardType(.numbersAndPunctuation).focused($focused)
-        TextField("说明（可选）", text: $reason).padding(14)
-          .background(Ink.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+          .keyboardType(.numbersAndPunctuation).focused($focusedField, equals: .quantity)
+          .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+          .background(Color.clear.contentShape(Rectangle()).onTapGesture { focusedField = .quantity })
+        TextField("说明（可选）", text: $reason)
+          .focused($focusedField, equals: .reason)
+          .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+          .padding(14)
+          .studioInputBox(cornerRadius: 14, fill: Ink.raised) { focusedField = .reason }
         DatePicker("发生时间", selection: $at)
         Spacer()
       }.padding(20).background(Ink.card)
@@ -770,7 +876,7 @@ struct EntrySheet: View {
     }.studioSheet().presentationDetents([.medium])
       .onAppear {
         mode = first ? "set" : "delta"
-        focused = true
+        focusedField = .quantity
         guard let entry else { return }
         mode = entry.text("mode")
         quantity = entry.text("quantity")

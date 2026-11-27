@@ -137,53 +137,58 @@ public enum FinanceRules {
     }
     return daily(expense, basis: basis, asOf: asOf) ?? 0
   }
-  private static func aggregate(_ expenses: [Record], month: String, basis: Basis, asOf: String)
-    -> FinanceFraction
-  {
-    let days = monthDays(month, asOf: asOf)
-    var result = FinanceFraction()
-    guard let first = days.first, let last = days.last else { return result }
+  private static func monthlyExpenses(
+    _ expenses: [Record], days: [String], basis: Basis, asOf: String,
+    apply: (_ from: Int, _ through: Int, _ net: Decimal, _ divisor: Int) -> Void
+  ) {
+    guard let first = days.first, let last = days.last else { return }
+    let indices = Dictionary(uniqueKeysWithValues: days.enumerated().map { ($0.element, $0.offset) })
     for expense in expenses where !expense.deleted {
       if basis == .actual || expense.text("mode") == "immediate" {
-        if expense.text("day") >= first && expense.text("day") <= last { result.add(net(expense)) }
-      } else {
-        let start = max(first, expense.text("startDay"))
-        let end = min(last, effectiveEnd(expense, asOf: asOf))
-        result.add(
-          net(expense), days: inclusiveDays(start, end),
-          divisor: duration(expense, basis: basis, asOf: asOf))
+        if let index = indices[expense.text("day")] { apply(index, index, net(expense), 1) }
+        continue
       }
+      let start = max(first, expense.text("startDay"))
+      let end = min(last, effectiveEnd(expense, asOf: asOf))
+      guard let from = indices[start], let through = indices[end], from <= through else { continue }
+      let divisor = duration(expense, basis: basis, asOf: asOf)
+      if divisor > 0 { apply(from, through, net(expense), divisor) }
     }
-    return result
   }
   public static func total(_ expenses: [Record], month: String, basis: Basis, asOf: String)
     -> Decimal
   {
-    aggregate(expenses, month: month, basis: basis, asOf: asOf).rounded()
+    var amount = FinanceFraction()
+    monthlyExpenses(expenses, days: monthDays(month, asOf: asOf), basis: basis, asOf: asOf) { from, through, net, divisor in
+      amount.add(net, days: through - from + 1, divisor: divisor)
+    }
+    return amount.rounded()
   }
   public static func summary(_ expenses: [Record], month: String, basis: Basis, asOf: String)
     -> Summary
   {
-    let values = monthDays(month, asOf: asOf).map { day in
-      DayValue(
-        day: day,
-        minor: expenses.reduce(Decimal()) {
-          $0 + contribution($1, day: day, basis: basis, asOf: asOf)
-        })
+    let days = monthDays(month, asOf: asOf)
+    var amount = FinanceFraction()
+    var changes = Array(repeating: Decimal.zero, count: days.count + 1)
+    var attributed = Array(repeating: 0, count: days.count + 1)
+    monthlyExpenses(expenses, days: days, basis: basis, asOf: asOf) { from, through, net, divisor in
+      let rate = net / Decimal(divisor)
+      changes[from] += rate
+      changes[through + 1] -= rate
+      attributed[from] += 1
+      attributed[through + 1] -= 1
+      amount.add(net, days: through - from + 1, divisor: divisor)
     }
-    let amount = aggregate(expenses, month: month, basis: basis, asOf: asOf)
-    // Recorded means an attributed record exists, including explicitly recorded zero values.
-    let recorded = values.filter { value in
-      expenses.contains { expense in
-        guard !expense.deleted else { return false }
-        if basis == .actual || expense.text("mode") == "immediate" {
-          return expense.text("day") == value.day
-        }
-        return expense.text("startDay") <= value.day
-          && effectiveEnd(expense, asOf: asOf) >= value.day
-          && daily(expense, basis: basis, asOf: asOf) != nil
-      }
-    }.count
+    var daily = Decimal.zero
+    var active = 0
+    var recorded = 0
+    let values = days.enumerated().map { index, day in
+      active += attributed[index]
+      daily += changes[index]
+      if active > 0 { recorded += 1 }
+      else { daily = 0 }
+      return DayValue(day: day, minor: daily)
+    }
     return Summary(
       days: values, total: amount.rounded(),
       calendarAverage: values.isEmpty ? nil : amount.rounded(dividingBy: values.count),

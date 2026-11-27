@@ -5,10 +5,14 @@ export function ScheduleFields({
   value,
   onChange,
   prefix,
+  time,
+  onTimeChange,
 }: {
   value: Schedule;
   onChange: (value: Schedule) => void;
   prefix: string;
+  time?: string;
+  onTimeChange?: (value: string) => void;
 }) {
   const today = localDay();
   return (
@@ -44,6 +48,17 @@ export function ScheduleFields({
             max="9999-12-31"
             required
             onChange={(e) => onChange({ ...value, date: e.target.value })}
+          />
+        </div>
+      )}
+      {"date" in value && onTimeChange && (
+        <div>
+          <label htmlFor={prefix + "-time"}>时间（可选）</label>
+          <input
+            type="time"
+            id={prefix + "-time"}
+            value={time ?? ""}
+            onChange={(event) => onTimeChange(event.target.value)}
           />
         </div>
       )}

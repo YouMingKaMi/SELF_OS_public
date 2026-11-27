@@ -34,6 +34,13 @@ final class FinanceRulesTests: XCTestCase {
     XCTAssertFalse(FinanceRules.isHistory(fixed, asOf: "2026-01-10"))
     XCTAssertTrue(FinanceRules.isHistory(fixed, asOf: "2026-01-11"))
   }
+  func testLateActualEndDoesNotExtendFixedTermUsage() {
+    let fixed = expense(["mode": "fixed", "endDay": "2026-01-10", "endedDay": "2026-01-20"])
+    for basis in [FinanceRules.Basis.term, .current] {
+      XCTAssertEqual(FinanceRules.contribution(fixed, day: "2026-01-11", basis: basis, asOf: "2026-01-22"), 0)
+      XCTAssertEqual(FinanceRules.total([fixed], month: "2026-01", basis: basis, asOf: "2026-01-22"), 10_000)
+    }
+  }
   func testSaleReattributesPurchaseWithoutNegativeSaleDayAndAllowsProfit() {
     let sold = expense([
       "recoveryMinor": "12000", "recoveryDay": "2026-02-10", "endedDay": "2026-02-10",

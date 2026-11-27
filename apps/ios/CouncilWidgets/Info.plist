@@ -5,7 +5,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>SELF OS</string>
 	<key>CouncilWidgetAccessGroup</key>
-	<string>$(AppIdentifierPrefix)$(COUNCIL_WIDGET_GROUP)</string>
+	<string>$(AppIdentifierPrefix)org.personalcouncil.next.studio.widget-items</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>

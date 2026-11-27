@@ -4,24 +4,17 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>SELF OS</string>
-	<key>CouncilEndpoint</key>
-	<string>$(COUNCIL_ENDPOINT)</string>
-	<key>CouncilWidgetAccessGroup</key>
-	<string>$(AppIdentifierPrefix)$(COUNCIL_WIDGET_GROUP)</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>连接这台 Mac 上独立运行的开发服务，同步合成资料。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>连接局域网里你自己运行的服务，同步资料。</string>
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<false/>
-	</dict>
+	<key>CouncilEndpoint</key>
+	<string>$(COUNCIL_ENDPOINT)</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
@@ -29,5 +22,64 @@
 	</dict>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>使用麦克风录下想法，并转成文字存入想法暂存。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>将语音记录转写成可以编辑的想法。</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>org.personalcouncil.next.studio.navigation</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>selfos</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+		</dict>
+	</array>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>raw-material</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>未加工原料</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>tray.and.arrow.down</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>new-task</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>新建任务</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>plus.circle</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>preparation-checklists</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>准备清单</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>list.bullet.clipboard</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>new-expense</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>记一笔花销</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>creditcard</string>
+		</dict>
+	</array>
+	<key>CouncilWidgetAccessGroup</key>
+	<string>$(AppIdentifierPrefix)org.personalcouncil.next.studio.widget-items</string>
 </dict>
 </plist>

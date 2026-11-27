@@ -36,6 +36,7 @@ struct EntityFormSheet: View {
   @Environment(Studio.self) private var studio
   @Environment(\.dismiss) private var dismiss
   let form: EntityForm
+  var onSaved: ((String) -> Void)? = nil
   @State private var data: [String: JSONValue] = [:]
   @State private var texts: [String: String] = [:]
   @State private var confirmDelete = false
@@ -84,7 +85,7 @@ struct EntityFormSheet: View {
     [
       "domain": "领域", "activity": "子领域", "problem": "问题", "solution": "方案", "metric": "指标",
       "checklist": "清单", "category": "分类", "recurringExpense": "固定支出", "wallet": "账户",
-      "department": "部门", "budget": "预算", "importantDay": "日子", "asset": "标的",
+      "department": "部门", "practiceEvent": "事件", "budget": "预算", "importantDay": "日子", "asset": "标的",
     ][form.type] ?? "记录"
   }
   var valid: Bool {
@@ -131,7 +132,7 @@ struct EntityFormSheet: View {
     case .choice:
       Picker(label, selection: Binding(get: { data[field.name]?.text ?? "" }, set: { data[field.name] = $0.isEmpty ? nil : .string($0) })) {
         if !field.required { Text("不设置").tag("") }
-        ForEach(field.values, id: \.self) { Text(Words.of($0)).tag($0) }
+        ForEach(field.values, id: \.self) { Text(form.type == "practiceEvent" && $0 == "resolved" ? "已完成" : Words.of($0)).tag($0) }
       }
     case .ref:
       Picker(label, selection: Binding(get: { data[field.name]?.text ?? "" }, set: { data[field.name] = $0.isEmpty ? nil : .string($0) })) {
@@ -193,7 +194,10 @@ struct EntityFormSheet: View {
       }
     }
     Task {
-      if await studio.save(form.type, out, id: form.record?.id) != nil { dismiss() }
+      if let id = await studio.save(form.type, out, id: form.record?.id) {
+        onSaved?(id)
+        dismiss()
+      }
     }
   }
 }

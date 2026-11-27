@@ -2,14 +2,6 @@
 
 Mac 上的导入页面使用已配置的 wechat-cli 读取「微信支付」公众号中的付款通知。付款金额、商户、业务日期及去重标识由通知提取。退款、收款、转账和其他会话不进入此流程。账单通过现有同步接口写入 SELF OS，网页和 iPhone 可查看。
 
-## 数据与隐私
-
-- 工具只在本机读取微信支付公众号通知；不会上传到任何第三方服务。
-- 导入的金额、商户、日期和备注只发送到你指定的 SELF OS 地址，走现有配对凭证和 HTTPS。
-- 连接凭证、去重水位和商户规则保存在本机 `~/Library/Application Support/SELF OS/WeChat Pay`，不写入项目目录。
-- 自动同步由本机 LaunchAgent 运行；停止方法见下方 `launchctl bootout`。
-- 公开仓库不包含你的服务器地址、连接码或微信账号配置。
-
 ## 使用
 
 1. 在运行记账工具的 Mac 打开 SELF OS「花销 → 微信支付」，选「读取最近两天」。首次连接时，浏览器可能询问是否允许访问本机。若内嵌受浏览器限制，可从同一页单独打开 `http://127.0.0.1:18766/`。
@@ -27,6 +19,8 @@ python3 tools/wechat-pay/bridge.py --endpoint https://your-self-os.example --wec
 ```
 
 页面的连接码需由服务器生成，类型为 `cli`。完成配对后，可退出手动进程，再使用下述命令安装登录后台服务。工具只绑定 Mac 本机。连接信息与分类规则存储在本机的 `Library/Application Support/SELF OS/WeChat Pay`。每个连接独立维护去重和扫描进度，重新配对后需要重新开启自动同步。
+
+升级后，工具会将此前已保存连接的 JSON 状态导入该连接的本机 SQLite 文件。去重按支付标识查询，分类缓存与同步位置一同保存，重启后接着上次的位置读取。账本恢复时，数据库保留旧代际供核对，并暂停自动记账。
 
 ```sh
 python3 tools/wechat-pay/install-macos.py --endpoint https://your-self-os.example --wechat-project /path/to/wechat-cli

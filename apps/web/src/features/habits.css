@@ -5,8 +5,8 @@
 .habit-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 8px 8px;
+  gap: 3px;
+  padding: 7px 8px;
   border-bottom: 1px solid var(--line);
   border-radius: var(--r);
   cursor: pointer;
@@ -25,7 +25,12 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-left: 30px;
+  padding-left: 24px;
+}
+.habit-section-heading .pill {
+  height: 17px;
+  padding: 0 5px;
+  font-size: 10px;
 }
 .habit-section-heading .row-tools {
   margin-left: auto;
@@ -40,11 +45,11 @@
 .habit-line {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 .habit-ring {
-  --size: 20px;
+  --size: 16px;
   flex: none;
   width: var(--size);
   height: var(--size);
@@ -55,13 +60,13 @@
   );
   -webkit-mask: radial-gradient(
     circle,
-    transparent calc(var(--size) / 2 - 2.5px),
-    #000 calc(var(--size) / 2 - 2px)
+    transparent calc(var(--size) / 2 - 2px),
+    #000 calc(var(--size) / 2 - 1.5px)
   );
   mask: radial-gradient(
     circle,
-    transparent calc(var(--size) / 2 - 2.5px),
-    #000 calc(var(--size) / 2 - 2px)
+    transparent calc(var(--size) / 2 - 2px),
+    #000 calc(var(--size) / 2 - 1.5px)
   );
 }
 .habit-line.done .habit-ring {
@@ -82,9 +87,11 @@
 }
 .habit-name strong {
   font-weight: 550;
+  font-size: var(--fs-sm);
 }
 .habit-name small {
   font: var(--fs-micro) var(--mono);
+  color: var(--text-3);
 }
 .habit-controls {
   display: flex;
@@ -95,13 +102,15 @@
   max-width: 62%;
 }
 .habit-controls button {
-  height: 26px;
+  height: 23px;
+  padding: 0 8px;
+  font-size: var(--fs-xs);
 }
 .habit-controls input {
-  width: 58px;
-  height: 26px;
+  width: 46px;
+  height: 23px;
   text-align: center;
-  font: 500 var(--fs-sm) var(--mono);
+  font: 500 var(--fs-xs) var(--mono);
   background: var(--bg);
 }
 .habit-controls .checked-button {
@@ -110,10 +119,27 @@
   color: var(--text);
 }
 
+.columns.habits .stats-strip {
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+}
+.columns.habits .stats-strip > div {
+  padding: 8px 9px;
+  gap: 2px;
+}
+.columns.habits .stats-strip small {
+  font-size: 10.5px;
+}
+.columns.habits .stats-strip strong {
+  font-size: 15px;
+}
+:root[data-shell="macos"] .columns.habits .stats-strip strong {
+  font-size: 14px;
+}
+
 .habit-calendar {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  gap: 3px;
 }
 .habit-calendar .weekday {
   padding-bottom: 2px;
@@ -126,18 +152,22 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 0;
-  height: 44px;
-  padding: 5px 7px;
+  height: 32px;
+  padding: 3px 5px;
+  border-radius: 6px;
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--text-3);
 }
+:root[data-shell="macos"] .habit-calendar button {
+  height: 30px;
+}
 .habit-calendar button span {
-  font: var(--fs-micro) var(--mono);
+  font: var(--fs-micro) / 1.1 var(--mono);
 }
 .habit-calendar button small {
   align-self: flex-end;
-  font: 500 var(--fs-sm) var(--mono);
+  font: 500 11px / 1 var(--mono);
   color: inherit;
 }
 .habit-calendar button.recorded {
@@ -146,8 +176,8 @@
   color: var(--text-2);
 }
 .habit-calendar button.done {
-  background: var(--solid);
-  border-color: var(--solid);
+  background: color-mix(in srgb, var(--solid) 86%, var(--bg));
+  border-color: transparent;
   color: var(--solid-text);
 }
 .habit-calendar button.current {
@@ -172,13 +202,13 @@
 
 /* Checklist items × days */
 .item-matrix {
-  margin-top: 18px;
+  margin-top: 12px;
 }
 .item-matrix-caption {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
@@ -187,8 +217,8 @@
 }
 .item-matrix-grid {
   display: grid;
-  grid-template-columns: minmax(56px, max-content) repeat(var(--days), minmax(8px, 1fr)) 64px;
-  gap: 5px 4px;
+  grid-template-columns: minmax(48px, max-content) repeat(var(--days), minmax(6px, 1fr)) 56px;
+  gap: 4px 3px;
   align-items: center;
 }
 .item-matrix-grid > small {
@@ -200,26 +230,26 @@
   color: var(--text);
 }
 .item-matrix-grid > strong {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 8px;
+  padding-right: 6px;
 }
 .item-matrix-grid > i {
-  height: 16px;
-  border-radius: 4px;
+  height: 11px;
+  border-radius: 3px;
   background: var(--surface-3);
 }
 .item-matrix-grid > i.on {
-  background: var(--solid);
+  background: color-mix(in srgb, var(--solid) 86%, var(--bg));
 }
 .item-matrix-grid > i.future {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 .item-matrix-grid > em {
-  font: 500 var(--fs-sm) / 1 var(--font);
+  font: 500 var(--fs-xs) / 1 var(--font);
   font-style: normal;
   text-align: right;
 }

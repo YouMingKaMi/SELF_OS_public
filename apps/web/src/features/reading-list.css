@@ -1,0 +1,136 @@
+.reading-list {
+  max-width: 980px;
+}
+.reading-toolbar,
+.reading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.reading-toolbar {
+  justify-content: space-between;
+}
+.reading-toolbar input {
+  width: min(100%, 235px);
+}
+.reading-items {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.reading-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-2);
+}
+.reading-row:last-child {
+  padding-bottom: 0;
+}
+.reading-item {
+  flex: 1 1 245px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.reading-item strong {
+  font-size: var(--fs-md);
+}
+.reading-item summary {
+  cursor: pointer;
+}
+.reading-item summary::marker {
+  color: var(--text-3);
+}
+.reading-item span {
+  margin-inline-start: 8px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.reading-item small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 4px;
+  color: var(--text-3);
+}
+.reading-item details[open] small {
+  display: none;
+}
+.reading-note {
+  margin-top: 6px;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+.reading-actions {
+  gap: 4px;
+  font-size: var(--fs-sm);
+}
+.reading-actions button {
+  background: transparent;
+  color: var(--text-3);
+  min-height: 26px;
+  padding: 2px 7px;
+}
+.reading-actions button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+.reading-actions a {
+  margin-inline: 4px;
+}
+.reading-list a {
+  color: var(--text-2);
+  text-underline-offset: 3px;
+}
+.reading-dialog {
+  margin: auto;
+  width: min(460px, calc(100% - 24px));
+  max-height: 85dvh;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+}
+.reading-dialog::backdrop {
+  background: var(--scrim);
+}
+.reading-form {
+  display: grid;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+.reading-form h2,
+.reading-form p {
+  margin: 0;
+}
+.reading-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-2);
+}
+.reading-form textarea {
+  resize: vertical;
+}
+.reading-form .form-actions {
+  justify-content: flex-end;
+}
+
+.reading-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.reading-meta:not(:empty) {
+  margin-top: 5px;
+}
+.reading-item .reading-meta span {
+  margin-inline-start: 0;
+}

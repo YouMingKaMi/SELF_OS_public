@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "./freedom.css";
 import { useEntities } from "../data/entities.ts";
 import { useQuotes } from "../data/quotes.ts";
-import { Heading, Panel, Stats, str, today, usePreference } from "../ui/shared.tsx";
-import { money } from "./finance-model.ts";
-import { dailyCost, freedom, whatIf, type CostBasis } from "../../../../modules/finance/index.ts";
+import { Chart, Heading, Panel, Stats, str, today, usePreference } from "../ui/shared.tsx";
+import { minor, money } from "./finance-model.ts";
+import { businessDayEnd, dailyCost, expenseKnownAt, freedom, freedomTrend, whatIf, type CostBasis } from "../../../../modules/finance/index.ts";
 import { treasury } from "../../../../modules/treasury/index.ts";
 
 /** stable: money in hand, lights blue/gold. volatile: shown apart, optional. off: not counted (not in hand). */
@@ -32,67 +32,97 @@ const ageOn = (birthday: string, day: string) => {
 const span = (days: number) =>
   days >= 365 ? `${Math.floor(days / 365)} 年 ${Math.round((days % 365) / 30.4)} 个月` : `${days} 天`;
 const yuan = (cents: number) => money(BigInt(Math.round(cents)));
+const ranges = [[1, "近 1 个月"], [3, "近 3 个月"], [6, "近 6 个月"], [12, "近 1 年"], [0, "自定义"]] as const;
+function monthsBefore(day: string, months: number) {
+  const [year, month, date] = day.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1 - months, 1));
+  const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(date, last));
+  return target.toISOString().slice(0, 10);
+}
 
 export function Freedom() {
   const { entities } = useEntities("expense", "wallet", "walletEntry", "asset", "assetPrice");
   const [settings, setSettings] = usePreference<Settings>("freedom", { birthday: "", age: 80, start: today(), past: false });
   const now = today();
-  const of = (type: string) => entities.filter((e) => e.type === type);
-  const assets = of("asset");
-  const { quotes } = useQuotes(assets.map((a) => str(a, "quoteId")).filter(Boolean));
+  const { expenses, book } = useMemo(() => {
+    const of = (type: string) => entities.filter((e) => e.type === type);
+    return { expenses: of("expense"), book: { wallets: of("wallet"), assets: of("asset"), entries: of("walletEntry"), prices: of("assetPrice") } };
+  }, [entities]);
+  const { assets, wallets } = book;
+  const quoteIds = useMemo(() => assets.map((a) => str(a, "quoteId")).filter(Boolean), [assets]);
+  const { quotes } = useQuotes(quoteIds);
   const live = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, quotes[str(a, "quoteId")]?.priceCNY])), [assets, quotes]);
-  const book = { wallets: of("wallet"), assets, entries: of("walletEntry"), prices: of("assetPrice") };
-  const report = useMemo(() => treasury({ ...book, live }), [entities, live]);
-  const atStart = useMemo(() => treasury({ ...book, until: settings.start + "T23:59:59.999Z" }), [entities, settings.start]);
-  // Every countable thing in the treasury: plain wallets, and assets summed across accounts.
+  const roleOf = (item: { id: string; fallback: Role }) => settings.roles?.[item.id] ?? item.fallback;
+  const selection = useMemo(() => ({
+    wallets: new Set(wallets.filter((wallet) => {
+      const category = str(wallet, "category");
+      return ["cny", "external"].includes(category) &&
+        roleOf({ id: wallet.id, fallback: category === "cny" ? "stable" : "off" }) === "stable";
+    }).map((wallet) => wallet.id)),
+    assets: new Set(assets.filter((asset) => roleOf({ id: asset.id, fallback: "volatile" }) === "stable").map((asset) => asset.id)),
+  }), [wallets, assets, settings.roles]);
+  const { wallets: walletValues, assets: assetValues, history, selected } =
+    useMemo(() => treasury({ ...book, live, historyOf: selection }), [book, live, selection]);
+  const total = selected?.value ?? 0n;
+  const startTotal = useMemo(() => {
+    const before = businessDayEnd(settings.start);
+    return history.findLast((point) => Date.parse(point.at) < before)?.value ?? null;
+  }, [history, settings.start]);
+  // Every countable thing in the treasury: plain wallets and assets summed across accounts.
   const items = [
-    ...book.wallets
+    ...wallets
       .filter((w) => w.data.category === "cny" || w.data.category === "external")
       .map((w) => ({
         id: w.id,
         name: str(w, "name"),
         group: w.data.category === "cny" ? "人民币" : "外部投资",
         fallback: (w.data.category === "cny" ? "stable" : "off") as Role,
-        value: report.wallets[w.id]?.value ?? 0n,
-        start: atStart.wallets[w.id]?.value ?? 0n,
+        value: walletValues[w.id]?.value ?? null,
       })),
     ...assets.map((a) => ({
       id: a.id,
       name: str(a, "name"),
       group: a.data.kind === "crypto" ? "加密资产" : "股票",
       fallback: "volatile" as Role,
-      value: report.assets[a.id]?.value ?? 0n,
-      start: atStart.assets[a.id]?.value ?? 0n,
+      value: assetValues[a.id]?.value ?? null,
     })),
   ];
-  const roleOf = (item: { id: string; fallback: Role }) => settings.roles?.[item.id] ?? item.fallback;
-  const sumOf = (role: Role, key: "value" | "start") =>
-    items.filter((i) => roleOf(i) === role).reduce((n, i) => n + i[key], 0n);
-  // Blue and gold count only what is in hand; gold is its growth since the starting point.
-  const total = sumOf("stable", "value");
-  const startTotal = sumOf("stable", "start");
-  const volatileTotal = sumOf("volatile", "value");
+  const volatileTotal = items.filter((i) => roleOf(i) === "volatile").reduce((n, i) => n + (i.value ?? 0n), 0n);
+  const complete = Boolean(selected?.known && selected.unknown === 0);
   const showVolatile = settings.showVolatile ?? true;
   const basis: CostBasis = settings.basis ?? "current";
   const costOptions = { since: settings.since || null, basis };
-  const cost = useMemo(() => dailyCost(of("expense"), now, costOptions), [entities, now, basis, settings.since]);
-  // The same average as it stood at the end of yesterday; today's effect is the difference.
-  const before = useMemo(() => dailyCost(of("expense"), shiftDay(now, -1), costOptions).average, [entities, now, basis, settings.since]);
-  const free = freedom({ assets: total, startAssets: startTotal, average: cost.average, volatile: volatileTotal });
+  const cost = useMemo(() => dailyCost(expenses, now, costOptions), [expenses, now, basis, settings.since]);
+  const before = useMemo(() => {
+    const yesterday = shiftDay(now, -1);
+    return dailyCost(expenses.map((row) => expenseKnownAt(row, yesterday)), yesterday, costOptions).average;
+  }, [expenses, now, basis, settings.since]);
+  const free = freedom({
+    assets: total, startAssets: startTotal ?? 0n, average: complete ? cost.average : 0, volatile: volatileTotal,
+  });
 
-  // What-if: one more event today.
+  // What-if: one more event today. Parse the decimal directly to cents.
   const [amount, setAmount] = useState("");
   const [kind, setKind] = useState<"spend" | "income">("spend");
-  const cents = /^\d+(\.\d{1,2})?$/.test(amount) ? BigInt(Math.round(Number(amount) * 100)) : 0n;
-  const preview = cents > 0n ? whatIf(cost, total, kind === "spend" ? { spend: cents } : { income: cents }) : null;
+  const cents = /^\d{1,16}(\.\d{0,2})?$/.test(amount.trim()) ? BigInt(minor(amount)) : 0n;
+  const preview = cents > 0n && complete ? whatIf(cost, total, kind === "spend" ? { spend: cents } : { income: cents }) : null;
 
   const ready = /^\d{4}-\d{2}-\d{2}$/.test(settings.birthday) && settings.age > ageOn(settings.birthday, now);
   const end = ready ? birthdayAt(settings.birthday, settings.age) : now;
   const remaining = Math.max(0, daysBetween(now, end));
-  const beforeDays = before > 0 ? Math.floor(Number(total) / before) : null;
+  const beforeDays = freedom({ assets: total, startAssets: total, average: before }).days;
   const todayEffect = free.days !== null && beforeDays !== null ? free.days - beforeDays : null;
   const need = (days: number) => Math.max(0, cost.average * days - Number(total));
   const coveredUntil = free.days !== null ? shiftDay(now, free.days) : null;
+  const [range, setRange] = useState(1);
+  const [customFrom, setCustomFrom] = useState(() => monthsBefore(now, 1));
+  const [customTo, setCustomTo] = useState(now);
+  const from = range ? monthsBefore(now, range) : customFrom;
+  const to = range ? now : customTo;
+  const trend = useMemo(() => freedomTrend(expenses, history, {
+    from, to, today: now, assetsToday: complete ? total : null, since: settings.since, basis,
+  }), [expenses, history, from, to, now, complete, total, settings.since, basis]);
 
   return (
     <>
@@ -109,6 +139,10 @@ export function Freedom() {
             <span>
               天{free.days !== null && free.days >= 365 ? ` · 约 ${span(free.days)}` : ""}
             </span>
+            {!complete && (
+              <p>{selected?.unknown ? `有 ${selected.unknown} 项稳定资产缺少估值，补齐后计算自由天数。` : "请选择纳入计算的稳定资产。"}</p>
+            )}
+            {complete && startTotal === null && <p>点灯起点估值不全，累计天数暂无法拆分。</p>}
             {coveredUntil && ready && (
               <p>
                 按现在的花法，能撑到 <b>{coveredUntil}</b>
@@ -142,7 +176,7 @@ export function Freedom() {
             items={[
               ["日均花销", cost.days ? yuan(cost.average) : "—"],
               ["记账天数", cost.days ? cost.days + " 天" : "—"],
-              ["稳定资产", money(total)],
+              [complete ? "稳定资产" : "已知稳定资产小计", selected?.known ? money(total) : "—"],
               ["期间使用成本", yuan(cost.total)],
             ]}
           />
@@ -195,7 +229,7 @@ export function Freedom() {
               <p className="freedom-hint">输入一个金额，右边的灯会跟着亮起或熄灭。</p>
             )}
           </Panel>
-          {ready && cost.average > 0 && (
+          {ready && complete && cost.average > 0 && (
             <Panel title="离目标还差">
               <div className="freedom-gaps">
                 {(
@@ -225,7 +259,7 @@ export function Freedom() {
                       <div key={item.id}>
                         <span className="row-main">
                           <span>{item.name}</span>
-                          <small>{money(item.value)}</small>
+                          <small>{item.value === null ? "估值未知" : money(item.value)}</small>
                         </span>
                         <div className="segmented">
                           {roleNames.map(([role, label]) => (
@@ -293,49 +327,155 @@ export function Freedom() {
             <small className="freedom-note">记账起点：从这天起算日均，默认是第一笔日常花销那天；之前补录的大件只计入之后每天的份额。点灯起点：这天已有的稳定资产亮蓝灯，之后的净增长亮金灯。设置只保存在这台设备。</small>
           </Panel>
         </div>
-        <Panel
-          className="freedom-board"
-          title="人生方格"
-          aside={
-            <span className="freedom-legend">
-              <i className="gold" />
-              起点后的积累
-              <i className="blue" />
-              起点时的资产
-              {showVolatile && free.volatile > 0 && (
-                <>
-                  <i className="volatile" />
-                  波动资产
-                </>
-              )}
-              <i className="none" />
-              尚未覆盖
-              {settings.past && (
-                <>
-                  <i className="past" />
-                  已过去
-                </>
-              )}
-            </span>
-          }
-        >
-          {ready ? (
-            <Lights
-              birthday={settings.birthday}
-              target={settings.age}
-              past={settings.past}
-              today={now}
-              gold={free.gold}
-              blue={free.blue}
-              volatile={showVolatile ? free.volatile : 0}
-              preview={preview && free.days !== null ? preview.days : null}
-            />
-          ) : (
-            <p className="freedom-hint big">先在左下角「设置」里填上生日和想活到的年龄，方格就会亮起来。</p>
-          )}
-        </Panel>
+        <div className="freedom-right">
+          <Panel
+            className="freedom-board"
+            title="人生方格"
+            aside={
+              <span className="freedom-legend">
+                <i className="gold" />
+                起点后的积累
+                <i className="blue" />
+                起点时的资产
+                {showVolatile && free.volatile > 0 && (
+                  <>
+                    <i className="volatile" />
+                    波动资产
+                  </>
+                )}
+                <i className="none" />
+                尚未覆盖
+                {settings.past && (
+                  <>
+                    <i className="past" />
+                    已过去
+                  </>
+                )}
+              </span>
+            }
+          >
+            {ready ? (
+              <Lights
+                birthday={settings.birthday}
+                target={settings.age}
+                past={settings.past}
+                today={now}
+                gold={startTotal === null ? 0 : free.gold}
+                blue={startTotal === null ? 0 : free.blue}
+                volatile={showVolatile ? free.volatile : 0}
+                preview={preview && free.days !== null ? preview.days : null}
+              />
+            ) : (
+              <p className="freedom-hint big">先在左下角「设置」里填上生日和想活到的年龄，方格就会亮起来。</p>
+            )}
+          </Panel>
+          <Panel title="历史趋势" className="freedom-trends">
+            <div className="freedom-trend-controls">
+              <div className="segmented" aria-label="趋势范围">
+                {ranges.map(([value, label]) => (
+                  <button key={value} className={range === value ? "active" : ""} aria-pressed={range === value} onClick={() => setRange(value)}>{label}</button>
+                ))}
+              </div>
+              {range === 0 && <div className="freedom-trend-dates">
+                <label>起始日 <input type="date" max={customTo || now} value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} /></label>
+                <label>结束日 <input type="date" min={customFrom || undefined} max={now} value={customTo} onChange={(event) => setCustomTo(event.target.value)} /></label>
+              </div>}
+            </div>
+            <p className="freedom-note">累计日均从记账起点算到当天。每日实际使用成本 = 当天消费净额 + 当天的长期使用成本。长期物品按{basis === "current" ? "当下日均" : "期限日均"}回算。</p>
+            {!from || !to || from > to || to > now ? <p role="status">请选择有效的日期范围，结束日最晚为今天。</p> :
+              <FreedomTrendCharts key={`${from}/${to}/${basis}`} trend={trend} />}
+          </Panel>
+        </div>
       </div>
     </>
+  );
+}
+
+function FreedomTrendCharts({ trend }: { trend: ReturnType<typeof freedomTrend> }) {
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const [plot, setPlot] = useState<{ left: number; width: number; top: number; height: number } | null>(null);
+  const dateSelection = { day: selectedDay, onChange: setSelectedDay };
+  const hasDates = trend.length > 0;
+  useLayoutEffect(() => {
+    const node = frame.current;
+    if (!node || !hasDates) return;
+    const areas = Array.from(node.querySelectorAll(".chart-hit-area"));
+    const first = areas[0];
+    const last = areas.at(-1);
+    if (!first || !last) return;
+
+    const measure = () => {
+      const frameBounds = node.getBoundingClientRect();
+      const start = first.getBoundingClientRect();
+      const end = last.getBoundingClientRect();
+      setPlot({
+        left: start.left - frameBounds.left,
+        width: start.width,
+        top: start.top - frameBounds.top,
+        height: end.bottom - start.top,
+      });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    for (const chart of node.querySelectorAll(".chart")) observer.observe(chart);
+    for (const area of areas) observer.observe(area);
+    return () => observer.disconnect();
+  }, [hasDates]);
+
+  const dates = useMemo(() => trend.map(({ day }) => Date.parse(day)), [trend]);
+  const firstDate = dates[0];
+  const dateSpan = (dates.at(-1) ?? firstDate) - firstDate;
+  const selectedFraction = selectedDay
+    ? (Date.parse(selectedDay) - firstDate) / (dateSpan || 1)
+    : null;
+
+  function selectAtPointer(event: React.PointerEvent<HTMLDivElement>) {
+    if (!plot?.width || !dates.length) return;
+    const left = event.currentTarget.getBoundingClientRect().left + plot.left;
+    const position = (event.clientX - left) / plot.width;
+    const targetDate = firstDate + position * dateSpan;
+    let closest = 0;
+    for (let index = 1; index < dates.length; index++) {
+      if (Math.abs(dates[index] - targetDate) < Math.abs(dates[closest] - targetDate)) {
+        closest = index;
+      }
+    }
+    setSelectedDay(trend[closest].day);
+  }
+
+  const series = useMemo(() => {
+    const inYuan = (cents: number | null) => cents === null ? null : Math.round(cents) / 100;
+    return [
+      { label: "自由天数", unit: " 天", points: trend.map(({ day, days }) => ({ x: day, y: days })) },
+      { label: "累计日均消费", unit: " 元", points: trend.map(({ day, average }) => ({ x: day, y: inYuan(average) })) },
+      { label: "每日实际使用成本", unit: " 元", points: trend.map(({ day, usageCost }) => ({ x: day, y: inYuan(usageCost) })) },
+    ];
+  }, [trend]);
+  return (
+    <div
+      className="freedom-trend-charts"
+      ref={frame}
+      onPointerMove={selectAtPointer}
+      onPointerDown={selectAtPointer}
+      onPointerCancel={() => setSelectedDay(null)}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "touch") setSelectedDay(null);
+      }}
+    >
+      {plot && selectedFraction !== null && (
+        <div
+          aria-hidden="true"
+          className="freedom-trend-guide"
+          style={{ left: plot.left + plot.width * selectedFraction, top: plot.top, height: plot.height }}
+        />
+      )}
+      {series.map((chart) => (
+        <Chart key={chart.label} {...chart} fullDates dateSelection={dateSelection} />
+      ))}
+    </div>
   );
 }
 

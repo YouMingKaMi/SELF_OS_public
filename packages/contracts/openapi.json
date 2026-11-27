@@ -3,23 +3,614 @@
   "info": {
     "title": "SELF OS — sync API",
     "version": "1.0.0",
-    "description": "Generated from packages/contracts/schema.ts; do not edit. One write path, one read path. v1 only gains optional fields. Development identity only: device pairing is not implemented."
+    "description": "Generated from packages/contracts/schema.ts and the supporting HTTP contracts. Local development uses a bearer token. Production uses paired device credentials or a same-site browser session."
   },
+  "security": [
+    {
+      "devBearer": []
+    },
+    {
+      "browserSession": []
+    }
+  ],
   "paths": {
+    "/v1/pair": {
+      "post": {
+        "operationId": "pairDevice",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 32
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Phone and CLI receive a credential. A browser receives a cookie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "device": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    "credential": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "device"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired pairing code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request lacks the required same-site marker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Pairing rate limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session": {
+      "get": {
+        "operationId": "currentSession",
+        "responses": {
+          "200": {
+            "description": "Current device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "device": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "device"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request lacks the required same-site marker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session/revoke": {
+      "post": {
+        "operationId": "revokeSession",
+        "responses": {
+          "200": {
+            "description": "Current credential revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request lacks the required same-site marker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "operationId": "subscribeChanges",
+        "responses": {
+          "200": {
+            "description": "Server-sent ready/change hints. Pull the change feed for confirmed data.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request lacks the required same-site marker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Subscription limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/quotes": {
+      "get": {
+        "operationId": "fetchQuotes",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available quotes and valid identifiers without a quote.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "quotes": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^(coingecko:[a-z0-9-]{1,80}|tencent:(us[A-Z0-9.]{1,12}|hk[0-9]{5}|sh[0-9]{6}|sz[0-9]{6}|bj[0-9]{6}))$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "price": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "priceCNY": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "changePercent": {
+                            "type": "number"
+                          },
+                          "timeSource": {
+                            "enum": [
+                              "market",
+                              "retrieved"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "price",
+                          "currency",
+                          "priceCNY",
+                          "at"
+                        ]
+                      }
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "quotes",
+                    "missing"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request lacks the required same-site marker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/quotes/search": {
+      "get": {
+        "operationId": "searchQuotes",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "crypto",
+                "stock"
+              ]
+            },
+            "required": true
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching assets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "quoteId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "symbol": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "crypto",
+                              "stock"
+                            ]
+                          },
+                          "market": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "quoteId",
+                          "name",
+                          "symbol",
+                          "kind",
+                          "market",
+                          "currency"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request lacks the required same-site marker.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Market data temporarily unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands": {
       "post": {
         "operationId": "submitCommand",
-        "summary": "Create, replace or delete one entity. Idempotent per device and operationId.",
-        "security": [
-          {
-            "devBearer": []
-          }
-        ],
+        "summary": "Create, replace, patch or delete one entity. Idempotent per device and operationId.",
         "parameters": [
           {
             "name": "x-device-id",
             "in": "header",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -69,7 +660,76 @@
             }
           },
           "409": {
-            "description": "OPERATION_REUSED or NOT_FOUND.",
+            "description": "OPERATION_REUSED, NOT_FOUND, ENTITY_TYPE_COLLISION or sync scope mismatch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/command-batches": {
+      "post": {
+        "operationId": "submitCommandBatch",
+        "summary": "Apply ordered edits to distinct entities, atomically and idempotently.",
+        "parameters": [
+          {
+            "name": "x-device-id",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One receipt contains every effect or a conflict that rolled back the whole batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid batch schema or business rule.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Operation ID reuse, entity identity conflict, missing entity or sync scope mismatch.",
             "content": {
               "application/json": {
                 "schema": {
@@ -85,11 +745,6 @@
       "get": {
         "operationId": "listChanges",
         "summary": "Entities changed after the cursor, each once at its latest state, in revision order.",
-        "security": [
-          {
-            "devBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "cursor",
@@ -107,6 +762,24 @@
               "minimum": 1,
               "maximum": 500
             }
+          },
+          {
+            "name": "datasetId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional; supply both scope fields together."
+          },
+          {
+            "name": "generation",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional; supply both scope fields together."
           }
         ],
         "responses": {
@@ -129,6 +802,232 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The scope differs or the scoped cursor is ahead of the database.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recovery-matches": {
+      "post": {
+        "security": [
+          {
+            "devBearer": []
+          }
+        ],
+        "operationId": "reconcileRecovery",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Read-only receipt and exact business-key matches.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid recovery probe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Scope mismatch or watermark is ahead of the restored database.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sync-state": {
+      "get": {
+        "security": [
+          {
+            "devBearer": []
+          }
+        ],
+        "operationId": "readSyncState",
+        "responses": {
+          "200": {
+            "description": "Current identity and latest revision of this account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/snapshots": {
+      "post": {
+        "security": [
+          {
+            "devBearer": []
+          }
+        ],
+        "operationId": "createSyncSnapshot",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncScope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persistent snapshot of this account at one revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Scope mismatch or a snapshot is being created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/snapshots/{id}": {
+      "get": {
+        "security": [
+          {
+            "devBearer": []
+          }
+        ],
+        "operationId": "readSyncSnapshotPage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{1,15}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ordered snapshot page and an opaque continuation position.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Snapshot expired or position is ahead of the snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -139,9 +1038,443 @@
       "devBearer": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "council_device"
       }
     },
     "schemas": {
+      "RecoveryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "watermark",
+          "probes"
+        ],
+        "properties": {
+          "scope": {
+            "type": "object",
+            "required": [
+              "datasetId",
+              "generation"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "datasetId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "watermark": {
+            "type": "string",
+            "pattern": "^[0-9]{1,18}$"
+          },
+          "probes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operationId",
+                "entityType",
+                "entityId"
+              ],
+              "properties": {
+                "operationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "entityType": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "entityId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "command": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "operationId",
+                    "entityId",
+                    "entityType",
+                    "baseVersion",
+                    "action",
+                    "occurredAt"
+                  ],
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "entityId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "entityType": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "baseVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "action": {
+                      "enum": [
+                        "put",
+                        "patch",
+                        "delete"
+                      ]
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "data": {
+                      "type": "object",
+                      "maxProperties": 40
+                    },
+                    "scope": {
+                      "type": "object",
+                      "required": [
+                        "datasetId",
+                        "generation"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "datasetId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "generation": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "action": {
+                            "enum": [
+                              "put",
+                              "patch"
+                            ]
+                          }
+                        }
+                      },
+                      "then": {
+                        "required": [
+                          "data"
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "batch": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "operationId",
+                    "commands"
+                  ],
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "scope": {
+                      "type": "object",
+                      "required": [
+                        "datasetId",
+                        "generation"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "datasetId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "generation": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    },
+                    "commands": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 40,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "entityId",
+                          "entityType",
+                          "baseVersion",
+                          "action",
+                          "occurredAt"
+                        ],
+                        "properties": {
+                          "entityId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "entityType": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "baseVersion": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "action": {
+                            "enum": [
+                              "put",
+                              "patch",
+                              "delete"
+                            ]
+                          },
+                          "occurredAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "data": {
+                            "type": "object",
+                            "maxProperties": 40
+                          }
+                        },
+                        "allOf": [
+                          {
+                            "if": {
+                              "properties": {
+                                "action": {
+                                  "enum": [
+                                    "put",
+                                    "patch"
+                                  ]
+                                }
+                              }
+                            },
+                            "then": {
+                              "required": [
+                                "data"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "creation": {
+                  "type": "object",
+                  "maxProperties": 10
+                }
+              }
+            }
+          }
+        }
+      },
+      "RecoveryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "matches"
+        ],
+        "properties": {
+          "matches": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operationId",
+                "kind",
+                "entityId"
+              ],
+              "properties": {
+                "operationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "enum": [
+                    "receipt",
+                    "businessKey"
+                  ]
+                },
+                "entityId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "businessKey"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "SyncScope": {
+        "type": "object",
+        "required": [
+          "datasetId",
+          "generation"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SyncState": {
+        "type": "object",
+        "required": [
+          "datasetId",
+          "generation",
+          "watermark",
+          "scopeRequired"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "watermark": {
+            "type": "string"
+          },
+          "scopeRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Snapshot": {
+        "type": "object",
+        "required": [
+          "datasetId",
+          "generation",
+          "watermark",
+          "snapshotId",
+          "total",
+          "expiresAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "watermark": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SnapshotPage": {
+        "type": "object",
+        "required": [
+          "datasetId",
+          "generation",
+          "watermark",
+          "snapshotId",
+          "total",
+          "expiresAt",
+          "records",
+          "nextPosition"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "watermark": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entity"
+            }
+          },
+          "nextPosition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "Command": {
         "type": "object",
         "additionalProperties": false,
@@ -165,15 +1498,19 @@
           "entityType": {
             "enum": [
               "department",
+              "workspaceConfig",
               "domain",
               "activity",
               "problem",
               "solution",
+              "practiceEvent",
               "session",
               "progress",
+              "taskList",
               "task",
               "checklist",
               "checklistRun",
+              "achievement",
               "habit",
               "habitRule",
               "habitLog",
@@ -188,9 +1525,13 @@
               "document",
               "journal",
               "idea",
+              "memoir",
+              "readingItem",
               "metric",
               "metricLog",
-              "importantDay"
+              "importantDay",
+              "storageBox",
+              "storageItem"
             ]
           },
           "baseVersion": {
@@ -200,6 +1541,159 @@
           "action": {
             "enum": [
               "put",
+              "patch",
+              "delete"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "type": "object",
+            "maxProperties": 40
+          },
+          "scope": {
+            "type": "object",
+            "required": [
+              "datasetId",
+              "generation"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "datasetId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "enum": [
+                    "put",
+                    "patch"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "data"
+              ]
+            }
+          }
+        ]
+      },
+      "CommandBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "commands"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope": {
+            "type": "object",
+            "required": [
+              "datasetId",
+              "generation"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "datasetId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "commands": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 40,
+            "items": {
+              "$ref": "#/components/schemas/BatchMember"
+            }
+          }
+        }
+      },
+      "BatchMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entityId",
+          "entityType",
+          "baseVersion",
+          "action",
+          "occurredAt"
+        ],
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entityType": {
+            "enum": [
+              "department",
+              "workspaceConfig",
+              "domain",
+              "activity",
+              "problem",
+              "solution",
+              "practiceEvent",
+              "session",
+              "progress",
+              "taskList",
+              "task",
+              "checklist",
+              "checklistRun",
+              "achievement",
+              "habit",
+              "habitRule",
+              "habitLog",
+              "budget",
+              "category",
+              "expense",
+              "recurringExpense",
+              "wallet",
+              "asset",
+              "assetPrice",
+              "walletEntry",
+              "document",
+              "journal",
+              "idea",
+              "memoir",
+              "readingItem",
+              "metric",
+              "metricLog",
+              "importantDay",
+              "storageBox",
+              "storageItem"
+            ]
+          },
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "action": {
+            "enum": [
+              "put",
+              "patch",
               "delete"
             ]
           },
@@ -217,7 +1711,10 @@
             "if": {
               "properties": {
                 "action": {
-                  "const": "put"
+                  "enum": [
+                    "put",
+                    "patch"
+                  ]
                 }
               }
             },
@@ -225,6 +1722,74 @@
               "required": [
                 "data"
               ]
+            }
+          }
+        ]
+      },
+      "BatchReceipt": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outcome",
+              "effects"
+            ],
+            "properties": {
+              "outcome": {
+                "const": "accepted"
+              },
+              "effects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "entity",
+                    "revision"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "accepted"
+                    },
+                    "entity": {
+                      "$ref": "#/components/schemas/Entity"
+                    },
+                    "revision": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outcome",
+              "entityId",
+              "current"
+            ],
+            "properties": {
+              "outcome": {
+                "const": "conflict"
+              },
+              "entityId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "current": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Entity"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
             }
           }
         ]
@@ -248,15 +1813,19 @@
           "type": {
             "enum": [
               "department",
+              "workspaceConfig",
               "domain",
               "activity",
               "problem",
               "solution",
+              "practiceEvent",
               "session",
               "progress",
+              "taskList",
               "task",
               "checklist",
               "checklistRun",
+              "achievement",
               "habit",
               "habitRule",
               "habitLog",
@@ -271,9 +1840,13 @@
               "document",
               "journal",
               "idea",
+              "memoir",
+              "readingItem",
               "metric",
               "metricLog",
-              "importantDay"
+              "importantDay",
+              "storageBox",
+              "storageItem"
             ]
           },
           "version": {
@@ -285,6 +1858,9 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/DepartmentData"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceConfigData"
               },
               {
                 "$ref": "#/components/schemas/DomainData"
@@ -299,10 +1875,16 @@
                 "$ref": "#/components/schemas/SolutionData"
               },
               {
+                "$ref": "#/components/schemas/PracticeEventData"
+              },
+              {
                 "$ref": "#/components/schemas/SessionData"
               },
               {
                 "$ref": "#/components/schemas/ProgressData"
+              },
+              {
+                "$ref": "#/components/schemas/TaskListData"
               },
               {
                 "$ref": "#/components/schemas/TaskData"
@@ -312,6 +1894,9 @@
               },
               {
                 "$ref": "#/components/schemas/ChecklistRunData"
+              },
+              {
+                "$ref": "#/components/schemas/AchievementData"
               },
               {
                 "$ref": "#/components/schemas/HabitData"
@@ -356,6 +1941,12 @@
                 "$ref": "#/components/schemas/IdeaData"
               },
               {
+                "$ref": "#/components/schemas/MemoirData"
+              },
+              {
+                "$ref": "#/components/schemas/ReadingItemData"
+              },
+              {
                 "$ref": "#/components/schemas/MetricData"
               },
               {
@@ -363,6 +1954,12 @@
               },
               {
                 "$ref": "#/components/schemas/ImportantDayData"
+              },
+              {
+                "$ref": "#/components/schemas/StorageBoxData"
+              },
+              {
+                "$ref": "#/components/schemas/StorageItemData"
               }
             ]
           },
@@ -482,6 +2079,70 @@
             "maxLength": 500
           },
           "features": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "WorkspaceConfigData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a workspaceConfig (module: workspace).",
+        "required": [],
+        "properties": {
+          "preset": {
+            "enum": [
+              "council",
+              "standard",
+              "minimal",
+              "custom"
+            ]
+          },
+          "disabledFeatures": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "featureAliases": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "hiddenDepartments": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "departmentAliases": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "sidebarFavorites": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "phoneShortcuts": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "homeCards": {
             "type": "array",
             "maxItems": 1000,
             "items": {
@@ -619,6 +2280,48 @@
           }
         }
       },
+      "PracticeEventData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a practiceEvent (module: practice).",
+        "required": [
+          "domainId",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "domainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live domain."
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live activity."
+          },
+          "readingItemId": {
+            "type": "string",
+            "maxLength": 36
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "active",
+              "resolved",
+              "discarded"
+            ]
+          }
+        }
+      },
       "SessionData": {
         "type": "object",
         "additionalProperties": false,
@@ -639,6 +2342,11 @@
             "type": "string",
             "format": "uuid",
             "description": "Id of a live activity."
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live practiceEvent."
           },
           "problemId": {
             "type": "string",
@@ -720,6 +2428,11 @@
             "format": "uuid",
             "description": "Id of a live activity."
           },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live practiceEvent."
+          },
           "problemId": {
             "type": "string",
             "format": "uuid",
@@ -737,6 +2450,24 @@
           "body": {
             "type": "string",
             "maxLength": 100000
+          }
+        }
+      },
+      "TaskListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a taskList (module: tasks).",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "parentId": {
+            "type": "string",
+            "maxLength": 36
           }
         }
       },
@@ -774,6 +2505,10 @@
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
           },
+          "scheduleTime": {
+            "type": "string",
+            "maxLength": 5
+          },
           "scheduleStart": {
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
@@ -789,6 +2524,22 @@
           "completedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "listId": {
+            "type": "string",
+            "maxLength": 36
+          },
+          "prerequisiteIds": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
           }
         }
       },
@@ -805,6 +2556,14 @@
             "maxLength": 500
           },
           "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "itemIds": {
             "type": "array",
             "maxItems": 1000,
             "items": {
@@ -839,6 +2598,108 @@
               "type": "string",
               "maxLength": 2000
             }
+          },
+          "itemIds": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "itemLabels": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "checkedItemIds": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "ambiguousChecked": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "AchievementData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a achievement (module: tasks).",
+        "required": [
+          "title",
+          "scope"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "scope": {
+            "enum": [
+              "lifetime",
+              "annual"
+            ]
+          },
+          "year": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "icon": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "prevIds": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "current": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "target": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1000000000000
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 10000
           }
         }
       },
@@ -1417,6 +3278,78 @@
           }
         }
       },
+      "MemoirData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a memoir (module: journal).",
+        "required": [
+          "period",
+          "title"
+        ],
+        "properties": {
+          "period": {
+            "enum": [
+              "high_school",
+              "middle_school",
+              "primary_and_below"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "approxTime": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 1000000
+          },
+          "order": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "ReadingItemData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a readingItem (module: journal).",
+        "required": [
+          "title",
+          "status"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "status": {
+            "enum": [
+              "unread",
+              "read"
+            ]
+          }
+        }
+      },
       "MetricData": {
         "type": "object",
         "additionalProperties": false,
@@ -1551,6 +3484,99 @@
           "note": {
             "type": "string",
             "maxLength": 10000
+          }
+        }
+      },
+      "StorageBoxData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a storageBox (module: storage).",
+        "required": [
+          "zone",
+          "name"
+        ],
+        "properties": {
+          "zone": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live storageBox."
+          },
+          "icon": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "order": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "StorageItemData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Payload of a storageItem (module: storage).",
+        "required": [
+          "name",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "icon": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "status": {
+            "enum": [
+              "in_box",
+              "out"
+            ]
+          },
+          "boxId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live storageBox."
+          },
+          "homeBoxId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of a live storageBox."
+          },
+          "takenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "aliases": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

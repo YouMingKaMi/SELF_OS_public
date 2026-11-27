@@ -3,10 +3,10 @@ import Foundation
 /// Habit calculations receive a business date explicitly and never consult the system clock.
 public enum HabitRules {
   public static func log(habit: Record, day: String, records: [Record]) -> Record? {
-    records.filter {
+    records.lazy.filter {
       !$0.deleted && $0.type == "habitLog" && $0.text("habitId") == habit.id
         && $0.text("day") == day
-    }.sorted(by: newest).first
+    }.min(by: newest)
   }
 
   public static func rule(habit: Record, day: String, records: [Record]) -> Record? {
@@ -16,15 +16,10 @@ public enum HabitRules {
           && $0.text("habitId") == habit.id
       })
     { return snapshot }
-    return records.filter {
+    return records.lazy.filter {
       !$0.deleted && $0.type == "habitRule" && $0.text("habitId") == habit.id
         && !$0.text("effectiveFrom").isEmpty && $0.text("effectiveFrom") <= day
-    }.sorted {
-      if $0.text("effectiveFrom") != $1.text("effectiveFrom") {
-        return $0.text("effectiveFrom") > $1.text("effectiveFrom")
-      }
-      return newest($0, $1)
-    }.first
+    }.min(by: newerRule)
   }
 
   public static func kind(habit: Record, rule: Record?) -> String {
@@ -42,7 +37,10 @@ public enum HabitRules {
   }
   public static func isComplete(habit: Record, day: String, records: [Record]) -> Bool {
     guard let log = log(habit: habit, day: day, records: records) else { return false }
-    let rule = rule(habit: habit, day: day, records: records)
+    return complete(habit: habit, log: log, rule: rule(habit: habit, day: day, records: records))
+  }
+
+  private static func complete(habit: Record, log: Record, rule: Record?) -> Bool {
     switch kind(habit: habit, rule: rule) {
     case "binary": return log.number("value") > 0
     case "checklist":
@@ -62,7 +60,10 @@ public enum HabitRules {
   }
   public static func value(habit: Record, day: String, records: [Record]) -> Double? {
     guard let log = log(habit: habit, day: day, records: records) else { return nil }
-    let rule = rule(habit: habit, day: day, records: records)
+    return recordedValue(habit: habit, log: log, rule: rule(habit: habit, day: day, records: records))
+  }
+
+  private static func recordedValue(habit: Record, log: Record, rule: Record?) -> Double? {
     if kind(habit: habit, rule: rule) == "checklist" {
       return Double(Set(log.data["items"]?.strings ?? []).intersection(items(habit: habit, rule: rule)).count)
     }
@@ -80,15 +81,70 @@ public enum HabitRules {
   }
 
   public static func month(habit: Record, month: String, records: [Record]) -> HabitMonthSummary {
+    months(habits: [habit], month: month, records: records)[0]
+  }
+
+  /// Calculate a month for several habits with a single pass over their history.
+  public static func months(habits: [Record], month: String, records: [Record]) -> [HabitMonthSummary] {
+    guard !habits.isEmpty else { return [] }
     let days = days(in: month)
-    let logs = days.compactMap { day -> Record? in
-      guard value(habit: habit, day: day, records: records) != nil else { return nil }
-      return log(habit: habit, day: day, records: records)
+    let requested = Set(habits.map(\.id))
+    let monthDays = Set(days)
+    var logs: [String: [String: Record]] = [:]
+    var rules: [String: [Record]] = [:]
+
+    for entry in records where !entry.deleted {
+      let habitId = entry.text("habitId")
+      guard requested.contains(habitId) else { continue }
+      if entry.type == "habitLog" {
+        let day = entry.text("day")
+        guard monthDays.contains(day) else { continue }
+        if let current = logs[habitId]?[day], !newest(entry, current) { continue }
+        logs[habitId, default: [:]][day] = entry
+      } else if entry.type == "habitRule" {
+        rules[habitId, default: []].append(entry)
+      }
     }
-    let total = logs.reduce(0.0) { $0 + (value(habit: habit, day: $1.text("day"), records: records) ?? 0) }
+
+    return habits.map { habit in
+      summarizeMonth(habit: habit, days: days, logs: logs[habit.id] ?? [:], rules: rules[habit.id] ?? [])
+    }
+  }
+
+  private static func summarizeMonth(
+    habit: Record, days: [String], logs: [String: Record], rules: [Record]
+  ) -> HabitMonthSummary {
+    let savedRules = Dictionary(rules.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    let timeline = rules.filter { !$0.text("effectiveFrom").isEmpty }.sorted(by: newerRule)
+    var next = timeline.count
+    var activeRule: Record?
+    var valueTotals: [String: Double] = [:]
+    var quantityTotals: [String: Double] = [:]
+    var quantityDays = 0
+    var recorded = 0
+    var completed = 0
+    for day in days {
+      guard let log = logs[day] else { continue }
+      while next > 0, timeline[next - 1].text("effectiveFrom") <= day {
+        next -= 1
+        activeRule = timeline[next]
+      }
+      let snapshot = savedRules[log.text("ruleId")] ?? activeRule
+      guard let value = recordedValue(habit: habit, log: log, rule: snapshot) else { continue }
+      let kind = kind(habit: habit, rule: snapshot)
+      let unit = unit(habit: habit, rule: snapshot)
+      valueTotals[kind + ":" + (kind == "quantity" ? unit : ""), default: 0] += value
+      if kind == "quantity" {
+        quantityTotals[unit, default: 0] += value
+        quantityDays += 1
+      }
+      recorded += 1
+      if complete(habit: habit, log: log, rule: snapshot) { completed += 1 }
+    }
     return HabitMonthSummary(
-      total: total, recordedDays: logs.count,
-      completedDays: logs.filter { isComplete(habit: habit, day: $0.text("day"), records: records) }.count)
+      total: valueTotals.count <= 1 ? valueTotals.values.first ?? 0 : 0,
+      comparableValues: valueTotals.count <= 1, recordedDays: recorded, completedDays: completed,
+      quantityTotals: quantityTotals, quantityDays: quantityDays)
   }
 
   public static func days(in month: String) -> [String] {
@@ -116,6 +172,11 @@ public enum HabitRules {
     f.isLenient = false
     return f
   }
+  private static func newerRule(_ lhs: Record, _ rhs: Record) -> Bool {
+    let left = lhs.text("effectiveFrom")
+    let right = rhs.text("effectiveFrom")
+    return left == right ? newest(lhs, rhs) : left > right
+  }
   private static func newest(_ lhs: Record, _ rhs: Record) -> Bool {
     if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
     if lhs.version != rhs.version { return lhs.version > rhs.version }
@@ -125,7 +186,12 @@ public enum HabitRules {
 
 public struct HabitMonthSummary: Sendable, Equatable {
   public let total: Double
+  public let comparableValues: Bool
   public let recordedDays: Int
   public let completedDays: Int
-  public var recordedAverage: Double? { recordedDays == 0 ? nil : total / Double(recordedDays) }
+  public let quantityTotals: [String: Double]
+  public let quantityDays: Int
+  public var recordedAverage: Double? {
+    recordedDays == 0 || !comparableValues ? nil : total / Double(recordedDays)
+  }
 }

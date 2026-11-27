@@ -42,6 +42,22 @@ final class SharedVectorTests: XCTestCase {
     }
   }
 
+  func testTaskPlanVectors() throws {
+    for vector in try vectors("task-plan-vectors.json") {
+      let name = try XCTUnwrap(vector["name"] as? String)
+      let body = try JSONSerialization.data(withJSONObject: XCTUnwrap(vector["response"]))
+      if let code = vector["error"] as? String {
+        XCTAssertThrowsError(try TaskPlanRules.parse(body), name) { error in
+          XCTAssertEqual((error as? TaskPlanRules.Failure)?.rawValue, code, name)
+        }
+      } else {
+        let expected = try JSONDecoder().decode([TaskPlanRules.Item].self,
+          from: JSONSerialization.data(withJSONObject: XCTUnwrap(vector["expected"])))
+        XCTAssertEqual(try TaskPlanRules.parse(body), expected, name)
+      }
+    }
+  }
+
   func testTimeVectors() throws {
     let iso = ISO8601DateFormatter()
     let fractional = ISO8601DateFormatter()
@@ -58,6 +74,7 @@ final class SharedVectorTests: XCTestCase {
       XCTAssertEqual(summary.daily, daily, name)
       XCTAssertEqual(summary.overlapSeconds, (vector["overlapSeconds"] as! NSNumber).doubleValue, name)
       XCTAssertEqual(summary.manualSeconds, (vector["manualSeconds"] as! NSNumber).doubleValue, name)
+      XCTAssertEqual(summary.unlocatedSeconds, (vector["unlocatedSeconds"] as? NSNumber)?.doubleValue ?? 0, name)
     }
   }
 }

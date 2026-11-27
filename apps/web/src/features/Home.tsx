@@ -1,9 +1,11 @@
 import { timeSummary } from "../../../../modules/practice/index.ts";
-import React, { useState, useRef } from "react";
+import { metricDays } from "../../../../modules/metrics/index.ts";
+import React, { useState, useRef, useMemo } from "react";
 import "./home.css";
-import { useEntities, put } from "../data/entities.ts";
-import { useTasks, enqueue, type Task } from "../data/tasks.ts";
-import { inPeriod, scheduleLabel } from "../scheduling.ts";
+import { useDatedEntities, useEntities, put } from "../data/entities.ts";
+import { useTasks, enqueue, taskBlockers, type Task } from "../data/tasks.ts";
+import { belongsToday } from "../../../../modules/tasks/index.ts";
+import { scheduleLabel } from "../scheduling.ts";
 import { Icon } from "../ui/Icon.tsx";
 import { HomePractice } from "./HomePractice.tsx";
 import { useEffect } from "react";
@@ -17,11 +19,13 @@ import {
   perform,
   usePreference,
 } from "../ui/shared.tsx";
-import { HabitRow, habitRule } from "./Habits.tsx";
+import { HabitRow } from "./Habits.tsx";
+import { habitRule, habitScheduled } from "./habit-model.ts";
 const ImportantSummary = React.lazy(() => import("./ImportantSummary.tsx"));
 
 import { money, net } from "./finance-model.ts";
 import type { Navigate, FeatureKey } from "../navigation.ts";
+import { useWorkspaceConfig, PRESET_LIST } from "./workspace-config.ts";
 const cards = [
   ["practice", "此时 · 推进"],
   ["time", "今日积累"],
@@ -37,8 +41,8 @@ const cards = [
 type CardKey = (typeof cards)[number][0];
 export const useTaskSummary = () => useTasks().tasks;
 export function Home({ navigate }: { navigate: Navigate }) {
-  // The dashboard reads the small daily types; documents are never loaded here.
-  const { entities } = useEntities(
+  const day = today();
+  const { entities: reference } = useEntities(
     "domain",
     "activity",
     "problem",
@@ -46,15 +50,18 @@ export function Home({ navigate }: { navigate: Navigate }) {
     "session",
     "habit",
     "habitRule",
-    "habitLog",
-    "expense",
     "category",
-    "journal",
     "metric",
-    "metricLog",
     "importantDay",
   );
+  const daily = useDatedEntities(day, day, "habitLog", "expense", "journal", "metricLog");
+  const entities = useMemo(() => [...reference, ...daily], [reference, daily]);
   const tasks = useTaskSummary();
+  const metricReadings = useMemo(
+    () => metricDays(entities.filter((e) => e.type === "metricLog")),
+    [entities],
+  );
+  const blockers = useMemo(() => taskBlockers(tasks), [tasks]);
   const [layout, setLayout] = usePreference<
     { key: CardKey; size: "half" | "wide" }[]
   >(
@@ -68,6 +75,7 @@ export function Home({ navigate }: { navigate: Navigate }) {
   const [expenseForm, setExpenseForm] = useState(false);
   const [draft, setDraft] = usePreference("home-chronicle-draft", "");
   const [raw, setRaw] = usePreference("home-raw-draft", "");
+  const ws = useWorkspaceConfig();
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drag = useRef<CardKey | null>(null);
   const grid = useRef<HTMLDivElement>(null);
@@ -116,9 +124,7 @@ export function Home({ navigate }: { navigate: Navigate }) {
       e.type === "habit" &&
       e.data.status === "active" &&
       e.data.showHome &&
-      (
-        (habitRule(e, today(), entities)?.data.weekdays as string[]) ?? []
-      ).includes(String(new Date(today() + "T12:00:00+08:00").getDay())),
+      habitScheduled(habitRule(e, today(), entities), today()),
   );
   const expense = entities
     .filter((e) => e.type === "expense" && e.data.day === today())
@@ -141,6 +147,9 @@ export function Home({ navigate }: { navigate: Navigate }) {
     copy.splice(to, 0, copy.splice(from, 1)[0]);
     setLayout(copy);
   }
+  const visibleLayout = layout.filter((c) => ws.isEnabled(route(c.key)));
+  const isFreshEmpty =
+    !ws.record && entities.length === 0 && tasks.length === 0;
   return (
     <>
       <Heading
@@ -158,50 +167,81 @@ export function Home({ navigate }: { navigate: Navigate }) {
           {editing ? "完成排版" : "调整布局"}
         </button>
       </Heading>
-      <div className="home-quick-actions" aria-label="快速记录">
-        <span>快速记录</span>
-        <button
-          onClick={() => {
-            const field = grid.current?.querySelector<HTMLTextAreaElement>(
-              '[aria-label="主页记录一件事"]',
-            );
-            if (field) {
-              field.scrollIntoView({ block: "center", behavior: "smooth" });
-              field.focus({ preventScroll: true });
-            } else navigate("chronicle");
-          }}
-        >
-          <Icon name="chronicle" size={16} />
-          记一件事
-        </button>
-        <button onClick={() => setExpenseForm(true)}>
-          <Icon name="expenses" size={16} />
-          记一笔花销
-        </button>
-        <button
-          onClick={() => {
-            const field = grid.current?.querySelector<HTMLTextAreaElement>(
-              '[aria-label="主页原料内容"]',
-            );
-            if (field) {
-              field.scrollIntoView({ block: "center", behavior: "smooth" });
-              field.focus({ preventScroll: true });
-            } else navigate("raw");
-          }}
-        >
-          <Icon name="raw" size={16} />
-          收集原料
-        </button>
-        <button onClick={() => navigate("ideas")}>
-          <Icon name="ideas" size={16} />
-          暂存想法
-        </button>
-      </div>
+      {isFreshEmpty && (
+        <div className="widget-catalog" aria-label="选择工作区起点模式">
+          <span>首次使用 · 选一套起点模式（随时可在设置中自定义与改名）</span>
+          {PRESET_LIST.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => perform(ws.applyPreset(p.id))}
+            >
+              {p.title}（{p.badge}）
+            </button>
+          ))}
+        </div>
+      )}
+      {(ws.isEnabled("chronicle") ||
+        ws.isEnabled("expenses") ||
+        ws.isEnabled("raw") ||
+        ws.isEnabled("ideas")) && (
+        <div className="home-quick-actions" aria-label="快速记录">
+          <span>快速记录</span>
+          {ws.isEnabled("chronicle") && (
+            <button
+              onClick={() => {
+                const field = grid.current?.querySelector<HTMLTextAreaElement>(
+                  '[aria-label="主页记录一件事"]',
+                );
+                if (field) {
+                  field.scrollIntoView({ block: "center", behavior: "smooth" });
+                  field.focus({ preventScroll: true });
+                } else navigate("chronicle");
+              }}
+            >
+              <Icon name="chronicle" size={16} />
+              记一件事
+            </button>
+          )}
+          {ws.isEnabled("expenses") && (
+            <button onClick={() => setExpenseForm(true)}>
+              <Icon name="expenses" size={16} />
+              记一笔花销
+            </button>
+          )}
+          {ws.isEnabled("raw") && (
+            <button
+              onClick={() => {
+                const field = grid.current?.querySelector<HTMLTextAreaElement>(
+                  '[aria-label="主页原料内容"]',
+                );
+                if (field) {
+                  field.scrollIntoView({ block: "center", behavior: "smooth" });
+                  field.focus({ preventScroll: true });
+                } else navigate("raw");
+              }}
+            >
+              <Icon name="raw" size={16} />
+              收集原料
+            </button>
+          )}
+          {ws.isEnabled("ideas") && (
+            <button onClick={() => navigate("ideas")}>
+              <Icon name="ideas" size={16} />
+              暂存想法
+            </button>
+          )}
+        </div>
+      )}
       {editing && (
         <div className="widget-catalog">
           <span>添加板块</span>
           {cards
-            .filter(([key]) => !layout.some((c) => c.key === key))
+            .filter(
+              ([key]) =>
+                ws.isEnabled(route(key)) &&
+                !layout.some((c) => c.key === key),
+            )
             .map(([key, label]) => (
               <button
                 key={key}
@@ -214,7 +254,7 @@ export function Home({ navigate }: { navigate: Navigate }) {
         </div>
       )}
       <div className="home-grid" ref={grid}>
-        {layout.map((card) => (
+        {visibleLayout.map((card) => (
           <div
             key={card.key}
             data-card={card.key}
@@ -369,14 +409,35 @@ export function Home({ navigate }: { navigate: Navigate }) {
                 </>
               ) : card.key === "tasks" || card.key === "recent" ? (
                 <HomeTaskList
-                  tasks={tasks.filter(
-                    (t) =>
-                      t.status === "pending" &&
-                      (card.key === "tasks"
-                        ? inPeriod(t, "", today())
-                        : t.schedule?.kind === "recent"),
-                  )}
+                  tasks={tasks
+                    .filter((t) =>
+                      card.key === "tasks"
+                        ? belongsToday(t, today())
+                        : t.status === "pending" && t.schedule?.kind === "recent",
+                    )
+                    .sort((a, b) => {
+                      const rank = (t: Task): [number, string, string] => {
+                        const s = t.schedule;
+                        const d = today();
+                        if (s.kind === "deadline") {
+                          const tier = s.date < d ? 0 : s.date === d ? 1 : 2;
+                          return [tier, s.date, t.scheduleTime || "24:00"];
+                        }
+                        if (s.kind === "day") return [1, s.date, t.scheduleTime || "24:00"];
+                        if (s.kind === "range") return [2, s.end, "24:00"];
+                        if (s.kind === "recent") return [3, "9999-12-31", "24:00"];
+                        return [4, "9999-12-31", "24:00"];
+                      };
+                      const ra = rank(a);
+                      const rb = rank(b);
+                      return (
+                        ra[0] - rb[0] ||
+                        ra[1].localeCompare(rb[1]) ||
+                        ra[2].localeCompare(rb[2])
+                      );
+                    })}
                   navigate={navigate}
+                  blockers={blockers}
                   recent={card.key === "recent"}
                 />
               ) : card.key === "habits" ? (
@@ -505,16 +566,7 @@ export function Home({ navigate }: { navigate: Navigate }) {
                       <button key={e.id} onClick={() => navigate("metrics")}>
                         <span>{str(e, "name")}</span>
                         <strong>
-                          {str(
-                            entities.find(
-                              (log) =>
-                                log.type === "metricLog" &&
-                                log.data.metricId === e.id &&
-                                log.data.day === today(),
-                            ),
-                            "value",
-                            "—",
-                          )}{" "}
+                          {metricReadings.get(e.id)?.get(today())?.value ?? "—"}{" "}
                           {str(e, "unit")}
                         </strong>
                       </button>
@@ -561,8 +613,10 @@ function HomeTaskList({
   tasks,
   navigate,
   recent,
+  blockers,
 }: {
   tasks: Task[];
+  blockers: Map<string, string[]>;
   navigate: Navigate;
   recent: boolean;
 }) {
@@ -585,7 +639,7 @@ function HomeTaskList({
             <button
               className="task-check"
               aria-label={"完成任务 " + task.title}
-              disabled={busy === task.id}
+              disabled={busy === task.id || !!blockers.get(task.id)?.length}
               onClick={() => {
                 setBusy(task.id);
                 perform(
@@ -602,15 +656,21 @@ function HomeTaskList({
               onClick={() => navigate("tasks")}
             >
               {task.title}
-              <small>{scheduleLabel(task.schedule)}</small>
+              <small>
+                {blockers.get(task.id)?.length
+                  ? "等前置"
+                  : scheduleLabel(task.schedule)}
+              </small>
             </button>
           </div>
         ))
       )}
-      <button className="home-task-more" onClick={() => navigate("tasks")}>
-        {tasks.length > 4 ? `查看其余 ${tasks.length - 4} 件任务` : "管理任务"}
-        <Icon name="arrow" size={13} />
-      </button>
+      {tasks.length > 4 && (
+        <button className="home-task-more" onClick={() => navigate("tasks")}>
+          {`查看其余 ${tasks.length - 4} 件任务`}
+          <Icon name="arrow" size={13} />
+        </button>
+      )}
     </div>
   );
 }

@@ -13,8 +13,6 @@ final class PresentationRulesTests: XCTestCase {
   func testTaskRangeOverlapsMonthAndCompletionUsesActualBusinessDay() {
     let range = task(Schedule(kind: "range", start: "2026-10-30", end: "2026-11-03"))
     XCTAssertTrue(TaskRules.inPeriod(range, start: "2026-11-01", end: "2026-11-30"))
-    XCTAssertTrue(TaskRules.belongsToday(range, day: "2026-11-02"))
-    XCTAssertFalse(TaskRules.belongsToday(range, day: "2026-11-04"))
     let complete = task(
       Schedule(kind: "day", date: "2026-10-20"), status: "completed",
       completed: "2026-11-01T16:01:00.000Z")
@@ -22,13 +20,64 @@ final class PresentationRulesTests: XCTestCase {
     XCTAssertTrue(TaskRules.inPeriod(complete, start: "2026-11-01", end: "2026-11-30"))
     XCTAssertFalse(TaskRules.inPeriod(complete, start: "2026-10-01", end: "2026-10-31"))
   }
-  func testUnknownDateNotTodayAndOverdueDeadlineIsToday() {
-    XCTAssertFalse(
-      TaskRules.belongsToday(task(Schedule(kind: "recent")), day: "2026-11-08"))
-    XCTAssertTrue(
-      TaskRules.belongsToday(
-        task(Schedule(kind: "deadline", date: "2026-11-06")),
-        day: "2026-11-08"))
+  func testDeadlineCalendarPeriodMatchesOnlyTheDueDate() {
+    let deadline = task(Schedule(kind: "deadline", date: "2026-11-09"))
+    XCTAssertFalse(TaskRules.inPeriod(deadline, start: "2026-11-08", end: "2026-11-08"))
+    XCTAssertTrue(TaskRules.inPeriod(deadline, start: "2026-11-09", end: "2026-11-09"))
+  }
+  func testTodayIncludesOnlyTheMatchingScheduledDay() {
+    let record = task(Schedule(kind: "day", date: "2026-11-08"))
+    XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-07"))
+    XCTAssertTrue(TaskRules.belongsToday(record, day: "2026-11-08"))
+    XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-09"))
+  }
+  func testTodayIncludesBothBoundariesAndTheInteriorOfAValidRange() {
+    let record = task(Schedule(kind: "range", start: "2026-11-07", end: "2026-11-09"))
+    XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-06"))
+    XCTAssertTrue(TaskRules.belongsToday(record, day: "2026-11-07"))
+    XCTAssertTrue(TaskRules.belongsToday(record, day: "2026-11-08"))
+    XCTAssertTrue(TaskRules.belongsToday(record, day: "2026-11-09"))
+    XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-10"))
+    let singleDay = task(Schedule(kind: "range", start: "2026-11-08", end: "2026-11-08"))
+    XCTAssertTrue(TaskRules.belongsToday(singleDay, day: "2026-11-08"))
+  }
+  func testTodayExcludesRangesWithInvalidOrReversedEndpoints() {
+    let ranges = [
+      (start: "", end: "2026-11-09"),
+      (start: "2026-1-01", end: "2026-11-09"),
+      (start: "2026-11-07", end: "2026-11-31"),
+      (start: "2026-11-09", end: "2026-11-07"),
+    ]
+    for (start, end) in ranges {
+      let record = task(Schedule(kind: "range", start: start, end: end))
+      XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-08"), "\(start) to \(end)")
+    }
+  }
+  func testTodayIncludesDeadlinesWithValidDatesRegardlessOfWhenTheyFall() {
+    for date in [
+      "2026-11-09", "2026-11-08", "2026-11-07", "2028-02-29", "1900-01-01", "9999-12-31",
+    ] {
+      let record = task(Schedule(kind: "deadline", date: date))
+      XCTAssertTrue(TaskRules.belongsToday(record, day: "2026-11-08"), date)
+    }
+  }
+  func testTodayExcludesDeadlinesWithInvalidDates() {
+    for date in ["", "2026-2-01", "2026-02-29", "1899-12-31", "10000-01-01"] {
+      let record = task(Schedule(kind: "deadline", date: date))
+      XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-08"), date)
+    }
+  }
+  func testTodayIncludesRecentAndExcludesUnscheduled() {
+    XCTAssertTrue(TaskRules.belongsToday(task(Schedule(kind: "recent")), day: "2026-11-08"))
+    XCTAssertFalse(TaskRules.belongsToday(task(Schedule(kind: "unscheduled")), day: "2026-11-08"))
+  }
+  func testOnlyPendingTasksBelongToToday() {
+    for status in ["completed", "discarded", "unknown"] {
+      let record = task(Schedule(kind: "recent"), status: status)
+      XCTAssertFalse(TaskRules.belongsToday(record, day: "2026-11-08"), status)
+    }
+  }
+  func testCalendarDaysRejectOverflowAndIncludeLeapDay() {
     XCTAssertNil(CalendarDays.date("2026-02-30"))
     XCTAssertEqual(CalendarDays.monthDays("2024-02").count, 29)
   }

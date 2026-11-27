@@ -1,0 +1,30 @@
+[Unit]
+Description=SELF OS read-only Gemini connector
+After=network.target postgresql.service council-next-api.service
+
+[Service]
+User=council_gemini
+Group=council_gemini
+UMask=0077
+WorkingDirectory=/opt/council-next/gemini
+EnvironmentFile=/etc/council-next/query.env
+EnvironmentFile=/etc/council-next/gemini.env
+StateDirectory=council-gemini
+StateDirectoryMode=0700
+ExecStart=/opt/council-next/node/bin/node --max-old-space-size=96 services/council-gemini/server.ts
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=200M
+
+[Install]
+WantedBy=multi-user.target

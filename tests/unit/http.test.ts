@@ -40,6 +40,38 @@ test("HTTP: requests without the credential are refused before any work", async 
   }
   await server.close();
 });
+test("HTTP: scoped sync and snapshot endpoints validate identity and page positions", async () => {
+  const server = app();
+  try {
+    const state = await server.inject({ method: "GET", url: "/v1/sync-state", headers });
+    assert.equal(state.statusCode, 200);
+    const { datasetId, generation, watermark } = state.json();
+    assert.equal(watermark, "0");
+    const missingPair = await server.inject({
+      url: "/v1/changes?datasetId=" + datasetId, headers,
+    });
+    assert.equal(missingPair.statusCode, 400);
+    const commandScope = { datasetId, generation };
+    const start = await server.inject({
+      method: "POST", url: "/v1/snapshots", headers, payload: commandScope,
+    });
+    assert.equal(start.statusCode, 200);
+    const { snapshotId } = start.json();
+    const page = await server.inject({ url: "/v1/snapshots/" + snapshotId, headers });
+    assert.deepEqual(page.json().records, []);
+    assert.equal(page.json().nextPosition, null);
+    const wrong = await server.inject({
+      method: "POST", url: "/v1/commands", headers,
+      payload: command({ title: "旧代际", status: "pending" }, {
+        scope: { ...commandScope, generation: randomUUID() },
+      }),
+    });
+    assert.equal(wrong.statusCode, 409);
+    assert.equal(wrong.json().error, "GENERATION_MISMATCH");
+  } finally {
+    await server.close();
+  }
+});
 test("HTTP: every schedule variant round-trips; rule failures are 400 with a code", async () => {
   const server = app();
   for (const schedule of [

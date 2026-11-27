@@ -16,6 +16,8 @@ DerivedData/
 
 test-results/
 playwright-report/
+__pycache__/
+/.zwork/
 
 **/xcuserdata/
 **/.swiftpm/
@@ -23,10 +25,9 @@ playwright-report/
 backups/
 *.dump
 
+# Local debugging and recovery artifacts
+/work/screenshots/
+/work/rescue-*/
 
 # Server address and SSH details for deploy.sh
 infra/deploy/site.env
-
-
-# Python bytecode from the local WeChat bridge
-__pycache__/

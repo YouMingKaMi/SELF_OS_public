@@ -1,0 +1,434 @@
+/*
+ * SELF OS · 回忆录 (Memoir)
+ * Monochrome hairline design matching Chronicle & Notes:
+ * Left timeline index (period-grouped) + Right serene detail editor.
+ */
+
+.memoir-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+}
+
+.memoir-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .memoir-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────────── Left Column: Capture + Timeline ───────────── */
+.memoir-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 12px;
+  overflow: hidden;
+}
+
+.memoir-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--line);
+}
+
+.memoir-capture-periods {
+  display: flex;
+  gap: 4px;
+}
+
+.memoir-capture-periods button {
+  flex: 1;
+  height: 26px;
+  padding: 0 6px;
+  font-size: var(--fs-xs);
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--text-3);
+}
+
+.memoir-capture-periods button:hover {
+  color: var(--text-2);
+  border-color: var(--line-3);
+}
+
+.memoir-capture-periods button.active {
+  background: var(--selected);
+  border-color: var(--line-3);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.memoir-capture-title {
+  width: 100%;
+  height: 34px;
+  font-size: var(--fs-sm);
+}
+
+.memoir-capture-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memoir-capture-approx {
+  flex: 1;
+  height: 28px;
+  font-size: var(--fs-xs);
+}
+
+.memoir-capture-foot button {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--fs-xs);
+  flex: none;
+}
+
+.memoir-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memoir-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.memoir-filter-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.memoir-filter-tabs button:hover {
+  background: var(--fill-hover);
+  color: var(--text-2);
+}
+
+.memoir-filter-tabs button.active {
+  background: var(--selected);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.memoir-filter-tabs small {
+  font: 10px var(--mono);
+  color: var(--text-4);
+}
+
+.memoir-filter-tabs button.active small {
+  color: var(--text-3);
+}
+
+.memoir-search {
+  width: 100%;
+  height: 28px;
+  font-size: var(--fs-xs);
+}
+
+.memoir-timeline {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 2px;
+}
+
+.memoir-empty-list {
+  padding: 20px 8px;
+}
+
+.memoir-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memoir-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+
+.memoir-group-head strong {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+}
+
+.memoir-group-head span {
+  font: 11px var(--mono);
+  color: var(--text-4);
+}
+
+.memoir-group-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 11px;
+  border-left: 1px solid var(--line-2);
+  margin-left: 4px;
+}
+
+.memoir-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 11px;
+  border-radius: var(--r);
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.14s,
+    border-color 0.14s;
+}
+
+.memoir-card:hover {
+  background: var(--fill-hover);
+}
+
+.memoir-card.selected {
+  background: var(--surface-2);
+  border-color: var(--line-3);
+}
+
+.memoir-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.memoir-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.memoir-card-approx {
+  flex: none;
+  font: 11px var(--mono);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.memoir-card-excerpt {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.memoir-card-placeholder {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+/* ───────────── Right Column: Detail Editor ───────────── */
+.memoir-detail-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.memoir-detail-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.memoir-detail-empty-inner {
+  max-width: 380px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.memoir-detail-empty-inner strong {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+.memoir-detail-empty-inner p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+  color: var(--text-3);
+}
+
+.memoir-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 14px 20px 12px;
+  gap: 12px;
+}
+
+.memoir-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.memoir-editor-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.memoir-period-pills {
+  display: inline-flex;
+  gap: 3px;
+  padding: 2px;
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+}
+
+.memoir-period-pills button {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: calc(var(--r) - 2px);
+  background: transparent;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.memoir-period-pills button:hover {
+  color: var(--text-2);
+}
+
+.memoir-period-pills button.active {
+  background: var(--selected);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.memoir-approx-input {
+  width: 210px;
+  height: 28px;
+  font-size: var(--fs-xs);
+}
+
+.memoir-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memoir-save-state {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.memoir-confirm-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.memoir-editor-title {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+  outline: none;
+}
+
+.memoir-editor-title:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.memoir-editor-detail {
+  flex: 1;
+  min-height: 260px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  resize: none;
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--text);
+  outline: none;
+}
+
+.memoir-editor-detail:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.memoir-editor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font: var(--fs-xs) var(--mono);
+  color: var(--text-4);
+}

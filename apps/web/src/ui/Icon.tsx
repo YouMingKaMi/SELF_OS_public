@@ -47,6 +47,12 @@ const paths: Record<string, React.ReactNode> = {
       <path d="m8 11 3 3 5-6M8 17h8" />
     </>
   ),
+  achievements: (
+    <>
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 6H4v2a3 3 0 0 0 3 3m10-5h3v2a3 3 0 0 1-3 3M12 14v5m-4 0h8" />
+    </>
+  ),
   habits: (
     <>
       <path d="M3 13h4l3-8 4 14 3-8h4" />
@@ -81,6 +87,18 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M5 3h14v18H5zM8 7h8m-8 4h8m-8 4h5" />
     </>
   ),
+  memoir: (
+    <>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5Z" />
+      <path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H19M8 7h7m-7 4h5" />
+    </>
+  ),
+  storage: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M10 10v3h4v-3" />
+    </>
+  ),
   raw: (
     <>
       <path d="M4 5h10M4 10h8M4 15h6m4 5-3 1 1-3L20 10l2 2Z" />
@@ -107,6 +125,7 @@ const paths: Record<string, React.ReactNode> = {
       <path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z" />
     </>
   ),
+  reading: <path d="M6 3h12v18l-6-4-6 4Z" />,
   checklists: (
     <>
       <path
@@ -165,6 +184,14 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M12 4v16" />
     </>
   ),
+  sidebar: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </>
+  ),
+  "chevron-left": <path d="m15 6-6 6 6 6" />,
+  "chevron-right": <path d="m9 6 6 6-6 6" />,
   back: <path d="m10 5-7 7 7 7M3 12h18" />,
   arrow: <path d="M5 19 19 5M6 5h13v13" />,
   close: <path d="m6 6 12 12M6 18 18 6" />,
@@ -174,8 +201,11 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5m-4 8a8 8 0 0 0 14 3l3-3m0 5v-5h-5" />
     </>
   ),
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />,
   plus: <path d="M12 4v16M4 12h16" />,
+  play: <path d="m7 5 12 7-12 7Z" fill="currentColor" stroke="none" />,
   check: <path d="m4 12 5 5L20 6" />,
+  edit: <path d="m15 5 4 4M4 20l1-5L16 4a2.8 2.8 0 0 1 4 4L9 19Z" />,
 };
 
 /** Shared local line icons keep navigation legible without platform font glyphs. */

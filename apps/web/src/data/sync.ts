@@ -2,12 +2,19 @@
 import type {
   AnyEntity,
   Changes,
+  Command,
   Data,
   EntityType,
   Receipt,
 } from "../../../../packages/contracts/entities.ts";
+import { hasFieldConflict } from "../../../../packages/contracts/edit.ts";
+import type { BatchReceipt } from "../../../../packages/contracts/command-batch.ts";
+import type { SyncScope } from "../../../../packages/contracts/snapshot.ts";
+import { claimWrite, makeBatch, queueBatch, saveBatchResult, settleBatch, type LocalWrite } from "./command-batch.ts";
 import { database, project, type Pending } from "./db.ts";
+import { checkSyncScope, prepareSync, requireKnownType, ScopeChanged, UpgradeRequired } from "./recovery.ts";
 import { apply, emit, ready, type Change } from "./store.ts";
+import { planJournalTransfer, type TextSelection } from "./journal-transfer.ts";
 
 export type SyncState =
   | "connecting"
@@ -15,6 +22,7 @@ export type SyncState =
   | "offline"
   | "unauthorized"
   | "unreachable"
+  | "upgrade"
   | "attention";
 export type SyncStatus = { state: SyncState; message: string };
 const messages: Record<SyncState, string> = {
@@ -23,6 +31,7 @@ const messages: Record<SyncState, string> = {
   offline: "离线 · 已保存到本机",
   unauthorized: "需要重新授权 · 已保存到本机",
   unreachable: "服务器连接暂不可用",
+  upgrade: "请更新 SELF OS 后继续同步 · 本机修改已保留",
   attention: "有记录需要处理",
 };
 let status: SyncStatus = { state: "connecting", message: "正在连接" };
@@ -42,8 +51,9 @@ class Unreachable extends Error {}
 export async function enqueue(
   type: EntityType,
   id: string,
-  action: "put" | "delete",
+  action: Command["action"],
   data?: Data,
+  editBase?: Data,
 ) {
   const db = await database;
   const tx = db.transaction(["confirmed", "pending", "meta"], "readwrite");
@@ -56,10 +66,17 @@ export async function enqueue(
     throw new Error("请先在设置中处理这条同步异常");
   }
   const current = project(await tx.objectStore("confirmed").get(id), earlier);
+  if (action === "patch" && (!current || current.type !== type || current.deleted ||
+    (editBase && hasFieldConflict(editBase, current.data, data ?? {})))) {
+    await tx.done;
+    throw new Error(!current || current.deleted
+      ? "这条记录已被移除，草稿仍保留。"
+      : "另一台设备已修改相同字段，草稿仍保留。请先对照当前版本。");
+  }
   const sequence =
     Number((await tx.objectStore("meta").get("sequence")) ?? 0) + 1;
   await tx.objectStore("meta").put(String(sequence), "sequence");
-  await tx.objectStore("pending").put({
+  const operation: Pending = {
     operationId: crypto.randomUUID(),
     entityId: id,
     entityType: type,
@@ -69,11 +86,23 @@ export async function enqueue(
     occurredAt: new Date().toISOString(),
     sequence,
     state: "queued",
-  });
-  const pending = await tx.objectStore("pending").getAll();
+  };
+  await tx.objectStore("pending").put(operation);
   await tx.done;
-  apply({ pending });
+  apply({ pendingDelta: { entries: [operation] } });
   void synchronize();
+  return id;
+}
+
+/** Queue all edits before publishing the optimistic view or scheduling sync. */
+export async function enqueueTogether(writes: LocalWrite[]) {
+  await queueBatch(writes);
+  void synchronize();
+}
+
+export async function transferJournalText(source: AnyEntity, selection?: TextSelection): Promise<string> {
+  const id = crypto.randomUUID();
+  await enqueueTogether(planJournalTransfer(source, id, selection));
   return id;
 }
 
@@ -84,16 +113,29 @@ export async function undoPending(id: string) {
   const last = (await tx.store.index("entityId").getAll(id))
     .sort(inOrder)
     .at(-1);
-  if (last?.state === "queued") await tx.store.delete(last.operationId);
-  const pending = await tx.store.getAll();
+  const removed: string[] = [];
+  if (last?.state === "queued") {
+    const group = last.batchId ? await tx.store.index("batchId").getAll(last.batchId) : [last];
+    for (const member of group) {
+      const related = await tx.store.index("entityId").getAll(member.entityId);
+      if (member.state !== "queued" || related.some((op) => op.sequence > member.sequence)) {
+        await tx.done;
+        throw new Error("这批修改之后还有其他编辑，暂时无法撤销");
+      }
+    }
+    for (const member of group) {
+      await tx.store.delete(member.operationId);
+      removed.push(member.operationId);
+    }
+  }
   await tx.done;
-  apply({ pending });
+  if (removed.length) apply({ pendingDelta: { removed } });
 }
 
 /** Resolve a conflict or rejected write: adopt the server copy, optionally re-apply the local one on top. */
 export async function settle(id: string, keepLocal: boolean) {
   const db = await database;
-  const tx = db.transaction(["confirmed", "pending"], "readwrite");
+  const tx = db.transaction(["confirmed", "pending", "meta"], "readwrite");
   const operations = (
     await tx.objectStore("pending").index("entityId").getAll(id)
   ).sort(inOrder);
@@ -102,7 +144,18 @@ export async function settle(id: string, keepLocal: boolean) {
     await tx.done;
     return;
   }
-  const local = project(await tx.objectStore("confirmed").get(id), operations);
+  if (failure.batchId) {
+    await tx.done;
+    await settleBatch(failure.batchId, keepLocal);
+    void synchronize();
+    return;
+  }
+  // Leave newer groups intact. They may need their own review after this decision.
+  const nextBatch = operations.find((op) => !!op.batchId);
+  const standalone = nextBatch ? operations.filter((op) => op.sequence < nextBatch.sequence) : operations;
+  const confirmed = await tx.objectStore("confirmed").get(id);
+  const draft = failure.recoveryDraft;
+  const local = draft ?? project(confirmed, standalone);
   const change: Change = {};
   if (failure.state === "conflict") {
     if (failure.server) {
@@ -113,11 +166,30 @@ export async function settle(id: string, keepLocal: boolean) {
       change.dropped = [{ type: failure.entityType, id }];
     }
   }
-  for (const op of operations)
+  for (const op of standalone)
     await tx.objectStore("pending").delete(op.operationId);
+  // Recovery review replaces the quarantined outbox entry with a newly authorized write.
+  // Keep this atomic so a browser exit cannot lose the draft between deleting and re-enqueuing it.
+  if (keepLocal && draft && (!draft.deleted || (confirmed && !confirmed.deleted))) {
+    await tx.objectStore("pending").put({
+      operationId: crypto.randomUUID(),
+      entityId: id,
+      entityType: draft.type,
+      baseVersion: confirmed?.version ?? 0,
+      action: draft.deleted ? "delete" : "put",
+      data: draft.deleted ? undefined : draft.data,
+      occurredAt: new Date().toISOString(),
+      sequence: failure.sequence,
+      state: "queued",
+    });
+  }
   change.pending = await tx.objectStore("pending").getAll();
   await tx.done;
   apply(change);
+  if (draft) {
+    if (keepLocal) void synchronize();
+    return;
+  }
   if (keepLocal && local)
     await enqueue(local.type, id, local.deleted ? "delete" : "put", local.data);
 }
@@ -136,6 +208,7 @@ async function request(path: string, device: string, body?: unknown) {
           }
         : { "x-council-request": "1" },
       body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
   } catch {
@@ -147,39 +220,51 @@ async function request(path: string, device: string, body?: unknown) {
 }
 
 /** Send the outbox in order. Returns whether anything is left waiting for the user. */
-async function push(device: string) {
+async function push(device: string, scope?: SyncScope) {
   const db = await database;
   for (;;) {
     const tx = db.transaction("pending", "readwrite");
-    const all = (await tx.store.getAll()).sort(inOrder);
-    // An entity with an unresolved problem keeps its later edits queued, in order.
-    const blocked = new Set(all.filter(stuck).map((op) => op.entityId));
-    const next = all.find((op) => !blocked.has(op.entityId));
-    if (!next) {
+    const { group, remaining } = await claimWrite(tx.store);
+    if (!group.length) {
       await tx.done;
-      return blocked.size > 0;
+      return remaining;
     }
-    await tx.store.put({ ...next, state: "sending" });
+    const next = group[0];
+    for (const op of group) await tx.store.put({ ...op, state: "sending" });
     await tx.done;
+    if (next.batchId) {
+      const response = await request("/v1/command-batches", device, makeBatch(group, scope));
+      if (!response.ok && ![400, 409].includes(response.status)) throw new Unreachable();
+      const body = await response.json();
+      checkSyncScope(response.status, body.error);
+      await saveBatchResult(group, response.ok ? body as BatchReceipt : {
+        error: body.error ?? "无法保存这批修改",
+      });
+      continue;
+    }
     const {
       sequence: _sequence,
       state: _state,
       server: _server,
       error: _error,
+      recoveryDraft: _draft,
+      batchId: _batch,
       ...command
     } = next;
-    const response = await request("/v1/commands", device, command);
+    const response = await request("/v1/commands", device, { ...command, scope });
     if (!response.ok && response.status !== 400 && response.status !== 409)
       throw new Unreachable();
     const body = await response.json().catch(() => ({}));
+    checkSyncScope(response.status, body.error);
     const save = db.transaction(["confirmed", "pending"], "readwrite");
     const change: Change = {};
-    if (!response.ok)
+    const outbox = save.objectStore("pending");
+    if (!response.ok) {
       // The server understood and refused: keep the edit, show it, never retry it blindly.
-      await save
-        .objectStore("pending")
-        .put({ ...next, state: "error", error: body.error });
-    else {
+      const failed: Pending = { ...next, state: "error", error: body.error };
+      await outbox.put(failed);
+      change.pendingDelta = { entries: [failed] };
+    } else {
       const receipt = body as Receipt;
       if (receipt.outcome === "accepted") {
         const current = await save.objectStore("confirmed").get(next.entityId);
@@ -187,28 +272,35 @@ async function push(device: string) {
           await save.objectStore("confirmed").put(receipt.entity);
           change.confirmed = [receipt.entity];
         }
-        await save.objectStore("pending").delete(next.operationId);
-      } else
-        await save
-          .objectStore("pending")
-          .put({ ...next, state: "conflict", server: receipt.current });
+        await outbox.delete(next.operationId);
+        change.pendingDelta = { removed: [next.operationId] };
+      } else {
+        const conflicted: Pending = { ...next, state: "conflict", server: receipt.current };
+        await outbox.put(conflicted);
+        change.pendingDelta = { entries: [conflicted] };
+      }
     }
-    change.pending = await save.objectStore("pending").getAll();
     await save.done;
     apply(change);
   }
 }
 
-async function pull(device: string) {
+async function pull(device: string, scope?: SyncScope) {
+  const scopeQuery = scope ? "&" + new URLSearchParams(scope).toString() : "";
   const db = await database;
   for (;;) {
     const cursor = (await db.get("meta", "cursor")) ?? "0";
     const response = await request(
-      `/v1/changes?cursor=${cursor}&limit=200`,
+      `/v1/changes?cursor=${cursor}&limit=200${scopeQuery}`,
       device,
     );
-    if (!response.ok) throw new Unreachable();
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      checkSyncScope(response.status, body.error);
+      throw new Unreachable();
+    }
     const result: Changes = await response.json();
+    for (const { entity } of result.changes) requireKnownType(entity.type);
     // Applying the page and advancing the cursor are one transaction: a crash never skips a page.
     const tx = db.transaction(["confirmed", "meta"], "readwrite");
     const confirmed: AnyEntity[] = [];
@@ -248,12 +340,23 @@ export function synchronize(): Promise<void> {
           device = crypto.randomUUID();
           await db.put("meta", device, "device");
         }
-        const blocked = await push(device);
-        await pull(device);
-        setStatus(blocked ? "attention" : "synced");
+        // A restore can begin after preflight. Refetch scope once and restart safely.
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const scope = await prepareSync(request, device);
+            const blocked = await push(device, scope);
+            await pull(device, scope);
+            setStatus(blocked ? "attention" : "synced");
+            break;
+          } catch (error) {
+            if (!(error instanceof ScopeChanged) || attempt > 0) throw error;
+          }
+        }
       } catch (error) {
         setStatus(
-          error instanceof Unauthorized
+          error instanceof UpgradeRequired
+            ? "upgrade"
+            : error instanceof Unauthorized
             ? "unauthorized"
             : navigator.onLine
               ? "unreachable"
@@ -303,7 +406,7 @@ function scheduleRetry() {
     failures = 0;
     return;
   }
-  if (status.state === "unauthorized") return; // waits for pairing, not for time
+  if (status.state === "unauthorized" || status.state === "upgrade") return;
   failures++;
   const delay = Math.min(60000, 1000 * 2 ** Math.min(failures, 6));
   retry = setTimeout(() => void synchronize().then(scheduleRetry), delay / 2 + Math.random() * (delay / 2));

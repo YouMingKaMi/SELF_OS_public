@@ -11,7 +11,9 @@ export type Quote = {
   priceCNY: string;
   /** Change since the previous close, in percent; absent when the source has none. */
   changePercent?: number;
+  /** Use the upstream observation time where available, else when the service retrieved it. */
   at: string;
+  timeSource?: "market" | "retrieved";
 };
 export type Quotes = { quotes: Record<string, Quote>; missing: string[] };
 export type QuoteMatch = {

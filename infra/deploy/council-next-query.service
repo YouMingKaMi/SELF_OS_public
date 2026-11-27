@@ -1,0 +1,23 @@
+[Unit]
+Description=SELF OS private ChatGPT reader
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+User=council_query
+Group=council_query
+WorkingDirectory=/opt/council-next/app
+EnvironmentFile=/etc/council-next/query.env
+EnvironmentFile=/etc/council-next/query-tunnel.env
+LoadCredential=runtime-key:/etc/council-next/query-tunnel.key
+RuntimeDirectory=council-next-query
+ExecStart=/opt/council-next/bin/tunnel-client run --control-plane.tunnel-id ${COUNCIL_QUERY_TUNNEL} --control-plane.api-key file:%d/runtime-key "--mcp.command=command=/opt/council-next/node/bin/node /opt/council-next/app/services/council-query/stdio.ts,channel=main" --health.listen-addr 127.0.0.1:0 --health.url-file /run/council-next-query/health.url --log.format json --log.level warn
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

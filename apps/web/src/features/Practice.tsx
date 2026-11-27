@@ -1,6 +1,8 @@
 import { timeSummary } from "../../../../modules/practice/index.ts";
 import React, { useState, useEffect } from "react";
 import "./practice.css";
+import { Icon } from "../ui/Icon.tsx";
+import { readingLink } from "./reading-links.ts";
 import {
   useEntities,
   put,
@@ -29,8 +31,10 @@ import {
   sessionSeconds,
   controlSession,
   Timer,
+  EventTime,
 } from "./PracticeTimer.tsx";
-export function Practice() {
+export function Practice({ eventRequest }: { eventRequest?: { id: string } }) {
+  const requestedEvent = eventRequest?.id;
   const { entities } = useEntities(
     "domain",
     "activity",
@@ -38,6 +42,8 @@ export function Practice() {
     "solution",
     "session",
     "progress",
+    "practiceEvent",
+    "readingItem",
   );
   const domains = entities
     .filter((e) => e.type === "domain")
@@ -51,15 +57,65 @@ export function Practice() {
       !e.data.archived,
   );
   const [activityId, setActivity] = useState("");
+  const [eventId, setEvent] = useState(requestedEvent ?? "");
+  const [starting, setStarting] = useState(false);
+  const events = entities.filter(
+    (e) =>
+      e.type === "practiceEvent" &&
+      e.data.domainId === domain?.id &&
+      (!activityId || e.data.activityId === activityId),
+  );
+  const event = events.find((e) => e.id === eventId);
+  const source = entities.find(
+    (e) => e.type === "readingItem" && e.id === event?.data.readingItemId,
+  );
+  const sourceLink =
+    source &&
+    (readingLink(str(source, "note")) ?? readingLink(str(source, "title")));
+
   const [tab, setTab] = useState("activities");
   const [problemId, setProblem] = useState("");
   const [solutionId, setSolution] = useState("");
   const [form, setForm] = useState<
-    "domain" | "activity" | "problem" | "solution" | "manual" | null
+    "domain" | "activity" | "problem" | "solution" | "manual" | "event" | null
   >(null);
   const [editing, setEditing] = useState<Entity>();
   const [month, setMonth] = useState(monthNow());
-  const [note, setNote] = usePreference("practice-progress-draft", "");
+  const [generalNote, setGeneralNote] = usePreference(
+    "practice-progress-draft",
+    "",
+  );
+  const [eventNotes, setEventNotes] = usePreference<Record<string, string>>(
+    "practice-event-drafts",
+    {},
+  );
+  const note = event ? (eventNotes[event.id] ?? "") : generalNote;
+  const setNote = (value: string) => {
+    if (!event) {
+      setGeneralNote(value);
+      return;
+    }
+    const next = { ...eventNotes };
+    if (value) next[event.id] = value;
+    else delete next[event.id];
+    setEventNotes(next);
+  };
+  useEffect(() => {
+    const target = entities.find(
+      (e) => e.type === "practiceEvent" && e.id === requestedEvent,
+    );
+    if (!target) return;
+    setDomain(str(target, "domainId"));
+    setActivity(str(target, "activityId"));
+    setEvent(target.id);
+    setProblem("");
+    setSolution("");
+    setTab("events");
+    // The request is consumed once the event arrives from the store.
+  }, [
+    eventRequest,
+    entities.some((e) => e.type === "practiceEvent" && e.id === requestedEvent),
+  ]);
   const problems = entities.filter(
     (e) =>
       e.type === "problem" &&
@@ -73,6 +129,21 @@ export function Practice() {
     (e) => e.type === "solution" && e.data.problemId === problem?.id,
   );
   const selectedSolution = solutions.find((e) => e.id === solutionId);
+  const placement = event
+    ? {
+        eventId: event.id,
+        ...(event.data.activityId
+          ? { activityId: str(event, "activityId") }
+          : {}),
+      }
+    : {
+        ...(activityId ? { activityId } : {}),
+        ...(problems.some((p) => p.id === problemId) ? { problemId } : {}),
+        ...(problems.some((p) => p.id === problemId) &&
+        solutions.some((s) => s.id === solutionId)
+          ? { solutionId }
+          : {}),
+      };
   const sessions = entities.filter(
     (e) => e.type === "session" && e.data.domainId === domain?.id,
   );
@@ -86,6 +157,7 @@ export function Practice() {
         e.type === "progress" &&
         e.data.domainId === domain?.id &&
         (!activityId || e.data.activityId === activityId) &&
+        (!event || e.data.eventId === event.id) &&
         (!scopeProblem || e.data.problemId === scopeProblem.id),
     )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -103,32 +175,38 @@ export function Practice() {
   }
   async function start() {
     if (!domain) throw new Error("请先添加领域");
-    if (running) throw new Error("先结束或取消当前计时");
-    await put("session", {
-      domainId: domain.id,
-      ...(activityId ? { activityId } : {}),
-      ...(scopeProblem ? { problemId: scopeProblem.id } : {}),
-      ...(scopeProblem && selectedSolution
-        ? { solutionId: selectedSolution.id }
-        : {}),
-      title:
-        selectedSolution && scopeProblem
-          ? str(selectedSolution, "title")
-          : scopeProblem
-            ? str(scopeProblem, "title")
-            : str(
-                activities.find((e) => e.id === activityId),
-                "name",
-                str(domain, "name"),
-              ),
-      day: today(),
-      startedAt: new Date().toISOString(),
-      runningSince: new Date().toISOString(),
-      elapsedSeconds: 0,
-      segments: [],
-      status: "running",
-      manual: false,
-    });
+    if (running || starting) return;
+    if (event && ["resolved", "discarded"].includes(str(event, "status")))
+      return;
+    const now = new Date().toISOString();
+    setStarting(true);
+    try {
+      await put("session", {
+        domainId: domain.id,
+        ...placement,
+        title: (event
+          ? str(event, "title")
+          : selectedSolution && scopeProblem
+            ? str(selectedSolution, "title")
+            : scopeProblem
+              ? str(scopeProblem, "title")
+              : str(
+                  activities.find((e) => e.id === activityId),
+                  "name",
+                  str(domain, "name"),
+                )
+        ).slice(0, 500),
+        day: today(),
+        startedAt: now,
+        runningSince: now,
+        elapsedSeconds: 0,
+        segments: [],
+        status: "running",
+        manual: false,
+      });
+    } finally {
+      setStarting(false);
+    }
   }
   function open(type: typeof form, e?: Entity) {
     setEditing(e);
@@ -138,11 +216,7 @@ export function Practice() {
     if (!domain || !note.trim()) return;
     await put("progress", {
       domainId: domain.id,
-      ...(activityId ? { activityId } : {}),
-      ...(scopeProblem ? { problemId: scopeProblem.id } : {}),
-      ...(scopeProblem && selectedSolution
-        ? { solutionId: selectedSolution.id }
-        : {}),
+      ...placement,
       day: today(),
       body: note,
     });
@@ -192,11 +266,10 @@ export function Practice() {
       <Heading
         eyebrow="YOUR PERSONAL PRACTICE"
         title="个人推进台"
-        description="领域 → 子领域 → 问题 → 方案。左边推进，右边看全局。"
+        description="在领域和子领域里推进事件，或沿着问题的方案继续。"
       >
         <button onClick={() => open("domain")}>＋ 领域</button>
         <button
-          className="primary"
           disabled={!domain}
           onClick={() => open("manual")}
         >
@@ -214,6 +287,7 @@ export function Practice() {
                 setActivity("");
                 setProblem("");
                 setSolution("");
+                setEvent("");
               }}
             >
               {e.data.focused ? <i className="focus-dot" /> : null}
@@ -244,7 +318,12 @@ export function Practice() {
         )}
       </div>
       {domain ? (
-        <div className="columns practice">
+        <div
+          className={
+            "columns practice" +
+            (tab === "events" ? " practice-event-layout" : "")
+          }
+        >
           <Panel
             className="practice-cockpit"
             title="此刻推进"
@@ -264,6 +343,7 @@ export function Practice() {
                   setActivity(e.target.value);
                   setProblem("");
                   setSolution("");
+                  setEvent("");
                 }}
               >
                 <option value="">整个领域</option>
@@ -273,6 +353,11 @@ export function Practice() {
                   </option>
                 ))}
               </select>
+              {event && (
+                <button className="crumb" onClick={() => setEvent("")}>
+                  {str(event, "title")} ×
+                </button>
+              )}
               {scopeProblem && (
                 <>
                   <span className="sep">/</span>
@@ -282,6 +367,7 @@ export function Practice() {
                     onClick={() => {
                       setProblem("");
                       setSolution("");
+                      setEvent("");
                     }}
                   >
                     {str(scopeProblem, "title")} ×
@@ -346,22 +432,32 @@ export function Practice() {
                 <>
                   <div className="timer-face idle">
                     <small>
-                      {scopeProblem
-                        ? selectedSolution
-                          ? "沿方案推进"
-                          : "推进这个问题"
-                        : activityName
-                          ? "推进这个子领域"
-                          : "直接推进这个领域"}
+                      {event
+                        ? str(event, "title")
+                        : scopeProblem
+                          ? selectedSolution
+                            ? "沿方案推进"
+                            : "推进这个问题"
+                          : activityName
+                            ? "推进这个子领域"
+                            : "直接推进这个领域"}
                     </small>
                     <span className="timer-digits">00:00</span>
                   </div>
                   <div className="timer-controls">
                     <button
                       className="primary"
+                      disabled={
+                        starting ||
+                        (!!event &&
+                          ["resolved", "discarded"].includes(
+                            str(event, "status"),
+                          ))
+                      }
                       onClick={() => perform(start())}
                     >
-                      ▷ 开始推进
+                      <Icon name="play" size={11} />
+                      开始推进
                     </button>
                   </div>
                 </>
@@ -378,11 +474,13 @@ export function Practice() {
               <div className="form-actions">
                 <small>
                   记在：
-                  {scopeProblem
-                    ? path(selectedSolution) === "领域记录"
-                      ? str(scopeProblem, "title")
-                      : path(selectedSolution)
-                    : activityName || str(domain, "name")}
+                  {event
+                    ? str(event, "title")
+                    : scopeProblem
+                      ? path(selectedSolution) === "领域记录"
+                        ? str(scopeProblem, "title")
+                        : path(selectedSolution)
+                      : activityName || str(domain, "name")}
                 </small>
                 <button
                   className="primary"
@@ -394,7 +492,9 @@ export function Practice() {
               </div>
             </div>
             <div className="progress-timeline">
-              {logs.length === 0 && <p className="timeline-empty">这里会按时间留下每一步进展</p>}
+              {logs.length === 0 && (
+                <p className="timeline-empty">这里会按时间留下每一步进展</p>
+              )}
               {logs.map((e) => (
                 <div key={e.id}>
                   <aside>
@@ -403,24 +503,32 @@ export function Practice() {
                   <div>
                     <p>{str(e, "body")}</p>
                     <small>
-                      {e.data.problemId
+                      {e.data.eventId
                         ? str(
-                            entities.find((p) => p.id === e.data.problemId),
+                            entities.find((p) => p.id === e.data.eventId),
                             "title",
-                          ) +
-                          (e.data.solutionId
-                            ? " / " +
-                              path(
-                                solutions.find(
-                                  (s) => s.id === e.data.solutionId,
-                                ),
-                              )
-                            : "")
-                        : str(
-                            activities.find((a) => a.id === e.data.activityId),
-                            "name",
-                            "领域记录",
-                          )}
+                            "事件",
+                          )
+                        : e.data.problemId
+                          ? str(
+                              entities.find((p) => p.id === e.data.problemId),
+                              "title",
+                            ) +
+                            (e.data.solutionId
+                              ? " / " +
+                                path(
+                                  solutions.find(
+                                    (s) => s.id === e.data.solutionId,
+                                  ),
+                                )
+                              : "")
+                          : str(
+                              activities.find(
+                                (a) => a.id === e.data.activityId,
+                              ),
+                              "name",
+                              "领域记录",
+                            )}
                     </small>
                   </div>
                 </div>
@@ -428,19 +536,24 @@ export function Practice() {
             </div>
           </Panel>
           <Panel
-            className="practice-map"
+            className={
+              "practice-map" + (tab === "events" ? " practice-events" : "")
+            }
             title={
               tab === "stats"
                 ? "时间统计"
-                : tab === "problems"
-                  ? "问题与方案"
-                  : "子领域"
+                : tab === "events"
+                  ? "事件"
+                  : tab === "problems"
+                    ? "问题与方案"
+                    : "子领域"
             }
             aside={
-              <>
+              <div className="practice-map-tools">
                 <div className="segmented">
                   {[
                     ["activities", "子领域"],
+                    ["events", "事件"],
                     ["problems", "问题推进"],
                     ["stats", "时间统计"],
                   ].map(([key, label]) => (
@@ -453,8 +566,19 @@ export function Practice() {
                     </button>
                   ))}
                 </div>
+                {tab === "events" && (
+                  <button
+                    className="event-icon"
+                    type="button"
+                    aria-label="新建事件"
+                    title="新建事件"
+                    onClick={() => open("event")}
+                  >
+                    <Icon name="plus" size={15} />
+                  </button>
+                )}
                 {tab === "stats" && <Month value={month} onChange={setMonth} />}
-              </>
+              </div>
             }
           >
             {tab === "activities" && (
@@ -466,6 +590,7 @@ export function Practice() {
                       setActivity("");
                       setProblem("");
                       setSolution("");
+                      setEvent("");
                     }}
                   >
                     <span className="row-main">
@@ -486,6 +611,7 @@ export function Practice() {
                           setActivity(e.id);
                           setProblem("");
                           setSolution("");
+                          setEvent("");
                         }}
                       >
                         <span className="row-main">
@@ -524,7 +650,11 @@ export function Practice() {
                   name={activityName || str(domain, "name")}
                   daily={
                     timeSummary(
-                      activityId ? sessions.filter((s) => s.data.activityId === activityId) : sessions,
+                      activityId
+                        ? sessions.filter(
+                            (s) => s.data.activityId === activityId,
+                          )
+                        : sessions,
                       Date.now(),
                     ).daily
                   }
@@ -532,6 +662,73 @@ export function Practice() {
                   hours={hours}
                 />
               </>
+            )}
+            {tab === "events" && (
+              <div className="event-list">
+                {!events.length && (
+                  <Empty text="添加一个阶段目标，例如听完 CS 61B。" />
+                )}
+                {events.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className={
+                      "event-row " + (entry.id === eventId ? "selected" : "")
+                    }
+                  >
+                    <button
+                      className="event-select"
+                      aria-pressed={entry.id === eventId}
+                      onClick={() => {
+                        setProblem("");
+                        setSolution("");
+                        setEvent(entry.id);
+                      }}
+                    >
+                      <span className="event-label">
+                        <strong>{str(entry, "title")}</strong>
+                        <small>
+                          {entry.data.status === "resolved"
+                            ? "已完成"
+                            : statusName[str(entry, "status")]}
+                        </small>
+                      </span>
+                      <EventTime
+                        sessions={sessions.filter(
+                          (s) => s.data.eventId === entry.id,
+                        )}
+                      />
+                    </button>
+                    <button
+                      className="event-icon"
+                      type="button"
+                      aria-label="编辑事件"
+                      title="编辑事件"
+                      onClick={() => open("event", entry)}
+                    >
+                      <Icon name="edit" size={15} />
+                    </button>
+                    {entry.id === eventId && (entry.data.note || source) && (
+                      <div className="event-detail">
+                        {entry.data.note && <p>{str(entry, "note")}</p>}
+                        {source && (
+                          <p>
+                            研究收藏 · {str(source, "title")}{" "}
+                            {sourceLink && (
+                              <a
+                                href={sourceLink}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                打开原文 ↗
+                              </a>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
             {tab === "problems" && (
               <div className="problem-map">
@@ -555,6 +752,7 @@ export function Practice() {
                         onClick={() => {
                           setProblem(e.id);
                           setSolution("");
+                          setEvent("");
                         }}
                         key={e.id}
                       >
@@ -582,6 +780,7 @@ export function Practice() {
                           <button
                             className="ghost"
                             onClick={() => {
+                              setEvent("");
                               setProblem(problem.id);
                               open("solution");
                             }}
@@ -607,6 +806,7 @@ export function Practice() {
                             <button
                               className="node"
                               onClick={() => {
+                                setEvent("");
                                 setProblem(problem.id);
                                 setSolution(e.id);
                               }}
@@ -622,6 +822,7 @@ export function Practice() {
                             <span className="row-tools">
                               <button
                                 onClick={() => {
+                                  setEvent("");
                                   setProblem(problem.id);
                                   setSolution(e.id);
                                 }}
@@ -665,12 +866,18 @@ export function Practice() {
                   unit=" 分钟"
                   points={daysInMonth(month).map((day) => ({
                     x: day,
-                    y: summary.daily[day] === undefined ? null : Math.round(summary.daily[day] / 60),
+                    y:
+                      summary.daily[day] === undefined
+                        ? null
+                        : Math.round(summary.daily[day] / 60),
                     done: true,
                   }))}
                 />
                 <p className="muted-note">
                   总计按时间段去重；手动补记单独计入。
+                  {summary.unlocatedSeconds > 0
+                    ? "旧计时缺少具体时段，按记录日期计入。"
+                    : ""}
                   {summary.overlapSeconds > 0
                     ? `检测到 ${Math.round(summary.overlapSeconds / 60)} 分钟重叠，合计已去重。`
                     : ""}
@@ -791,6 +998,43 @@ export function Practice() {
                 onCancel={() => setForm(null)}
               />
             )}{" "}
+            {form === "event" && domain && (
+              <RecordForm
+                key={"event" + (editing?.id ?? domain.id + activityId)}
+                draftScope={domain.id + ":" + activityId}
+                type="practiceEvent"
+                entity={editing}
+                defaults={{
+                  domainId: domain.id,
+                  ...(activityId ? { activityId } : {}),
+                  title: "",
+                  status: "active",
+                }}
+                fields={[
+                  { key: "title", label: "事件名称", required: true },
+                  { key: "note", label: "阶段目标或说明", type: "textarea" },
+                  {
+                    key: "status",
+                    label: "状态",
+                    type: "select",
+                    options: [
+                      ["pending", "待推进"],
+                      ["active", "推进中"],
+                      ["resolved", "已完成"],
+                      ["discarded", "已废弃"],
+                    ],
+                  },
+                ]}
+                onSaved={(id) => {
+                  setProblem("");
+                  setSolution("");
+                  setEvent(id);
+                  setTab("events");
+                  setForm(null);
+                }}
+                onCancel={() => setForm(null)}
+              />
+            )}
             {form === "solution" && problem && (
               <RecordForm
                 key={"solution" + editing?.id}
@@ -841,7 +1085,8 @@ export function Practice() {
             {form === "manual" && domain && (
               <ManualSession
                 domain={domain}
-                activityId={activityId}
+                activityId={event ? str(event, "activityId") : activityId}
+                event={event}
                 problemId={scopeProblem?.id}
                 solutionId={solutionId}
                 onClose={() => setForm(null)}
@@ -858,17 +1103,21 @@ function ManualSession({
   activityId,
   problemId,
   solutionId,
+  event,
   onClose,
 }: {
   domain: Entity;
   activityId: string;
   problemId?: string;
   solutionId: string;
+  event?: Entity;
   onClose: () => void;
 }) {
   const [day, setDay] = useState(today());
   const [minutes, setMinutes] = useState("30");
-  const [title, setTitle] = useState(str(domain, "name"));
+  const [title, setTitle] = useState(
+    event ? str(event, "title").slice(0, 500) : str(domain, "name"),
+  );
   return (
     <form
       className="record-form"
@@ -878,6 +1127,7 @@ function ManualSession({
           put("session", {
             domainId: domain.id,
             ...(activityId ? { activityId } : {}),
+            ...(event ? { eventId: event.id } : {}),
             ...(problemId ? { problemId } : {}),
             ...(solutionId ? { solutionId } : {}),
             title,
@@ -946,13 +1196,19 @@ function Rhythm({
     return d.toISOString().slice(0, 10);
   };
   let streak = 0;
-  for (let d = (daily[now] ?? 0) > 0 ? now : shift(now, -1); (daily[d] ?? 0) > 0; d = shift(d, -1)) streak++;
+  for (
+    let d = (daily[now] ?? 0) > 0 ? now : shift(now, -1);
+    (daily[d] ?? 0) > 0;
+    d = shift(d, -1)
+  )
+    streak++;
   // 26 weeks ending this week, Sunday on top.
   const weekday = new Date(now + "T12:00:00Z").getUTCDay();
   const start = shift(now, -(25 * 7 + weekday));
   const cells = Array.from({ length: 26 * 7 }, (_, i) => shift(start, i));
   const peak = Math.max(1, ...cells.map((d) => daily[d] ?? 0));
-  const level = (seconds: number) => (seconds <= 0 ? 0 : Math.min(4, 1 + Math.floor((seconds / peak) * 3.999)));
+  const level = (seconds: number) =>
+    seconds <= 0 ? 0 : Math.min(4, 1 + Math.floor((seconds / peak) * 3.999));
   return (
     <section className="rhythm">
       <header>
@@ -970,7 +1226,11 @@ function Rhythm({
       <BarChart
         label="本月每日时长"
         unit=" 分钟"
-        points={days.map((d) => ({ x: d, y: daily[d] === undefined ? null : Math.round(daily[d] / 60), done: true }))}
+        points={days.map((d) => ({
+          x: d,
+          y: daily[d] === undefined ? null : Math.round(daily[d] / 60),
+          done: true,
+        }))}
       />
       <div className="heat">
         <div className="heat-caption">

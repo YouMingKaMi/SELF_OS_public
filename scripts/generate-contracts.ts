@@ -7,7 +7,12 @@
  *   node scripts/generate-contracts.ts --check  fail if any file is stale
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { commandBatchSchema, batchMemberSchema, maxBatchCommands } from "../packages/contracts/command-batch.ts";
 import { commandSchema, schema } from "../packages/contracts/entities.ts";
+import { supportingPaths } from "./api-route-contract.ts";
+import { syncScopeProperties } from "../packages/contracts/snapshot.ts";
+import { snapshotPaths, snapshotSchemas } from "./snapshot-contract.ts";
+import { recoveryKeys, recoveryPageSize } from "../packages/contracts/recovery.ts";
 import {
   snake,
   type EntitySpec,
@@ -106,20 +111,21 @@ const openapi = {
     title: "SELF OS — sync API",
     version: "1.0.0",
     description:
-      "Generated from packages/contracts/schema.ts; do not edit. One write path, one read path. v1 only gains optional fields. Development identity only: device pairing is not implemented.",
+      "Generated from packages/contracts/schema.ts and the supporting HTTP contracts. Local development uses a bearer token. Production uses paired device credentials or a same-site browser session.",
   },
+  security: [{ devBearer: [] }, { browserSession: [] }],
   paths: {
+    ...supportingPaths,
     "/v1/commands": {
       post: {
         operationId: "submitCommand",
         summary:
-          "Create, replace or delete one entity. Idempotent per device and operationId.",
-        security: [{ devBearer: [] }],
+          "Create, replace, patch or delete one entity. Idempotent per device and operationId.",
         parameters: [
           {
             name: "x-device-id",
             in: "header",
-            required: true,
+            required: false,
             schema: { type: "string", minLength: 1, maxLength: 100 },
           },
         ],
@@ -137,7 +143,29 @@ const openapi = {
             "The payload broke a schema or business rule; `error` is CODE or CODE:field.",
           ),
           401: error("Missing or wrong credential."),
-          409: error("OPERATION_REUSED or NOT_FOUND."),
+          409: error("OPERATION_REUSED, NOT_FOUND, ENTITY_TYPE_COLLISION or sync scope mismatch."),
+        },
+      },
+    },
+    "/v1/command-batches": {
+      post: {
+        operationId: "submitCommandBatch",
+        summary: "Apply ordered edits to distinct entities, atomically and idempotently.",
+        parameters: [
+          { name: "x-device-id", in: "header", schema: { type: "string", minLength: 1, maxLength: 100 } },
+        ],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: ref("CommandBatch") } },
+        },
+        responses: {
+          200: {
+            description: "One receipt contains every effect or a conflict that rolled back the whole batch.",
+            content: { "application/json": { schema: ref("BatchReceipt") } },
+          },
+          400: error("Invalid batch schema or business rule."),
+          401: error("Missing or wrong credential."),
+          409: error("Operation ID reuse, entity identity conflict, missing entity or sync scope mismatch."),
         },
       },
     },
@@ -146,7 +174,6 @@ const openapi = {
         operationId: "listChanges",
         summary:
           "Entities changed after the cursor, each once at its latest state, in revision order.",
-        security: [{ devBearer: [] }],
         parameters: [
           {
             name: "cursor",
@@ -158,6 +185,9 @@ const openapi = {
             in: "query",
             schema: { type: "integer", minimum: 1, maximum: 500 },
           },
+          ...Object.entries(syncScopeProperties).map(([name, schema]) => ({
+            name, in: "query", schema, description: "Optional; supply both scope fields together.",
+          })),
         ],
         responses: {
           200: {
@@ -165,19 +195,71 @@ const openapi = {
             content: { "application/json": { schema: ref("Changes") } },
           },
           401: error("Missing or wrong credential."),
+          409: error("The scope differs or the scoped cursor is ahead of the database."),
         },
       },
     },
+    ...snapshotPaths,
   },
   components: {
-    securitySchemes: { devBearer: { type: "http", scheme: "bearer" } },
+    securitySchemes: {
+      devBearer: { type: "http", scheme: "bearer" },
+      browserSession: { type: "apiKey", in: "cookie", name: "council_device" },
+    },
     schemas: {
+      ...snapshotSchemas,
       Command: {
         ...commandSchema,
         properties: {
           ...commandSchema.properties,
           entityType: { enum: specs.map(([type]) => type) },
         },
+      },
+      CommandBatch: {
+        ...commandBatchSchema,
+        properties: {
+          ...commandBatchSchema.properties,
+          commands: { ...commandBatchSchema.properties.commands, items: ref("BatchMember") },
+        },
+      },
+      BatchMember: {
+        ...batchMemberSchema,
+        properties: {
+          ...batchMemberSchema.properties,
+          entityType: { enum: specs.map(([type]) => type) },
+        },
+      },
+      BatchReceipt: {
+        oneOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["outcome", "effects"],
+            properties: {
+              outcome: { const: "accepted" },
+              effects: { type: "array", items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["outcome", "entity", "revision"],
+                properties: {
+                  outcome: { const: "accepted" },
+                  entity: ref("Entity"),
+                  revision: { type: "string" },
+                },
+              } },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["outcome", "entityId", "current"],
+            properties: {
+              outcome: { const: "conflict" },
+              entityId: { type: "string", format: "uuid" },
+              current: { anyOf: [ref("Entity"), { type: "null" }] },
+            },
+          },
+        ],
       },
       Entity: entity,
       Receipt: {
@@ -418,9 +500,10 @@ public struct Command: Codable, Sendable, Equatable {
   public var action: String
   public var data: [String: JSONValue]?
   public var occurredAt: String
+  public var scope: SyncScope?
   public init(
     operationId: String, entityId: String, entityType: String, baseVersion: Int, action: String,
-    data: [String: JSONValue]?, occurredAt: String
+    data: [String: JSONValue]?, occurredAt: String, scope: SyncScope? = nil
   ) {
     self.operationId = operationId
     self.entityId = entityId
@@ -429,6 +512,7 @@ public struct Command: Codable, Sendable, Equatable {
     self.action = action
     self.data = data
     self.occurredAt = occurredAt
+    self.scope = scope
   }
 }
 public struct Receipt: Codable, Sendable {
@@ -437,6 +521,39 @@ public struct Receipt: Codable, Sendable {
   public var current: Record?
   public var revision: String?
 }
+/// POST /v1/command-batches. Members apply in order under one receipt.
+struct BatchCommand: Encodable, Sendable {
+  static let maximum = ${maxBatchCommands}
+  let operationId: String
+  let commands: [Member]
+  let scope: SyncScope?
+
+  struct Member: Encodable, Sendable {
+    let entityId: String
+    let entityType: String
+    let baseVersion: Int
+    let action: String
+    let data: [String: JSONValue]?
+    let occurredAt: String
+
+    init(_ command: Command) {
+      entityId = command.entityId
+      entityType = command.entityType
+      baseVersion = command.baseVersion
+      action = command.action == "batch-delete" ? "delete" : "put"
+      data = command.data
+      occurredAt = command.occurredAt
+    }
+  }
+}
+
+struct BatchReceipt: Decodable, Sendable {
+  let outcome: String
+  let effects: [Receipt]?
+  let entityId: String?
+  let current: Record?
+}
+
 public struct Changes: Codable, Sendable {
   public struct Change: Codable, Sendable {
     public var revision: String
@@ -445,6 +562,66 @@ public struct Changes: Codable, Sendable {
   public var changes: [Change]
   public var nextCursor: String
   public var hasMore: Bool
+}
+public struct SyncScope: Codable, Sendable, Equatable {
+  public var datasetId: String
+  public var generation: String
+  public init(datasetId: String, generation: String) {
+    self.datasetId = datasetId
+    self.generation = generation
+  }
+}
+public struct SyncDatasetState: Codable, Sendable, Equatable {
+  public var datasetId: String
+  public var generation: String
+  public var watermark: String
+  public var scopeRequired: Bool?
+}
+public struct SyncSnapshot: Codable, Sendable, Equatable {
+  public var datasetId: String
+  public var generation: String
+  public var watermark: String
+  public var snapshotId: String
+  public var total: Int
+  public var expiresAt: String
+}
+public struct SyncSnapshotPage: Codable, Sendable, Equatable {
+  public var datasetId: String
+  public var generation: String
+  public var watermark: String
+  public var snapshotId: String
+  public var total: Int
+  public var expiresAt: String
+  public var records: [Record]
+  public var nextPosition: String?
+}
+
+struct RecoveryRequest: Encodable, Sendable {
+  static let pageSize = ${recoveryPageSize}
+  static let businessKeyTypes: Set<String> = [${Object.keys(recoveryKeys).map((type) => JSON.stringify(type)).join(", ")}]
+  let scope: SyncScope
+  let watermark: String
+  let probes: [Probe]
+
+  struct Probe: Encodable, Sendable {
+    let operationId: String
+    let entityType: String
+    let entityId: String
+    let creation: [String: JSONValue]?
+    let command: Command?
+    let batch: BatchCommand?
+  }
+}
+
+struct RecoveryResponse: Decodable, Sendable {
+  let matches: [Match]
+
+  struct Match: Decodable, Sendable {
+    let operationId: String
+    let kind: String
+    let entityId: String
+    let version: Int?
+  }
 }
 `,
 );

@@ -10,9 +10,14 @@ import type {
 import type { Pending } from "./db.ts";
 import { pendingSnapshot, readAll, snapshot, subscribe } from "./store.ts";
 import { enqueue, statusSnapshot, type SyncStatus } from "./sync.ts";
+import { fieldPatch } from "../../../../packages/contracts/edit.ts";
+import { useDatedEntities } from "./dated-entities.ts";
 
 export type { AnyEntity, Data, Entity, EntityData, EntityType, Pending };
+export { useDatedEntities };
 export {
+  enqueueTogether,
+  transferJournalText,
   settle,
   undoPending,
   startSync,
@@ -72,18 +77,27 @@ export function useSyncStatus(): SyncStatus {
  * Every record on this device, tombstones included. Reads the whole local database:
  * only for search, export and the recycle bin, never for an ordinary screen.
  */
-export function useEverything(): AnyEntity[] {
-  const pending = usePending();
-  const status = useSyncStatus();
-  const [all, setAll] = useState<AnyEntity[]>([]);
+const emptyWorkspace: AnyEntity[] = [];
+export function useEverything(enabled = true): AnyEntity[] {
+  const [all, setAll] = useState<AnyEntity[]>(emptyWorkspace);
   useEffect(() => {
-    let alive = true;
-    void readAll().then((rows) => alive && setAll(rows));
+    if (!enabled) {
+      setAll(emptyWorkspace);
+      return;
+    }
+    let revision = 0;
+    function refresh() {
+      const request = ++revision;
+      void readAll().then((rows) => { if (request === revision) setAll(rows); });
+    }
+    const unsubscribe = subscribe(["entities"], refresh);
+    refresh();
     return () => {
-      alive = false;
+      revision++;
+      unsubscribe();
     };
-  }, [pending, status]);
-  return all;
+  }, [enabled]);
+  return enabled ? all : emptyWorkspace;
 }
 
 /** Create (no `existing`) or replace an entity. Returns its id once it is durable on this device. */
@@ -101,6 +115,14 @@ export function put<T extends EntityType>(
 }
 export function remove(entity: { type: EntityType; id: string }) {
   return enqueue(entity.type, entity.id, "delete");
+}
+
+/** Persist only fields changed since this editor opened. */
+export function saveEdit(type: EntityType, id: string, base: Data, edited: Data) {
+  const patch = fieldPatch(base, edited);
+  return Object.keys(patch).length
+    ? enqueue(type, id, "patch", patch, base)
+    : Promise.resolve(id);
 }
 
 /** Deterministic id for "one record per natural key" (a habit on a day, a budget for a month). */

@@ -6,16 +6,28 @@ struct DocumentsScreen: View {
   let kind: String
   @State private var query = ""
   @State private var creating = false
+  @State private var searchIndex = DocumentSearchIndex()
+  @State private var searchResult: SearchResult?
   var title: String { ["thought": "个人思考", "monthly": "月报", "note": "资料笔记"][kind] ?? "文章" }
-  var docs: [Record] {
-    studio.all("document").filter {
-      $0.text("kind") == kind
-        && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)
-          || $0.text("body").localizedCaseInsensitiveContains(query))
-    }.sorted { $0.updatedAt > $1.updatedAt }
+
+  private struct SearchRequest: Equatable {
+    let kind: String
+    let revision: Int
+    let query: String
   }
+
+  private struct SearchResult {
+    let request: SearchRequest
+    let documents: [Record]
+  }
+
   var body: some View {
-    List {
+    let source = studio.feed("document")
+    let records = source.records
+    let request = SearchRequest(kind: kind, revision: source.revision, query: query)
+    let searching = searchResult?.request != request
+    let docs = searching ? [] : searchResult?.documents ?? []
+    return List {
       ForEach(docs) { doc in
         NavigationLink {
           ReaderScreen(id: doc.id)
@@ -33,7 +45,9 @@ struct DocumentsScreen: View {
           }.padding(.vertical, 4)
         }.cardRow()
       }
-      if docs.isEmpty {
+      if searching && !query.isEmpty {
+        ProgressView("正在搜索文章…").cardRow()
+      } else if !searching && docs.isEmpty {
         Section {
           VStack(alignment: .leading, spacing: 10) {
             Text(query.isEmpty ? "从一篇文字开始" : "没有找到相关文章").font(Ink.title)
@@ -46,6 +60,11 @@ struct DocumentsScreen: View {
     }
     .studioList()
     .searchable(text: $query, prompt: "搜索标题或正文")
+    .task(id: request) {
+      let result = await searchIndex.search(
+        kind: request.kind, at: request.revision, records: records, query: request.query)
+      if !Task.isCancelled { searchResult = SearchResult(request: request, documents: result) }
+    }
     .studioScreen(title)
     .toolbar {
       Button {
@@ -65,7 +84,7 @@ struct DocumentsScreen: View {
 struct ReaderScreen: View {
   @Environment(Studio.self) private var studio
   let id: String
-  @State private var editing = false
+  @State private var editing: Record?
   var body: some View {
     let doc = studio.record(id, in: "document")
     ScrollView {
@@ -91,11 +110,11 @@ struct ReaderScreen: View {
     .toolbar {
       if let doc {
         ShareLink(item: doc.text("body"), subject: Text(doc.title)) { Image(systemName: "square.and.arrow.up") }
-        Button("编辑") { editing = true }
+        Button("编辑") { editing = doc }
       }
     }
-    .sheet(isPresented: $editing) {
-      if let doc { DocumentEditor(kind: doc.text("kind"), record: doc) }
+    .sheet(item: $editing) { original in
+      DocumentEditor(kind: original.text("kind"), record: original)
     }
   }
 }
@@ -146,10 +165,17 @@ struct DocumentEditor: View {
   @State private var domainId = ""
   @State private var source = "unknown"
   @State private var day = Date()
+  @State private var saving = false
+  @State private var loaded = false
+  @State private var saveError: String?
+  @FocusState private var titleFocused: Bool
   var body: some View {
     NavigationStack {
       VStack(alignment: .leading, spacing: 12) {
         TextField("标题", text: $title).font(.system(size: 24, weight: .bold))
+          .focused($titleFocused)
+          .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+          .background(Color.clear.contentShape(Rectangle()).onTapGesture { titleFocused = true })
         HStack(spacing: 10) {
           DatePicker("", selection: $day, displayedComponents: .date).labelsHidden()
           if kind == "note" {
@@ -165,6 +191,20 @@ struct DocumentEditor: View {
           }
         }.font(Ink.meta)
         Hairline()
+        if let record {
+          if let latest = studio.record(record.id, in: "document") {
+            if latest.version != record.version || latest.data != record.data {
+              DisclosureGroup("查看当前同步版本") {
+                VStack(alignment: .leading, spacing: 6) {
+                  Text(latest.title).bold()
+                  Text(latest.text("body")).textSelection(.enabled)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+              }.font(Ink.meta)
+            }
+          } else {
+            Text("这条记录已被移除，可以复制草稿正文。").font(Ink.meta)
+          }
+        }
         TextEditor(text: $text).font(.system(size: 16)).scrollContentBackground(.hidden)
           .overlay(alignment: .topLeading) {
             if text.isEmpty {
@@ -172,6 +212,7 @@ struct DocumentEditor: View {
                 .allowsHitTesting(false)
             }
           }
+        if let saveError { Text(saveError).font(Ink.meta).foregroundStyle(Ink.text2) }
       }.padding(.horizontal, 20).padding(.top, 8).background(Ink.card)
         .environment(\.locale, Locale(identifier: "zh_CN"))
         .navigationTitle(record == nil ? "新文章" : "编辑").navigationBarTitleDisplayMode(.inline)
@@ -179,11 +220,14 @@ struct DocumentEditor: View {
           ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
           ToolbarItem(placement: .confirmationAction) {
             Button("保存") { save() }.fontWeight(.semibold)
-              .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+              .disabled(saving || title.trimmingCharacters(in: .whitespaces).isEmpty)
           }
         }
-    }.studioSheet().presentationDetents([.large]).interactiveDismissDisabled(!text.isEmpty && record == nil)
+    }.studioSheet().presentationDetents([.large])
+      .interactiveDismissDisabled(saving || (!text.isEmpty && record == nil))
       .onAppear {
+        guard !loaded else { return }
+        loaded = true
         guard let record else {
           if kind == "monthly" { title = Day.monthTitle(String(Day.today.prefix(7))) + " · 月报" }
           return
@@ -204,6 +248,16 @@ struct DocumentEditor: View {
     if kind == "monthly" { data["month"] = .string(String(CalendarDays.string(day).prefix(7))) }
     data["domainId"] = kind == "note" && !domainId.isEmpty ? .string(domainId) : nil
     data["source"] = kind == "note" && !domainId.isEmpty ? .string(source) : nil
-    Task { if await studio.save("document", data, id: record?.id) != nil { dismiss() } }
+    guard !saving else { return }
+    saving = true
+    saveError = nil
+    Task {
+      defer { saving = false }
+      if await studio.save("document", data, id: record?.id, editBase: record) != nil {
+        dismiss()
+      } else {
+        saveError = studio.error
+      }
+    }
   }
 }

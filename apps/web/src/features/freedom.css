@@ -1,12 +1,51 @@
+.freedom-trend-controls, .freedom-trend-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.freedom-trend-controls .segmented { flex-wrap: wrap; }
+.freedom-trend-dates label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+}
+.freedom-trends .freedom-note { margin: 8px 0; }
+.freedom-trend-charts {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+}
+.freedom-trend-guide {
+  position: absolute;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--text-3);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.freedom-trend-charts .chart { min-width: 0; }
+.freedom-trend-charts .chart > :is(.chart-caption, svg) { position: relative; }
+.freedom-trend-charts .chart + .chart {
+  border-top: 1px solid var(--line);
+  padding-top: var(--pad);
+}
+.freedom-trend-charts .chart circle { r: 1.5; }
+.freedom-trend-charts .chart circle:is(:hover, :focus, :only-of-type) { r: 4; }
+
 .freedom {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
   gap: var(--gap);
   align-items: start;
 }
-.freedom-side {
+.freedom-side,
+.freedom-right {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: var(--gap);
 }
 .freedom-hero {

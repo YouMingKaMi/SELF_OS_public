@@ -105,12 +105,48 @@ public enum TaskRules {
   public static func blockers(_ record: Record, byID: [String: Record]) -> [String] {
     prerequisites(record).filter { byID[$0]?.text("status") != "completed" }
   }
+  public static func isNext(_ record: Record, byID: [String: Record], day: String) -> Bool {
+    guard record.text("status") == "pending", blockers(record, byID: byID).isEmpty else { return false }
+    let s = schedule(record)
+    switch s.kind {
+    case "day": return s.date.map { $0 <= day } ?? false
+    case "range": return s.start.map { $0 <= day } ?? false
+    default: return true
+    }
+  }
+  public static func reaches(_ start: String, target: String, byID: [String: Record]) -> Bool {
+    var stack = [start]
+    var seen = Set<String>()
+    while let id = stack.popLast() {
+      if id == target { return true }
+      if seen.insert(id).inserted, let item = byID[id] {
+        stack.append(contentsOf: prerequisites(item))
+      }
+    }
+    return false
+  }
+  private static func validScheduleDay(_ day: String) -> Bool {
+    guard day >= "1900-01-01", day <= "9999-12-31", let date = CalendarDays.date(day)
+    else { return false }
+    return CalendarDays.string(date) == day
+  }
+
   public static func belongsToday(_ record: Record, day: String) -> Bool {
     guard record.text("status") == "pending" else { return false }
     let s = schedule(record)
-    if s.kind == "range" { return (s.start ?? "") <= day && (s.end ?? "") >= day }
-    if s.kind == "deadline" { return (s.date ?? "") <= day }
-    return s.kind == "day" && s.date == day
+    switch s.kind {
+    case "day":
+      return s.date == day
+    case "range":
+      guard let start = s.start, let end = s.end else { return false }
+      return validScheduleDay(start) && validScheduleDay(end) && start <= day && end >= day
+    case "deadline":
+      return s.date.map(validScheduleDay) ?? false
+    case "recent":
+      return true
+    default:
+      return false
+    }
   }
 }
 public struct MetricSummary: Sendable {
@@ -121,11 +157,16 @@ public struct MetricSummary: Sendable {
   public let maximum: Double?
 }
 public enum MetricRules {
-  public static func summary(_ logs: [Record]) -> MetricSummary {
-    let values = logs.compactMap { row -> Double? in
+  public static func value(_ candidates: [Record]) -> Double? {
+    let values = Set(candidates.filter { !$0.deleted }.compactMap { row -> Double? in
       guard case .number(let value) = row.data["value"], value.isFinite else { return nil }
       return value
-    }
+    })
+    return values.count == 1 ? values.first : nil
+  }
+  public static func summary(_ logs: [Record]) -> MetricSummary {
+    let days = Dictionary(grouping: logs) { $0.text("metricId") + ":" + $0.text("day") }
+    let values = days.values.compactMap(value)
     let sum = values.reduce(0, +)
     return MetricSummary(
       count: values.count, sum: sum, average: values.isEmpty ? nil : sum / Double(values.count),

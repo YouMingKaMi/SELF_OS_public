@@ -15,6 +15,115 @@ final class StoreTests: XCTestCase {
     try JSONDecoder().decode(Command.self, from: op.data)
   }
 
+  func testGroupedWritesRollbackTogetherAndUndoBothOffline() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    let first = BatchPut(type: "idea", id: "a", data: idea("first"), version: 0)
+    let stale = BatchPut(type: "idea", id: "b", data: idea("stale"), version: 1)
+    do {
+      try await store.putTogether([first, stale])
+      XCTFail("stale base version should abort the entire batch")
+    } catch CouncilStore.StoreError.editChanged {}
+    let empty = try await store.operations()
+    XCTAssertTrue(empty.isEmpty)
+    let noProjection = try await store.record(type: "idea", id: "a")
+    XCTAssertNil(noProjection)
+    try await store.putTogether([first, BatchPut(type: "idea", id: "b", data: idea("second"), version: 0)])
+    let pending = try await store.operations()
+    XCTAssertEqual(pending.count, 2)
+    let batch = try XCTUnwrap(pending.first?.batchId)
+    XCTAssertTrue(pending.allSatisfy { $0.batchId == batch })
+    XCTAssertEqual(try pending.map { try command($0).action }, ["batch-put", "batch-put"])
+    try await store.undo(pending[1].id)
+    let final = try await store.operations()
+    let remaining = try await store.records(type: "idea")
+    XCTAssertTrue(final.isEmpty)
+    XCTAssertTrue(remaining.isEmpty)
+  }
+
+  func testJournalTransferKeepsDateAndRejectsStaleSelection() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    let source = confirmed("source", "留😀移后", version: 1)
+    try await store.apply([source], cursor: "1")
+    do {
+      try await store.transferJournalText(source, selection: 2..<4)
+      XCTFail("a selection that splits an emoji must fail")
+    } catch CouncilStore.StoreError.invalidTransfer {}
+    let destination = try await store.transferJournalText(source, selection: 1..<4)
+    let original = try await store.record(type: "idea", id: source.id)
+    let journal = try await store.record(type: "journal", id: destination)
+    XCTAssertEqual(original?.text("body"), "留后")
+    XCTAssertEqual(journal?.text("body"), "😀移")
+    XCTAssertEqual(journal?.text("day"), "2026-11-07")
+    XCTAssertEqual(journal?.text("kind"), "raw")
+    do {
+      try await store.transferJournalText(source, selection: 1..<4)
+      XCTFail("a repeated migration must fail against the old source")
+    } catch CouncilStore.StoreError.editChanged {}
+    let ops = try await store.operations()
+    let batch = try XCTUnwrap(ops.first?.batchId)
+    XCTAssertEqual(ops.map(\.batchId), [batch, batch])
+    XCTAssertEqual(try ops.map { try command($0).action }, ["batch-put", "batch-put"])
+    _ = try await store.claimBatch(batch, count: 2)
+    try await store.rejectBatch(batch, message: "conflict", conflictId: source.id,
+      current: confirmed(source.id, "远端修改", version: 2))
+    do {
+      try await store.settle(source.id, keepLocal: true)
+      XCTFail("a transfer must not blindly rebase its stale text range")
+    } catch CouncilStore.StoreError.editChanged {}
+    try await store.settle(source.id, keepLocal: false)
+    let restored = try await store.record(type: "idea", id: source.id)
+    let discarded = try await store.record(type: "journal", id: destination)
+    XCTAssertEqual(restored?.text("body"), "远端修改")
+    XCTAssertNil(discarded)
+  }
+
+  func testGroupedConflictKeepsBothDraftsAndRetriesUnderANewBatchID() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    try await store.putTogether([
+      BatchPut(type: "idea", id: "a", data: idea("first"), version: 0),
+      BatchPut(type: "idea", id: "b", data: idea("second"), version: 0),
+    ])
+    let pending = try await store.operations()
+    let batch = try XCTUnwrap(pending.first?.batchId)
+    let claimed = try await store.claimBatch(batch, count: 2)
+    XCTAssertTrue(claimed)
+    let confirmed = confirmed("b", "new remote")
+    try await store.rejectBatch(batch, message: "同批修改包含冲突", conflictId: "b", current: confirmed)
+    let blocked = try await store.operations()
+    XCTAssertEqual(blocked.map(\.state), ["error", "conflict"])
+    try await store.settle("a", keepLocal: true)
+    let retry = try await store.operations()
+    XCTAssertEqual(retry.map(\.state), ["queued", "queued"])
+    XCTAssertNotEqual(retry.first?.batchId, batch)
+    XCTAssertEqual(try retry.map { try command($0).baseVersion }, [0, 1])
+  }
+
+  func testCompletingFromAStaleTaskListChecksPrerequisitesAndQueuesOnlyOnce() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    let first = try await store.put(
+      type: "task", data: ["title": .string("先写提纲"), "status": .string("pending")])
+    let second = try await store.put(
+      type: "task", data: [
+        "title": .string("开始写作"), "status": .string("pending"),
+        "prerequisiteIds": .array([.string(first)]),
+      ])
+    do {
+      try await store.completeTask(id: second)
+      XCTFail("the current prerequisites must still win over a stale widget")
+    } catch CouncilStore.StoreError.blockedTask {}
+    let blocked = try await store.record(type: "task", id: second)
+    XCTAssertEqual(blocked?.text("status"), "pending")
+
+    try await store.completeTask(id: first)
+    try await store.completeTask(id: second, at: Date(timeIntervalSince1970: 100))
+    try await store.completeTask(id: second, at: Date(timeIntervalSince1970: 200))
+    let finished = try await store.record(type: "task", id: second)
+    let queue = try await store.operations().filter { $0.entityId == second }
+    XCTAssertEqual(finished?.text("status"), "completed")
+    XCTAssertEqual(finished?.text("completedAt"), "1970-01-01T00:01:40Z")
+    XCTAssertEqual(queue.count, 2, "one create and one completion")
+  }
+
   func testOfflineQueueSurvivesRestartAndUndoRestoresThePreviousEdit() async throws {
     let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
     defer { try? FileManager.default.removeItem(atPath: path) }
@@ -34,6 +143,37 @@ final class StoreTests: XCTestCase {
     try await reopened.undo(operations.first!.id)
     let gone = try await reopened.record(type: "idea", id: "a")
     XCTAssertNil(gone, "undoing an unsent create removes the record entirely")
+  }
+
+  func testDocumentEditUsesItsOriginalFieldsAndMergesDisjointChanges() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    let start = Record(
+      id: "draft", type: "document", version: 1,
+      data: ["title": .string("old title"), "body": .string("old body"), "kind": .string("thought")],
+      deleted: false, updatedAt: "2026-11-07T00:00:00.000Z")
+    try await store.apply([start], cursor: "1")
+    var remote = start
+    remote.version = 2
+    remote.data["body"] = .string("remote body")
+    try await store.apply([remote], cursor: "2")
+    var local = start.data
+    local["body"] = .string("local body")
+    do {
+      try await store.put(type: "document", data: local, id: start.id, editBase: start)
+      XCTFail("a stale body must remain a draft")
+    } catch CouncilStore.StoreError.editChanged {}
+
+    local = start.data
+    local["title"] = .string("local title")
+    try await store.put(type: "document", data: local, id: start.id, editBase: start)
+    let ops = try await store.operations()
+    let patch = try command(XCTUnwrap(ops.first))
+    XCTAssertEqual(patch.action, "patch")
+    XCTAssertEqual(patch.baseVersion, 2)
+    XCTAssertEqual(patch.data, ["title": .string("local title")])
+    let row = try await store.record(type: "document", id: start.id)
+    XCTAssertEqual(row?.title, "local title")
+    XCTAssertEqual(row?.text("body"), "remote body")
   }
 
   func testTypedColumnsRoundTripEveryKindAndRangeQueriesRunInSQL() async throws {
@@ -128,6 +268,116 @@ final class StoreTests: XCTestCase {
     XCTAssertEqual(kept?.text("body"), "local", "an older confirmed copy never wins")
     let cursor = try await store.metadata("cursor")
     XCTAssertEqual(cursor, "3")
+  }
+
+  func testUnknownRecordLeavesTheEntirePageAndCursorUntouched() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    try await store.apply([confirmed("a", "old")], cursor: "1")
+    let unknown = Record(id: "unknown", type: "futureType", version: 1, data: [:],
+      deleted: false, updatedAt: "2026-11-18T00:00:00Z")
+    do {
+      try await store.apply([confirmed("a", "new", version: 2), unknown], cursor: "3")
+      XCTFail("An older app cannot acknowledge a record it does not understand")
+    } catch CouncilStore.StoreError.unknownType {}
+    let visible = try await store.record(type: "idea", id: "a")
+    let cursor = try await store.metadata("cursor")
+    XCTAssertEqual(visible?.text("body"), "old")
+    XCTAssertEqual(cursor, "1")
+  }
+
+  func testFirstSnapshotPreservesOfflineNewRecordsInTheOutbox() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    try await store.put(type: "idea", data: idea("new offline"), id: "a")
+    let opsBefore = try await store.operations()
+    let scope = SyncScope(datasetId: "dataset", generation: "initial")
+    let snapshot = try JSONDecoder().decode(SyncSnapshot.self, from: Data("""
+      {"datasetId":"dataset","generation":"initial","snapshotId":"page",
+      "watermark":"400","total":1,"expiresAt":"2026-11-18T00:00:00Z"}
+      """.utf8))
+    try await store.beginSnapshot()
+    try await store.stageSnapshot([confirmed("b", "already on server")])
+    try await store.finishSnapshot(snapshot, scope: scope, reviewPending: false)
+    let visible = try await store.records(type: "idea")
+    let opsAfter = try await store.operations()
+    XCTAssertEqual(Set(visible.map { $0.text("body") }), ["new offline", "already on server"])
+    XCTAssertEqual(opsBefore, opsAfter)
+  }
+
+  func testSnapshotReplacementIsAtomicAndKeepsLocalDraftsForReview() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    try await store.apply([confirmed("a", "old", version: 6), confirmed("b", "removed")], cursor: "6")
+    try await store.put(type: "idea", data: idea("local"), id: "a")
+    let original = try await store.operations().first!
+    let claimed = try await store.mark(original, state: "sending")
+    XCTAssertTrue(claimed)
+    let scope = SyncScope(datasetId: "dataset", generation: "restored")
+    let snapshot = try JSONDecoder().decode(SyncSnapshot.self, from: Data("""
+      {"datasetId":"dataset","generation":"restored","snapshotId":"page",
+      "watermark":"2","total":2,"expiresAt":"2026-11-18T00:00:00Z"}
+      """.utf8))
+    try await store.beginSnapshot()
+    try await store.stageSnapshot([confirmed("a", "restored")])
+    do {
+      try await store.finishSnapshot(snapshot, scope: scope)
+      XCTFail("An incomplete snapshot must not replace local data")
+    } catch SyncCoordinator.SyncError.invalidResponse {}
+    let visibleBefore = try await store.records(type: "idea")
+    let cursorBefore = try await store.metadata("cursor")
+    XCTAssertEqual(Set(visibleBefore.map { $0.text("body") }), ["removed", "local"])
+    XCTAssertEqual(cursorBefore, "6")
+
+    try await store.stageSnapshot([confirmed("c", "added")])
+    try await store.finishSnapshot(snapshot, scope: scope)
+    let visibleAfter = try await store.records(type: "idea")
+    let cursorAfter = try await store.metadata("cursor")
+    XCTAssertEqual(Set(visibleAfter.map { $0.text("body") }), ["restored", "added"])
+    XCTAssertEqual(cursorAfter, "2")
+    let pending = try await store.operations()
+    XCTAssertEqual(pending.map(\.state), ["error"])
+    XCTAssertEqual(pending.first?.recoveryDraft?.text("body"), "local")
+
+    try await store.apply([confirmed("a", "restored + pulled", version: 2)], cursor: "3")
+    let pulled = try await store.record(type: "idea", id: "a")
+    XCTAssertEqual(pulled?.text("body"), "restored + pulled")
+    try await store.settle("a", keepLocal: true)
+    let operation = try await store.operations().first!
+    XCTAssertNotEqual(operation.id, original.id)
+    XCTAssertNil(operation.recoveryDraft)
+    XCTAssertEqual(operation.state, "queued")
+    let rebased = try command(operation)
+    XCTAssertEqual(rebased.baseVersion, 2)
+    XCTAssertEqual(rebased.data?["body"], .string("local"))
+  }
+
+  func testSnapshotSettlesKnownReceiptsAndExactBusinessKeysButKeepsLaterEdits() async throws {
+    let store = try CouncilStore(path: ":memory:")
+    try await store.put(type: "idea", data: idea("received"), id: "a")
+    let sent = try await store.operations().first!
+    _ = try await store.mark(sent, state: "sending")
+    try await store.put(type: "idea", data: idea("newer edit"), id: "a")
+    try await store.put(type: "budget", data: ["month": .string("2026-11"), "amountMinor": .string("3200")],
+      id: "local-budget")
+    let operations = try await store.operations()
+    let budget = operations.last!
+    let scope = SyncScope(datasetId: "dataset", generation: "restored")
+    let snapshot = SyncSnapshot(datasetId: scope.datasetId, generation: scope.generation, watermark: "2",
+      snapshotId: "snapshot", total: 2, expiresAt: "")
+    try await store.beginSnapshot()
+    try await store.stageSnapshot([
+      confirmed("a", "received"),
+      Record(id: "restored-budget", type: "budget", version: 1,
+        data: ["month": .string("2026-11"), "amountMinor": .string("3200")],
+        deleted: false, updatedAt: "2026-11-22T00:00:00Z"),
+    ])
+    try await store.finishSnapshot(snapshot, scope: scope, matches: [
+      sent.id: .init(operationId: sent.id, kind: "receipt", entityId: "a", version: nil),
+      budget.id: .init(operationId: budget.id, kind: "businessKey", entityId: "restored-budget", version: 1),
+    ])
+    let pending = try await store.operations()
+    XCTAssertEqual(pending.map(\.id), [operations[1].id])
+    XCTAssertEqual(pending.first?.recoveryDraft?.text("body"), "newer edit")
+    let visibleBudgets = try await store.records(type: "budget")
+    XCTAssertEqual(visibleBudgets.map(\.id), ["restored-budget"])
   }
 
   func testUndoPreservesVersionChainAndUndoneOperationCannotBeSent() async throws {

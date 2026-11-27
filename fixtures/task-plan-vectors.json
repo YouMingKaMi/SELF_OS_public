@@ -1,0 +1,304 @@
+[
+  {
+    "name": "带围栏的回复稳定排序并去除重复依赖",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "\n```JSON\n{\"items\":[{\"key\":\" send \",\"title\":\"  交付  \",\"after\":[\" review \",\"review\"],\"date\":\"2028-02-29\",\"time\":\"09:30\",\"note\":\" 截止前确认 \"},{\"key\":\"review\",\"title\":\"复核\",\"after\":[\"prep\"]},{\"key\":\"prep\",\"title\":\"准备原件\",\"after\":[]},{\"key\":\"call\",\"title\":\"打电话\",\"after\":[]}]}\n```\n"
+          }
+        }
+      ]
+    },
+    "expected": [
+      {
+        "key": "prep",
+        "title": "准备原件",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "review",
+        "title": "复核",
+        "after": [
+          "prep"
+        ],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "send",
+        "title": "交付",
+        "after": [
+          "review"
+        ],
+        "date": "2028-02-29",
+        "time": "09:30",
+        "note": "截止前确认"
+      },
+      {
+        "key": "call",
+        "title": "打电话",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "name": "无效或缺失日期与时间清空",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"a\",\"title\":\"非闰年\",\"after\":[],\"date\":\"2026-02-29\",\"time\":\"09:30\"},{\"key\":\"b\",\"title\":\"有时间无日期\",\"after\":[],\"time\":\"09:30\",\"note\":[\"忽略非文本备注\"]},{\"key\":\"c\",\"title\":\"跳过无效时刻\",\"after\":[],\"date\":\"2026-11-01\",\"time\":\"24:00\"},{\"key\":\"d\",\"title\":\"业务日期不完整\",\"after\":[],\"date\":\"2026-11-1\",\"time\":\"９:３０\"},{\"key\":\"e\",\"title\":\"旧年份超出业务范围\",\"after\":[],\"date\":\"1899-12-31\",\"time\":\"23:59\"},{\"key\":\"f\",\"title\":\"接受世纪闰日\",\"after\":[],\"date\":\"2000-02-29\",\"time\":\"23:59\"},{\"key\":\"g\",\"title\":\"精确五位时刻\",\"after\":[],\"date\":\"2000-02-29\",\"time\":\"23:59\\n\"}]}"
+          }
+        }
+      ]
+    },
+    "expected": [
+      {
+        "key": "a",
+        "title": "非闰年",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "b",
+        "title": "有时间无日期",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "c",
+        "title": "跳过无效时刻",
+        "after": [],
+        "date": "2026-11-01",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "d",
+        "title": "业务日期不完整",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "e",
+        "title": "旧年份超出业务范围",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "f",
+        "title": "接受世纪闰日",
+        "after": [],
+        "date": "2000-02-29",
+        "time": "23:59",
+        "note": ""
+      },
+      {
+        "key": "g",
+        "title": "精确五位时刻",
+        "after": [],
+        "date": "2000-02-29",
+        "time": "",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "name": "Unicode 规范化使依赖匹配",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"finish\",\"title\":\"提交\",\"after\":[\" é \"]},{\"key\":\"é\",\"title\":\"准备\",\"after\":[]}]}"
+          }
+        }
+      ]
+    },
+    "expected": [
+      {
+        "key": "é",
+        "title": "准备",
+        "after": [],
+        "date": "",
+        "time": "",
+        "note": ""
+      },
+      {
+        "key": "finish",
+        "title": "提交",
+        "after": [
+          "é"
+        ],
+        "date": "",
+        "time": "",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "name": "模型没有首条回复",
+    "response": {
+      "choices": []
+    },
+    "error": "missingContent"
+  },
+  {
+    "name": "模型回复只有空格",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": " \n "
+          }
+        }
+      ]
+    },
+    "error": "missingContent"
+  },
+  {
+    "name": "模型输出带正文",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "好的，我来整理这段内容。"
+          }
+        }
+      ]
+    },
+    "error": "invalidJSON"
+  },
+  {
+    "name": "无 items 列表",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"tasks\":[]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidCount"
+  },
+  {
+    "name": "没有事项",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidCount"
+  },
+  {
+    "name": "超过 20 项",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidCount"
+  },
+  {
+    "name": "标题为空",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"a\",\"title\":\"    \",\"after\":[]}]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidItem"
+  },
+  {
+    "name": "前置编号类型非法",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"a\",\"title\":\"测试\",\"after\":[17]}]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidItem"
+  },
+  {
+    "name": "重复的规范化编号",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"x\",\"title\":\"一个\",\"after\":[]},{\"key\":\" x \",\"title\":\"另一个\",\"after\":[]}]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidDependency"
+  },
+  {
+    "name": "前置事项不存在",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"a\",\"title\":\"测试\",\"after\":[\"b\"]}]}"
+          }
+        }
+      ]
+    },
+    "error": "invalidDependency"
+  },
+  {
+    "name": "前置不能依赖自身",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"a\",\"title\":\"测试\",\"after\":[\"a\"]}]}"
+          }
+        }
+      ]
+    },
+    "error": "cycle"
+  },
+  {
+    "name": "环形依赖",
+    "response": {
+      "choices": [
+        {
+          "message": {
+            "content": "{\"items\":[{\"key\":\"a\",\"title\":\"测试\",\"after\":[\"b\"]},{\"key\":\"b\",\"title\":\"复核\",\"after\":[\"a\"]}]}"
+          }
+        }
+      ]
+    },
+    "error": "cycle"
+  }
+]

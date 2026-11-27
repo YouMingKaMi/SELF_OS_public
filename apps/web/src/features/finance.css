@@ -5,26 +5,34 @@
   padding-top: 0;
 }
 .ledger .day-block {
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 0 8px;
+  padding: 8px 0;
 }
 .ledger .day-block > header strong {
-  margin-top: 4px;
+  margin-top: 3px;
   font: 500 var(--fs-xs) var(--mono);
   color: var(--text-2);
 }
 .ledger-rows {
   display: flex;
   flex-direction: column;
+  gap: 1px;
 }
 .ledger-row {
   justify-content: flex-start;
   gap: 10px;
   height: auto;
-  min-height: 38px;
+  min-height: 34px;
   padding: 4px 6px;
   border: 0;
+  border-radius: var(--r);
+  background: transparent;
   text-align: left;
   color: var(--text);
+}
+.ledger-row:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
 }
 .ledger-row .row-main strong {
   font-weight: 500;
@@ -164,11 +172,17 @@
   grid-template-columns: 92px minmax(0, 1fr) 92px 38px;
   align-items: center;
   gap: 10px;
-  height: 30px;
+  height: 28px;
   padding: 0 6px;
   border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
   color: var(--text-2);
   text-align: left;
+}
+.category-bars > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text);
 }
 .category-bars > button:disabled {
   opacity: 0.6;
@@ -231,6 +245,11 @@
   height: auto;
   padding: 0;
   border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.long-list > div > header button:hover:not(:disabled) {
+  background: transparent;
   color: var(--text);
 }
 .long-list > div > header span {

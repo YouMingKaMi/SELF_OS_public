@@ -8,7 +8,8 @@ self.addEventListener('fetch',event=>{
   const cache=await caches.open(CACHE);
   // Pages: network first, so a new deploy shows at once; the cached shell only when offline. API requests never enter this cache.
   if(event.request.mode==='navigate'){
-   try{const fresh=await fetch(event.request);if(fresh.ok)cache.put('/',fresh.clone());return fresh;}
+   // Keep the cached HTML from this build paired with the files it references.
+   try{return await fetch(event.request);}
    catch{return (await cache.match('/'))??Response.error();}
   }
   if(PRECACHE.includes(url.pathname)){

@@ -41,6 +41,30 @@ final class HabitRulesTests: XCTestCase {
     XCTAssertEqual(HabitRules.month(habit: habit, month: "2026-11", records: [missingValue]).recordedDays, 0)
   }
 
+  func testBulkMonthUsesSavedRulesAndResolvesFallbackRulesWithinEachHabit() {
+    var other = habit
+    other.id = "walk"
+    let first = rule(extra: ["unit": .string("L")])
+    let tie = rule("tie", from: "2026-11-15", target: 10, extra: ["unit": .string("cups")])
+    var latest = rule("latest", from: "2026-11-15", target: 4, extra: ["unit": .string("cups")])
+    latest.version = 2
+    let future = rule("future", from: "2026-12-01", target: 1, extra: ["unit": .string("bottles")])
+    let foreign = rule("walk-rule", target: 8, extra: ["habitId": .string(other.id), "unit": .string("min")])
+    let records = [
+      first, tie, latest, future, foreign,
+      log("2026-11-16", value: 5, extra: ["ruleId": .string(first.id)]),
+      log("2026-11-17", value: 4, extra: ["ruleId": .string(foreign.id)], id: "fallback"),
+      log("2026-11-18", value: 1, extra: ["ruleId": .string(future.id)], id: "saved"),
+      log("2026-11-17", value: 9, extra: ["habitId": .string(other.id)], id: "other"),
+    ]
+    let summaries = HabitRules.months(habits: [other, habit], month: "2026-11", records: records)
+    XCTAssertEqual(summaries.map(\.completedDays), [1, 3])
+    XCTAssertEqual(summaries.map(\.recordedDays), [1, 3])
+    XCTAssertEqual(summaries.map(\.quantityTotals), [["min": 9], ["L": 5, "cups": 4, "bottles": 1]])
+    XCTAssertFalse(summaries[1].comparableValues)
+    XCTAssertTrue(HabitRules.months(habits: [], month: "2026-11", records: records).isEmpty)
+  }
+
   func testHomeWeekdayAndQuantityManualCollapse() {
     let scheduled = rule(extra: ["weekdays": .array([.string("0")])])
     XCTAssertTrue(HabitRules.shouldShowOnHome(habit: habit, day: "2026-11-08", records: [scheduled]))

@@ -198,8 +198,9 @@ struct PillStyle: ButtonStyle {
     configuration.label
       .font(.system(size: compact ? 13 : 15, weight: .semibold))
       .foregroundStyle(prominent ? Color.black : Ink.text)
-      .padding(.horizontal, compact ? 12 : 16).frame(height: compact ? 32 : 42)
+      .padding(.horizontal, compact ? 13 : 16).frame(minHeight: compact ? 36 : 44)
       .background(prominent ? Ink.text : Ink.raised, in: Capsule())
+      .contentShape(Capsule())
       .opacity(configuration.isPressed ? 0.7 : 1)
       .scaleEffect(configuration.isPressed ? 0.97 : 1)
       .animation(.snappy(duration: 0.15), value: configuration.isPressed)
@@ -228,8 +229,9 @@ struct Chip: View {
     Button(action: action) {
       Text(text).font(.system(size: 14, weight: selected ? .semibold : .regular))
         .foregroundStyle(selected ? Color.black : Ink.text2)
-        .padding(.horizontal, 14).frame(height: 34)
+        .padding(.horizontal, 14).frame(minHeight: 36)
         .background(selected ? Ink.text : Ink.raised, in: Capsule())
+        .contentShape(Capsule())
     }.buttonStyle(.plain).sensoryFeedback(.selection, trigger: selected)
   }
 }
@@ -265,6 +267,8 @@ struct DayStrip: View {
             Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
               .foregroundStyle(Ink.text3)
           }.foregroundStyle(Ink.text)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }.buttonStyle(.plain)
         Spacer()
         if day != Day.today {
@@ -318,25 +322,25 @@ struct MonthBar: View {
       Button {
         withAnimation(.snappy) { month = Day.shiftMonth(month, -1) }
       } label: {
-        Image(systemName: "chevron.left").frame(width: 34, height: 34)
+        Image(systemName: "chevron.left").frame(width: 40, height: 40).contentShape(Rectangle())
       }
       Text(Day.monthTitle(month)).font(.system(size: 15, weight: .semibold)).monospacedDigit()
         .contentTransition(.numericText())
       Button {
         withAnimation(.snappy) { month = Day.shiftMonth(month, 1) }
       } label: {
-        Image(systemName: "chevron.right").frame(width: 34, height: 34)
+        Image(systemName: "chevron.right").frame(width: 40, height: 40).contentShape(Rectangle())
       }
       Spacer()
       if month != String(Day.today.prefix(7)) {
         Button("本月") { withAnimation(.snappy) { month = String(Day.today.prefix(7)) } }
-          .font(Ink.meta)
+          .font(Ink.meta).padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
       }
     }.buttonStyle(.plain).foregroundStyle(Ink.text).sensoryFeedback(.selection, trigger: month)
   }
 }
 
-/// Thumb-reach input pinned above the keyboard / home indicator: a floating capsule, glass on iOS 26.
+/// Thumb-reach input pinned above the keyboard / home indicator: non-interactive glass so touches never get swallowed.
 struct Composer: View {
   @Binding var text: String
   var placeholder: String
@@ -348,20 +352,30 @@ struct Composer: View {
     HStack(alignment: .bottom, spacing: 6) {
       TextField(placeholder, text: $text, axis: .vertical)
         .lineLimit(multiline ? 1...8 : 1...5).font(Ink.body).focused($focused)
+        .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
         .padding(.leading, 18).padding(.vertical, 12)
       Button(action: submit) {
         Image(systemName: "arrow.up").font(.system(size: 15, weight: .bold))
           .foregroundStyle(empty ? Ink.text3 : .black)
           .frame(width: 36, height: 36)
           .background(empty ? Color.white.opacity(0.08) : Ink.text, in: Circle())
-      }.buttonStyle(.plain).disabled(empty).padding(.trailing, 6).padding(.bottom, 6)
+          .frame(width: 44, height: 44)
+          .contentShape(Circle())
+      }.buttonStyle(.plain).disabled(empty).padding(.trailing, 2).padding(.bottom, 2)
         .accessibilityLabel("保存").sensoryFeedback(.impact(weight: .light), trigger: text.isEmpty)
     }
+    .background {
+      RoundedRectangle(cornerRadius: 24, style: .continuous)
+        .fill(Color.clear)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture { focused = true }
+    }
     .modifier(GlassCapsule())
-    .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 6)
+    .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
     .background {
       LinearGradient(colors: [Ink.bg.opacity(0), Ink.bg.opacity(0.92)], startPoint: .top, endPoint: .center)
         .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
   }
   func submit() {
@@ -370,14 +384,36 @@ struct Composer: View {
   }
 }
 
-/// Glass on iOS 26; a raised surface with a hairline before.
+/// Glass on iOS 26 (non-interactive so inner TextField receives first tap reliably); raised surface before.
 struct GlassCapsule: ViewModifier {
   func body(content: Content) -> some View {
     if #available(iOS 26.0, *) {
-      content.glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+      content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     } else {
       content.background(Ink.raised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Ink.line))
+    }
+  }
+}
+
+/// Makes the entire rounded box around a padded TextField tap-to-focus without stealing cursor taps on the text itself.
+extension View {
+  func studioInputBox(
+    cornerRadius: CGFloat = 14,
+    fill: Color = Ink.raised,
+    stroke: Color? = nil,
+    onTapOutsideText: @escaping () -> Void
+  ) -> some View {
+    background {
+      RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        .fill(fill)
+        .overlay {
+          if let stroke {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(stroke)
+          }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .onTapGesture(perform: onTapOutsideText)
     }
   }
 }

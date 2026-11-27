@@ -33,10 +33,14 @@ COUNCIL_SITE=os.example.com
 ## 3. 部署
 
 ```bash
-sh infra/deploy/deploy.sh
+sh infra/deploy/deploy.sh          # 全量部署，也支持 api / web / infra / monitor 分步部署
 ```
 
 它会构建网页、把程序传到服务器、安装依赖、重启服务。以后每次更新代码，再执行一次这条命令即可；数据库结构的变更会在服务启动时自动应用。
+
+> **从旧版 `0.3.0` 公开库升级注意**：`0.3.14` 起公开库与主仓库已完全统一为同一套编号迁移（`0001`–`0024`）。如果你曾在 `0.3.0` 运行过旧的 `0006_wechat_merchant.sql`，升级前请先备份数据库；因 `wechat_merchant` / `wechat_merchant_rule` 两列在新迁移序列中对应 `0011` 与 `0012`，已有该两列的旧库需在升级前将这两列迁移状态对齐（或以全新空库导入）。全新部署直接运行 `deploy.sh` 即可。
+
+更多备份监控与灾备恢复细节见 [MONITORING.md](MONITORING.md) 与 [RECOVERY.md](RECOVERY.md)。
 
 ## 4. 连接设备
 

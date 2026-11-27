@@ -1,10 +1,35 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bookkeepingStart, dailyCost, freedom, whatIf } from "../index.ts";
+import { bookkeepingStart, businessDayEnd, dailyCost, expenseKnownAt, freedom, freedomTrend, whatIf } from "../index.ts";
+import { treasury } from "../../treasury/index.ts";
 
 const spend = (day: string, yuan: number, more = {}) => ({ data: { day, amountMinor: String(yuan * 100), mode: "immediate", ...more } });
 const item = (startDay: string, endDay: string, yuan: number, more = {}) => ({
   data: { day: startDay, startDay, endDay, amountMinor: String(yuan * 100), mode: "estimated", ...more },
+});
+
+test("trend values use dated balances and cumulative costs, with gaps and a current endpoint", () => {
+  const row = (id: string, data: Record<string, unknown>) => ({ id, data, updatedAt: "" });
+  const history = treasury({
+    wallets: [row("stable", { category: "cny" }), row("off", { category: "external" })],
+    assets: [],
+    entries: [
+      row("off-value", { walletId: "off", at: "2026-01-01T00:00:00Z", mode: "set", quantity: "9999" }),
+      row("stable-value", { walletId: "stable", at: "2026-01-02T16:00:00Z", mode: "set", quantity: "200" }),
+    ],
+    historyOf: { wallets: new Set(["stable"]), assets: new Set() },
+  }).history;
+  const points = freedomTrend([
+    spend("2026-01-01", 100),
+    spend("2026-01-03", 20, { recoveryDay: "2026-01-04", recoveryMinor: "2000" }),
+  ], history, {
+    from: "2026-01-02", to: "2026-01-09", today: "2026-01-04", assetsToday: 25000n, basis: "term",
+  });
+  assert.deepEqual(points, [
+    { day: "2026-01-02", average: 5000, usageCost: 0, days: null },
+    { day: "2026-01-03", average: 4000, usageCost: 2000, days: 5 },
+    { day: "2026-01-04", average: 2500, usageCost: 0, days: 10 },
+  ]);
 });
 
 test("daily cost averages ordinary spending over every day since bookkeeping began", () => {
@@ -70,4 +95,46 @@ test("an item never costs more than its price: ended, sold, or used past its exp
   // Sold for ¥400 when it ended: only the ¥600 actually lost counts.
   const sold = item("2026-01-01", "2026-04-10", 1000, { endedDay: "2026-02-19", recoveryMinor: "40000" });
   assert.equal(total(sold, "2026-12-31", "current"), 60_000);
+});
+
+test("daily usage trend includes only that day's spending and active long-term cost", () => {
+  const options = {
+    from: "2026-01-01", to: "2026-01-05", today: "2026-01-05", assetsToday: null, basis: "term",
+  } as const;
+  const rows = [
+    spend("2026-01-02", 30),
+    spend("2026-01-03", 60),
+    item("2026-01-02", "2026-01-03", 20, { mode: "fixed" }),
+    spend("2026-01-06", 999),
+  ];
+  const points = freedomTrend(rows, [], options);
+  assert.deepEqual(points.map((p) => p.usageCost), [null, 4000, 7000, 0, 0]);
+  assert.equal(points[3].average, 11000 / 3);
+  assert.equal(points[4].usageCost, dailyCost(rows, options.today, options).today);
+});
+
+test("retroactive refunds revise the as-known balance starting on the day received", () => {
+  const rows = [
+    spend("2026-01-01", 100, { recoveryMinor: "2500", recoveryDay: "2026-01-03" }),
+    item("2026-01-02", "2026-01-08", 210, { endedDay: "2026-01-04", recoveryDay: "2026-01-05", recoveryMinor: "9000" }),
+  ];
+  for (const basis of ["current", "term"] as const) {
+    const today = "2026-01-06";
+    const points = freedomTrend(rows, [], { from: "2026-01-01", to: today, today, assetsToday: null, basis });
+    for (const point of points) {
+      const cost = dailyCost(point.day === today ? rows : rows.map((row) => expenseKnownAt(row, point.day)), point.day, { basis });
+      assert.equal(point.usageCost, cost.today);
+      assert.equal(point.average, cost.average);
+    }
+  }
+});
+
+test("Shanghai closing balances exclude the next day's midnight and seven am", () => {
+  assert.equal(businessDayEnd("2026-01-01"), Date.parse("2026-01-01T16:00:00Z"));
+  const points = freedomTrend([spend("2026-01-01", 1)], [
+    { at: "2026-01-01T15:00:00Z", value: 100n },
+    { at: "2026-01-02T00:00:00+08:00", value: 200n },
+    { at: "2026-01-02T07:00:00+08:00", value: 300n },
+  ], { from: "2026-01-01", to: "2026-01-02", today: "2026-01-03", assetsToday: null, basis: "term" });
+  assert.deepEqual(points.map((point) => point.days), [1, 6]);
 });

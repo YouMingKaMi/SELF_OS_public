@@ -22,4 +22,5 @@ for (const vector of vectors)
     assert.deepEqual(summary.daily, vector.daily);
     assert.equal(summary.overlapSeconds, vector.overlapSeconds);
     assert.equal(summary.manualSeconds, vector.manualSeconds);
+    assert.equal(summary.unlocatedSeconds, vector.unlocatedSeconds ?? 0);
   });

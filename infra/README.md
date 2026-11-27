@@ -10,7 +10,7 @@
 | deploy/council-next-api.service | API systemd 单元（只读文件系统、无特权、内存上限） |
 | deploy/council.caddy | 9443 站点：安全头、CSP、SSE 不缓冲、日志删除 Cookie/Authorization/IP |
 | deploy/backup.sh + backup.service/timer | 每日 pg_dump → 恢复到临时库逐表核对 → 保留最新 3 份 |
-| deploy/pull-backup.sh | Mac 把最新的已验证备份复制到 iCloud「SELF OS 备份/数据库」，核对校验和，保留最新 7 份 |
+| deploy/pull-backup.sh | Mac 把最新的已验证备份复制到 iCloud「个人决策团备份/新版数据库」，核对校验和，保留最新 7 份 |
 | deploy/install-backup-agent.sh | 在 Mac 上安装每日 13:00 自动执行上面这一步（LaunchAgent），日志在 ~/Library/Logs/CouncilNext |
 
 设备管理（在服务器上执行，不经 HTTP）：
@@ -25,4 +25,4 @@ cd /opt/council-next/app && sudo -u council env DATABASE_URL='postgresql://counc
 
 本地开发仍用 compose.yaml 的 PostgreSQL 与 `COUNCIL_DEV_TOKEN` 开发身份。
 
-完整的部署步骤见 [docs/deploy.md](../docs/deploy.md)。
+灾难恢复步骤见 [docs/RECOVERY.md](../docs/RECOVERY.md)。

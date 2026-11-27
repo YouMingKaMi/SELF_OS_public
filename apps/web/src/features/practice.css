@@ -11,16 +11,18 @@
   flex-wrap: wrap;
 }
 .domain-chips button {
-  height: 28px;
-  padding: 0 12px;
+  height: 26px;
+  padding: 0 11px;
   border-radius: 99px;
-  border-color: var(--line-2);
+  border: 1px solid transparent;
+  background: var(--fill);
   color: var(--text-2);
+  font-size: var(--fs-xs);
 }
 .domain-chips button.selected {
-  background: var(--solid);
-  border-color: var(--solid);
-  color: var(--solid-text);
+  background: var(--surface-3);
+  border-color: var(--text-3);
+  color: var(--text);
   font-weight: 600;
 }
 .focus-dot {
@@ -62,21 +64,22 @@
   height: 24px;
   border-color: transparent;
   background-color: transparent;
-  padding-left: 6px;
-  color: var(--text);
+  padding-left: 4px;
+  color: var(--text-2);
 }
 .scope select:hover {
-  background-color: var(--surface-2);
+  background-color: transparent;
+  color: var(--text);
 }
 .timer-stage {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 16px 16px 18px;
-  border: 1px solid var(--line-2);
+  padding: 12px 14px;
+  border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: var(--bg);
+  background: var(--surface-2);
 }
 .timer-stage.live {
   border-color: var(--line-3);
@@ -84,21 +87,24 @@
 .timer-face {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 .timer-face small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
 }
 .timer-face .timer-digits {
   padding: 0;
-  font: 300 38px / 1.05 var(--mono);
-  letter-spacing: -0.05em;
+  font: 400 26px / 1.1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
 }
 .timer-face.idle .timer-digits {
-  color: var(--text-4);
+  color: var(--text-3);
 }
 .timer-stage.live .timer-face small::before {
   content: "";
@@ -113,15 +119,65 @@
 }
 .timer-controls {
   display: flex;
+  align-items: center;
   gap: 6px;
   flex: none;
 }
 .timer-controls .primary {
-  height: 32px;
-  padding: 0 16px;
+  height: 28px;
+  padding: 0 12px;
+  gap: 5px;
+  font-size: var(--fs-sm);
+}
+.timer-controls .primary .icon {
+  width: 11px;
+  height: 11px;
+}
+.practice-cockpit .capture-box {
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  transition: border-color 0.14s;
+}
+.practice-cockpit .capture-box:focus-within {
+  border-color: var(--line-3);
 }
 .practice-cockpit .capture-text {
-  min-height: 64px;
+  min-height: 58px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  resize: none;
+  line-height: 1.6;
+}
+.practice-cockpit .capture-text:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+.practice-cockpit .capture-box .form-actions {
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+}
+.practice-cockpit .capture-box .form-actions .primary {
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+}
+.practice-cockpit .capture-box .form-actions .primary:disabled {
+  background: var(--fill);
+  border-color: transparent;
+  color: var(--text-3);
+  opacity: 0.7;
+}
+:root[data-shell="macos"] .timer-face .timer-digits {
+  font-size: 24px;
+}
+:root[data-shell="macos"] .timer-controls .primary {
+  height: 26px;
+  padding: 0 11px;
+  font-size: 12px;
 }
 .progress-timeline {
   display: flex;
@@ -357,10 +413,10 @@
 .rhythm {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 6px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line-2);
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 .rhythm > header {
   display: flex;
@@ -375,7 +431,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-size: var(--fs-xs);
   color: var(--text-2);
 }
@@ -385,21 +441,24 @@
   gap: 3px;
 }
 .heat-caption i {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 2.5px;
 }
 .heat-grid {
   display: grid;
   grid-template-rows: repeat(7, 1fr);
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 3px;
+  gap: 2.5px;
 }
 .heat-grid i {
   aspect-ratio: 1;
-  max-height: 16px;
-  border-radius: 3px;
+  max-height: 11px;
+  border-radius: 2.5px;
+}
+:root[data-shell="macos"] .heat-grid i {
+  max-height: 10px;
 }
 .heat i[data-level="0"] {
   background: var(--surface-3);
@@ -422,4 +481,78 @@
 .heat-grid i.today {
   outline: 1px solid var(--text-3);
   outline-offset: 1px;
+}
+
+.practice-event-layout > .panel {
+  align-self: start;
+  max-height: 100%;
+}
+.practice-events .panel-content {
+  padding: 6px 8px;
+}
+.event-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 4px;
+  padding: 0 4px;
+  border-radius: var(--r-sm);
+}
+.event-row + .event-row {
+  margin-top: 2px;
+}
+.event-row.selected {
+  background: var(--surface-2);
+}
+.event-select {
+  justify-content: space-between;
+  gap: 8px;
+  height: auto;
+  min-height: 38px;
+  padding: 5px 6px;
+  text-align: left;
+  background: transparent;
+}
+.event-select:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+.event-label {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.event-label small,
+.event-select time,
+.event-detail {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.event-select time {
+  flex: none;
+}
+.practice-events button.event-icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  flex: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+}
+.practice-events button.event-icon:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+.event-detail {
+  grid-column: 1 / -1;
+  padding: 0 6px 4px;
+  overflow-wrap: anywhere;
+}
+.event-detail p {
+  margin: 2px 0;
+  white-space: pre-wrap;
 }

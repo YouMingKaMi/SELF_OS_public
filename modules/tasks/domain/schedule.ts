@@ -47,6 +47,33 @@ export function overlaps(
   const bounds = scheduleBounds(schedule);
   return !!bounds && bounds[0] <= end && bounds[1] >= start;
 }
+export function isTodaySchedule(schedule: Schedule, day: string): boolean {
+  switch (schedule.kind) {
+    case "day":
+      return schedule.date === day;
+    case "range":
+      return (
+        validDay(schedule.start) &&
+        validDay(schedule.end) &&
+        schedule.start <= day &&
+        schedule.end >= day
+      );
+    case "deadline":
+      return validDay(schedule.date);
+    case "recent":
+      return true;
+    case "unscheduled":
+      return false;
+  }
+}
+
+export function belongsToday(
+  task: { status: string; schedule: Schedule },
+  day: string,
+): boolean {
+  return task.status === "pending" && isTodaySchedule(task.schedule, day);
+}
+
 /** Flat, queryable form of a schedule as stored on the task entity. */
 export type ScheduleFields = {
   scheduleKind: Schedule["kind"];

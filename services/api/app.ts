@@ -1,11 +1,18 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { timingSafeEqual } from "node:crypto";
 import type { Caller, IdentityService, SyncService } from "../../modules/kernel/server.ts";
+import { commandBatchSchema, type CommandBatch } from "../../packages/contracts/command-batch.ts";
+import { recoveryRequestSchema, type RecoveryRequest } from "../../packages/contracts/recovery.ts";
 import type { QuoteService } from "./quotes.ts";
 import {
   commandSchema,
   type Command,
 } from "../../packages/contracts/entities.ts";
+import {
+  syncScopeProperties,
+  syncScopeSchema,
+  type SyncScope,
+} from "../../packages/contracts/snapshot.ts";
 
 /** What a request presents. Exactly one of bearer / cookie is used. */
 export type Presented = {
@@ -96,7 +103,11 @@ function clientError(error: unknown) {
   const code = error instanceof Error ? error.message : "";
   if (!/^[A-Z][A-Z_]+(:\w+)?$/.test(code)) return null;
   return {
-    status: ["OPERATION_REUSED", "NOT_FOUND"].includes(code) ? 409 : 400,
+    status: [
+      "OPERATION_REUSED", "NOT_FOUND", "ENTITY_TYPE_COLLISION", "DATASET_MISMATCH",
+      "GENERATION_MISMATCH", "CURSOR_AHEAD", "SNAPSHOT_EXPIRED", "SNAPSHOT_BUSY",
+      "SYNC_UPGRADE_REQUIRED",
+    ].includes(code) ? 409 : 400,
     code,
   };
 }
@@ -185,7 +196,17 @@ export function buildApp(
       return receipt;
     },
   );
-  app.get<{ Querystring: { cursor?: string; limit?: number } }>(
+  app.post<{ Body: CommandBatch }>(
+    "/v1/command-batches",
+    { schema: { headers: deviceHeader, body: commandBatchSchema } },
+    async (req) => {
+      const { owner, device } = caller(req);
+      const receipt = await sync.executeBatch(owner, device, req.body);
+      if (receipt.outcome === "accepted") hub.publish(owner, receipt.effects.at(-1)!.revision);
+      return receipt;
+    },
+  );
+  app.get<{ Querystring: { cursor?: string; limit?: number } & Partial<SyncScope> }>(
     "/v1/changes",
     {
       schema: {
@@ -195,12 +216,43 @@ export function buildApp(
           properties: {
             cursor: { type: "string", pattern: "^[0-9]{1,18}$" },
             limit: { type: "integer", minimum: 1, maximum: 500 },
+            ...syncScopeProperties,
           },
+          dependencies: { datasetId: ["generation"], generation: ["datasetId"] },
         },
       },
     },
-    (req) => sync.changes(caller(req).owner, req.query.cursor, req.query.limit),
+    (req) => {
+      const { cursor, limit, datasetId, generation } = req.query;
+      return sync.changes(caller(req).owner, cursor, limit,
+        datasetId && generation ? { datasetId, generation } : undefined);
+    },
   );
+  app.get("/v1/sync-state", (req) => sync.state(caller(req).owner));
+  app.post<{ Body: RecoveryRequest }>("/v1/recovery-matches", {
+    schema: { headers: deviceHeader, body: recoveryRequestSchema },
+  }, (req) => {
+    const { owner, device } = caller(req);
+    return sync.reconcile(owner, device, req.body);
+  });
+  app.post<{ Body: SyncScope }>("/v1/snapshots", {
+    schema: { body: syncScopeSchema },
+  }, (req) => sync.snapshot(caller(req).owner, req.body));
+  app.get<{ Params: { id: string }; Querystring: { after?: string; limit?: number } }>("/v1/snapshots/:id", {
+    schema: {
+      params: {
+        type: "object", required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      querystring: {
+        type: "object", additionalProperties: false,
+        properties: {
+          after: { type: "string", pattern: "^[0-9]{1,15}$" },
+          limit: { type: "integer", minimum: 1, maximum: 500 },
+        },
+      },
+    },
+  }, (req) => sync.snapshotPage(caller(req).owner, req.params.id, req.query.after, req.query.limit));
 
   const streams = new Set<() => void>();
   // Server-sent "changed" hints. A client reconnects with backoff and always pulls by cursor afterwards.
