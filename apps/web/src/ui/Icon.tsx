@@ -204,6 +204,55 @@ const paths: Record<string, React.ReactNode> = {
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />,
   plus: <path d="M12 4v16M4 12h16" />,
   play: <path d="m7 5 12 7-12 7Z" fill="currentColor" stroke="none" />,
+  pause: (
+    <>
+      <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+      <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  ellipsis: (
+    <>
+      <circle cx="6" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </>
+  ),
+  review: (
+    <>
+      <rect x="4" y="13" width="3.5" height="7" rx="1" />
+      <rect x="10.25" y="8" width="3.5" height="12" rx="1" />
+      <rect x="16.5" y="4" width="3.5" height="16" rx="1" />
+    </>
+  ),
+  "today-grid": (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
+    </>
+  ),
+  sliders: (
+    <>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+      <circle cx="8" cy="6" r="2" fill="var(--bg)" />
+      <circle cx="16" cy="12" r="2" fill="var(--bg)" />
+      <circle cx="10" cy="18" r="2" fill="var(--bg)" />
+    </>
+  ),
+  "dept-tab": (
+    <>
+      <path d="M4 20h16M6 20V7a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v13" />
+      <path d="M14 20v-9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v9" />
+      <path d="M9 10h2M9 14h2" />
+    </>
+  ),
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+    </>
+  ),
   check: <path d="m4 12 5 5L20 6" />,
   edit: <path d="m15 5 4 4M4 20l1-5L16 4a2.8 2.8 0 0 1 4 4L9 19Z" />,
 };

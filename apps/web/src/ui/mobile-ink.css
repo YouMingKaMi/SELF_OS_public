@@ -1,13 +1,13 @@
 /*
  * SELF OS · Mobile Ink visual language (<= 760px / Android APK)
  *
- * Mirrors iPhone CouncilStudio (Theme.swift `Ink`):
- *  - Pure OLED black canvas (#000000), lifted obsidian cards (#121212) with 22px radius and no borders
- *  - No interior card header hairlines; crisp white 15px semibold titles
- *  - Modular mobile type scale: 28px display, 36px semibold tabular hero figures, 15px rows, 13px meta, 11px micro
- *  - Pure white as the sole primary accent, capsule controls, floating frosted glass dock, bottom-sheet modals
- *
- * Strictly scoped to @media (max-width: 760px) so macOS / Desktop remains untouched.
+ * Pure OLED black tokens matching iPhone CouncilStudio (Theme.swift `Ink`)
+ * plus compact, borderless styling scoped to `.ms-pushed-body` (secondary
+ * feature screens pushed inside MobileStudio) so:
+ *  - MobileStudio's 5 root tabs stay 100% isolated from desktop CSS
+ *  - Every pushed feature (Tasks, Finance, Storage, Habits, Settings, etc.)
+ *    renders with iPhone compactness, 22px #121212 cards, and 15px rows
+ *  - Desktop / macOS (> 760px) remains 100% untouched
  */
 
 @media (max-width: 760px) {
@@ -62,21 +62,20 @@
   /* ───────────── Unified Ink Type & Spacing Scale ───────────── */
   :root {
     --fs-micro: 11px;
-    --fs-xs: 13px;
-    --fs-sm: 14px;
+    --fs-xs: 12.5px;
+    --fs-sm: 13.5px;
     --fs: 15px;
     --fs-md: 16px;
-    --fs-lg: 22px;
-    --fs-xl: 30px;
+    --fs-lg: 20px;
+    --fs-xl: 28px;
 
     --r-sm: 10px;
     --r: 14px;
     --r-lg: 22px;
-    --control: 38px;
-    --row: 44px;
+    --control: 36px;
+    --row: 42px;
     --gap: 12px;
-    --pad: 18px;
-    --topbar: 48px;
+    --pad: 16px;
   }
 
   html,
@@ -86,30 +85,87 @@
     line-height: 1.48;
   }
 
-  /* Consistent 15px form inputs — never oversized relative to card headers */
-  .studio-shell input,
-  .studio-shell textarea,
-  .studio-shell select {
+  /* Toast & Pairing screen on OLED black */
+  .toast {
+    bottom: calc(82px + var(--inset-bottom));
+    left: 16px;
+    right: 16px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--surface-2);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
+  }
+  .pairing-card {
+    border: 0;
+    border-radius: 24px;
+    background: var(--surface);
+    padding: 24px 20px;
+  }
+
+  /* ───────────── Compact Pushed Feature Screens (.ms-pushed-body) ───────────── */
+  .ms-pushed-body .columns,
+  .ms-pushed-body .columns.finance,
+  .ms-pushed-body .columns.practice,
+  .ms-pushed-body .columns.writing,
+  .ms-pushed-body .columns.tasks,
+  .ms-pushed-body .columns.habits,
+  .ms-pushed-body .columns.treasury {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    overflow: visible;
+  }
+  .ms-pushed-body .columns > * {
+    overflow: visible;
+    min-height: 0;
+  }
+
+  /* Action row inside pushed screens: neat single-line horizontal chips */
+  .ms-pushed-body .heading-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 8px;
+    width: calc(100% + 32px);
+    margin: 0 -16px;
+    padding: 2px 16px;
+    justify-content: flex-start;
+  }
+  .ms-pushed-body .heading-actions::-webkit-scrollbar {
+    display: none;
+  }
+  .ms-pushed-body .heading-actions > * {
+    flex: none;
+  }
+
+  /* Inputs, selects, textareas */
+  .ms-pushed-body input,
+  .ms-pushed-body textarea,
+  .ms-pushed-body select {
     font-size: 15px;
     background: var(--surface-2);
     border: 0;
     border-radius: 14px;
     color: var(--text);
   }
-  .studio-shell input,
-  .studio-shell select {
-    min-height: 42px;
+  .ms-pushed-body input,
+  .ms-pushed-body select {
+    min-height: 40px;
     height: auto;
-    padding: 8px 14px;
+    padding: 7px 13px;
   }
-  .studio-shell select {
-    padding-right: 30px;
+  .ms-pushed-body select {
+    padding-right: 28px;
   }
-  .studio-shell textarea {
-    padding: 12px 14px;
+  .ms-pushed-body textarea {
+    padding: 11px 13px;
     line-height: 1.55;
   }
-  .studio-shell input[type="checkbox"] {
+  .ms-pushed-body input[type="checkbox"] {
     min-height: 0;
     width: 20px;
     height: 20px;
@@ -119,372 +175,230 @@
     background: transparent;
   }
 
-  /* ───────────── Pure Black Minimal Topbar ───────────── */
-  .studio-shell .studio-topbar {
-    background: var(--bg);
-    border-bottom: 0;
-    height: calc(var(--topbar) + var(--inset-top));
-    padding: var(--inset-top) 12px 0;
-  }
-  .studio-shell .studio-topbar button {
-    background: transparent;
-    border: 0;
-    border-radius: 999px;
-    min-width: 38px;
-    min-height: 38px;
-    height: 38px;
-    padding: 0 8px;
-    color: var(--text-2);
-  }
-  .studio-shell .studio-topbar .web-back-btn.hidden-mobile {
-    display: none;
-  }
-  .studio-shell .mobile-page-title {
-    display: none;
-  }
-  .studio-shell .studio-topbar .global-sync {
-    padding: 0 10px;
-    gap: 6px;
-  }
-
-  /* ───────────── Workspace Canvas & Drawer ───────────── */
-  .studio-shell .workspace-pane {
-    padding: 4px 16px calc(98px + var(--inset-bottom));
-    gap: 12px;
-  }
-  .studio-shell .studio-sidebar {
-    background: var(--sidebar-bg);
-    border-right: 0;
-    border-radius: 0 24px 24px 0;
-    width: 276px;
-    padding: calc(14px + var(--inset-top)) 14px calc(16px + var(--inset-bottom));
-  }
-  .studio-shell .studio-sidebar .studio-brand {
-    background: transparent;
-    height: 46px;
-    margin-bottom: 8px;
-  }
-  .studio-shell .studio-sidebar .studio-brand strong {
-    font-size: 16px;
-    font-weight: 700;
-  }
-  .studio-shell .studio-sidebar .nav-section {
-    font-family: var(--font);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--text-3);
-    padding: 14px 10px 6px;
-  }
-  .studio-shell .studio-sidebar nav button,
-  .studio-shell .studio-sidebar-bottom button {
-    background: transparent;
-    border: 0;
-    border-radius: 14px;
-    height: 42px;
-    padding: 0 12px;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text-2);
-  }
-  .studio-shell .studio-sidebar nav button.active {
-    background: var(--surface-2);
-    color: var(--text);
-    font-weight: 600;
-  }
-  .studio-shell .studio-sidebar .nav-hint {
-    display: none;
-  }
-
-  /* ───────────── Page Display Header (iPhone TodayScreen Rhythm) ───────────── */
-  .studio-shell .feature-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 0;
-    padding: 2px 4px 4px;
-  }
-  .studio-shell .feature-heading small {
-    display: none;
-  }
-  .studio-shell .feature-heading > div:first-child {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .studio-shell .feature-heading h1 {
-    font-size: 30px;
-    font-weight: 700;
-    letter-spacing: -0.028em;
-    line-height: 1.15;
-    color: var(--text);
-    white-space: normal;
-  }
-  .studio-shell .feature-heading p {
-    font-size: 13px;
-    color: var(--text-3);
-    white-space: normal;
-    line-height: 1.4;
-  }
-  .studio-shell .heading-actions {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 8px;
-  }
-
-  /* ───────────── Pill Controls & Segmented Chips ───────────── */
-  .studio-shell button {
+  /* Pill controls & segmented bars */
+  .ms-pushed-body button {
     border: 0;
     border-radius: 999px;
     background: var(--surface-2);
     color: var(--text);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
-    min-height: 36px;
+    min-height: 34px;
     height: auto;
-    padding: 7px 14px;
+    padding: 6px 13px;
   }
-  .studio-shell button.primary {
+  .ms-pushed-body button.primary {
     background: var(--solid);
     color: var(--solid-text);
     font-weight: 600;
-    min-height: 40px;
-    padding: 8px 18px;
+    min-height: 36px;
+    padding: 7px 16px;
   }
-  .studio-shell button.muted,
-  .studio-shell button.ghost,
-  .studio-shell .row-tools button {
+  .ms-pushed-body button.muted,
+  .ms-pushed-body button.ghost,
+  .ms-pushed-body .row-tools button {
     background: transparent;
     color: var(--text-2);
-    padding: 6px 10px;
+    padding: 5px 9px;
   }
-  .studio-shell button.danger {
+  .ms-pushed-body button.danger {
     background: rgba(255, 110, 110, 0.14);
     color: var(--danger);
   }
-  .studio-shell .segmented {
+  .ms-pushed-body .segmented {
     background: var(--surface);
     border: 0;
     border-radius: 999px;
     padding: 3px;
-    gap: 3px;
+    gap: 2px;
   }
-  .studio-shell .segmented button {
+  .ms-pushed-body .segmented button {
     background: transparent;
     color: var(--text-2);
-    min-height: 32px;
-    height: 32px;
-    padding: 0 13px;
+    min-height: 30px;
+    height: 30px;
+    padding: 0 12px;
     font-size: 13px;
     font-weight: 500;
   }
-  .studio-shell .segmented button.active {
+  .ms-pushed-body .segmented button.active {
     background: var(--solid);
     color: var(--solid-text);
     font-weight: 600;
     box-shadow: none;
   }
-  .studio-shell .tabs {
-    border-bottom: 1px solid var(--line);
-    gap: 18px;
+  .ms-pushed-body .tabs {
+    border-bottom: 0.5px solid var(--line);
+    gap: 16px;
     padding: 0 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .studio-shell .tabs button {
+  .ms-pushed-body .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .ms-pushed-body .tabs button {
     background: transparent;
     border-radius: 0;
-    min-height: 38px;
+    min-height: 36px;
     padding: 0 2px;
     font-size: 14px;
     color: var(--text-2);
   }
-  .studio-shell .tabs button.active {
+  .ms-pushed-body .tabs button.active {
     color: var(--text);
     font-weight: 600;
   }
-  .studio-shell .stepper {
+  .ms-pushed-body .stepper {
     background: var(--surface-2);
     border: 0;
     border-radius: 999px;
-    height: 36px;
+    height: 34px;
     padding: 0 4px;
   }
-  .studio-shell .stepper > button {
+  .ms-pushed-body .stepper > button {
     background: transparent;
-    min-height: 32px;
-    width: 32px;
+    min-height: 30px;
+    width: 30px;
     padding: 0;
     color: var(--text-2);
   }
-  .studio-shell .stepper > label > span {
-    font-size: 14px;
+  .ms-pushed-body .stepper > label > span {
+    font-size: 13.5px;
     font-weight: 600;
   }
 
-  /* ───────────── Ink Obsidian Cards (Borderless, 22px Radius, No Header Rule) ───────────── */
-  .studio-shell .panel,
-  .studio-shell .finance-summary,
-  .studio-shell .treasury-hero,
-  .studio-shell .dept-card,
-  .studio-shell .storage-wall,
-  .studio-shell .storage-open,
-  .studio-shell .storage-out-strip,
-  .studio-shell .storage-search-results {
+  /* Obsidian Ink Cards (22px continuous radius, #121212, no borders, compact pad) */
+  .ms-pushed-body .panel,
+  .ms-pushed-body .finance-summary,
+  .ms-pushed-body .treasury-hero,
+  .ms-pushed-body .storage-wall,
+  .ms-pushed-body .storage-open,
+  .ms-pushed-body .storage-out-strip,
+  .ms-pushed-body .storage-search-results {
     background: var(--surface);
     border: 0;
     border-radius: 22px;
   }
-  .studio-shell .panel > header {
+  .ms-pushed-body .panel > header {
     border-bottom: 0;
     min-height: 0;
-    padding: 16px 18px 4px;
+    padding: 15px 16px 4px;
     flex-wrap: wrap;
-    row-gap: 10px;
+    row-gap: 8px;
   }
-  .studio-shell .panel > header h2,
-  .studio-shell .home-widget .panel > header h2 {
+  .ms-pushed-body .panel > header h2 {
     font-size: 15px;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--text);
     flex-shrink: 0;
   }
-  .studio-shell .panel > header > :last-child:not(h2) {
+  .ms-pushed-body .panel > header > :last-child:not(h2) {
     max-width: 100%;
     justify-content: flex-start;
   }
-  .studio-shell .panel > header .segmented {
+  .ms-pushed-body .panel > header .segmented {
     width: 100%;
     justify-content: space-between;
     overflow-x: auto;
   }
-  .studio-shell .panel > header select {
-    min-height: 34px;
-    padding: 4px 28px 4px 12px;
-    font-size: 13.5px;
+  .ms-pushed-body .panel > header select {
+    min-height: 32px;
+    padding: 4px 26px 4px 11px;
+    font-size: 13px;
     border-radius: 999px;
   }
-  .studio-shell .panel > header button {
+  .ms-pushed-body .panel > header button {
     background: transparent;
     color: var(--text-3);
-    min-height: 32px;
+    min-height: 30px;
     padding: 0 8px;
     font-size: 13px;
   }
-  .studio-shell .panel-content {
-    padding: 10px 18px 18px;
-    gap: 12px;
+  .ms-pushed-body .panel-content {
+    padding: 10px 16px 16px;
+    gap: 10px;
   }
 
-  /* ───────────── Hero Figures & Stat Strips (Clear Visual Hierarchy) ───────────── */
-  .studio-shell .home-figure strong,
-  .studio-shell .home-task-count strong,
-  .studio-shell .home-session .timer-digits,
-  .studio-shell .finance-summary .figure strong,
-  .studio-shell .treasury-hero > div:first-child strong {
+  /* Tabular Figures & Compact Stat Strips */
+  .ms-pushed-body .finance-summary .figure strong,
+  .ms-pushed-body .treasury-hero > div:first-child strong {
     font-family: var(--font);
     font-weight: 600;
-    font-size: 36px;
-    line-height: 1.06;
-    letter-spacing: -0.035em;
+    font-size: 32px;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
     color: var(--text);
   }
-  .studio-shell .home-figure span,
-  .studio-shell .home-task-count span,
-  .studio-shell .finance-summary .figure span {
-    font-size: 13px;
-    color: var(--text-3);
+  .ms-pushed-body .finance-summary {
+    padding: 16px;
+    gap: 14px;
   }
-  .studio-shell .stats-strip {
+  .ms-pushed-body .treasury-hero {
+    padding: 16px;
+    gap: 10px;
+  }
+  .ms-pushed-body .stats-strip {
     background: var(--surface);
     border: 0;
     border-radius: 20px;
-    gap: 0;
-    padding: 14px 16px;
-    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    gap: 4px;
+    padding: 12px 14px;
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   }
-  .studio-shell .panel-content > .stats-strip {
+  .ms-pushed-body .panel-content > .stats-strip {
     background: var(--surface-2);
     border-radius: 16px;
-    padding: 12px 14px;
+    padding: 10px 12px;
   }
-  .studio-shell .stats-strip > div {
+  .ms-pushed-body .stats-strip > div {
     background: transparent;
-    padding: 4px 6px;
-    gap: 4px;
+    padding: 3px 5px;
+    gap: 3px;
   }
-  .studio-shell .stats-strip small {
+  .ms-pushed-body .stats-strip small {
     font-size: 11px;
     font-weight: 500;
     color: var(--text-3);
   }
-  .studio-shell .stats-strip strong {
+  .ms-pushed-body .stats-strip strong {
     font-family: var(--font);
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     color: var(--text);
   }
 
-  /* ───────────── Home Screen (Clean Vertical Ink Stack) ───────────── */
-  .studio-shell .home-quick-actions {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    gap: 8px;
-    margin: 0 -16px;
-    padding: 2px 16px 4px;
-  }
-  .studio-shell .home-quick-actions::-webkit-scrollbar {
-    display: none;
-  }
-  .studio-shell .home-quick-actions > span {
-    display: none;
-  }
-  .studio-shell .home-quick-actions button {
-    flex: none;
-    height: 36px;
-    min-height: 36px;
-    padding: 0 14px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 13.5px;
-    font-weight: 500;
-  }
-  .studio-shell .home-quick-actions .icon {
-    width: 15px;
-    height: 15px;
-    color: var(--text-2);
-  }
-  .studio-shell .home-grid {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  .studio-shell .home-widget {
-    width: 100%;
-    padding-bottom: 0;
-    grid-row-end: auto !important;
-  }
-  .studio-shell .home-widget .panel-content {
-    padding: 8px 18px 18px;
-    gap: 12px;
-  }
-  .studio-shell .home-widget textarea {
-    background: var(--surface-2);
-    border-radius: 14px;
-    min-height: 68px;
-  }
-  .studio-shell .home-task-row {
+  /* Dense Lists, Tasks, Ledger, Settings Rows */
+  .ms-pushed-body .dense-list > * {
     min-height: 44px;
-    gap: 12px;
+    padding: 7px 0;
+    font-size: 15px;
   }
-  .studio-shell .task-check,
-  .studio-shell .task-row .check {
+  .ms-pushed-body .dense-list > button,
+  .ms-pushed-body button.row-main,
+  .ms-pushed-body .ledger-row,
+  .ms-pushed-body .activity-list > button,
+  .ms-pushed-body .asset-tree button,
+  .ms-pushed-body .category-bars > button {
+    background: transparent;
+    border-radius: 12px;
+    font-weight: 400;
+  }
+  .ms-pushed-body .row-main strong {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .ms-pushed-body .row-main small,
+  .ms-pushed-body .dense-list small {
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+  .ms-pushed-body .task-row .check {
     width: 22px;
     height: 22px;
     min-height: 22px;
@@ -492,312 +406,196 @@
     border: 1.8px solid var(--line-3);
     background: transparent;
   }
-  .studio-shell .task-row .check.checked {
+  .ms-pushed-body .task-row .check.checked {
     background: var(--solid);
     border-color: var(--solid);
     color: var(--solid-text);
   }
-  .studio-shell .home-task-title,
-  .studio-shell .task-content {
+  .ms-pushed-body .task-content {
     background: transparent;
     border-radius: 0;
-    min-height: 40px;
+    min-height: 38px;
     height: auto;
     padding: 4px 0;
     font-size: 15px;
     font-weight: 400;
     color: var(--text);
+    white-space: normal;
+    text-align: left;
+    justify-content: flex-start;
   }
-  .studio-shell .home-task-more {
-    background: transparent;
-    padding: 6px 0;
-    min-height: 32px;
-    font-size: 13px;
+  .ms-pushed-body .settings-line {
+    min-height: 46px;
+    font-size: 14.5px;
     color: var(--text-2);
   }
-  .studio-shell .home-chronicle p {
+  .ms-pushed-body .settings-line strong {
     font-size: 15px;
-    line-height: 1.55;
-    padding-left: 14px;
+    font-weight: 600;
+    color: var(--text);
   }
-  .studio-shell .home-chronicle p::before {
-    top: 10px;
-    width: 5px;
-    height: 5px;
-    background: var(--text-3);
+  .ms-pushed-body .amount {
+    font-family: var(--font);
+    font-weight: 600;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
   }
-  .studio-shell .time-track {
-    height: 5px;
+  .ms-pushed-body .budget-bar {
+    height: 6px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.09);
   }
 
-  /* ───────────── Dense Lists & Rows (Clean, No Box Clutter) ───────────── */
-  .studio-shell .dense-list > * {
-    min-height: 46px;
-    padding: 8px 0;
-    font-size: 15px;
-  }
-  .studio-shell .dense-list > button,
-  .studio-shell button.row-main,
-  .studio-shell .ledger-row,
-  .studio-shell .search-results > button,
-  .studio-shell .activity-list > button,
-  .studio-shell .asset-tree button,
-  .studio-shell .category-bars > button {
-    background: transparent;
-    border-radius: 12px;
-    font-weight: 400;
-  }
-  .studio-shell .row-main strong {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text);
-  }
-  .studio-shell .row-main small,
-  .studio-shell .dense-list small {
-    font-size: 13px;
-    color: var(--text-3);
-  }
-  .studio-shell .settings-line {
-    min-height: 48px;
-    font-size: 15px;
-    color: var(--text-2);
-  }
-  .studio-shell .settings-line strong {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  /* ───────────── Departments, Discover & Settings Customization ───────────── */
-  .studio-shell .dept-card {
-    padding: 18px;
-    gap: 14px;
-  }
-  .studio-shell .dept-head {
-    background: transparent;
-    border-radius: 0;
-    padding: 0;
-    min-height: 0;
-  }
-  .studio-shell .dept-mark {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    border: 0;
-    background: var(--surface-2);
-  }
-  .studio-shell .dept-title strong {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text);
-  }
-  .studio-shell .dept-title small {
-    font-size: 13px;
-    color: var(--text-3);
-  }
-  .studio-shell .dept-pin {
-    background: transparent;
-    min-height: 32px;
-    width: 32px;
-    padding: 0;
-  }
-  .studio-shell .dept-features {
-    gap: 8px;
-  }
-  .studio-shell .dept-features button {
-    height: 34px;
-    min-height: 34px;
-    padding: 0 13px;
-    border: 0;
-    background: var(--surface-2);
-    color: var(--text);
-    font-size: 13.5px;
-  }
-  .studio-shell button.department-card,
-  .studio-shell .department-open {
-    background: var(--surface);
-    border: 0;
-    border-radius: 20px;
-    padding: 16px;
-  }
-  .studio-shell .section-toolbar {
-    gap: 10px;
-  }
-  .studio-shell .section-toolbar input {
-    width: 100%;
-    flex: 1 1 100%;
-  }
-  .studio-shell .global-search {
-    background: var(--surface);
-    border: 0;
-    border-radius: 16px;
-    padding: 2px 6px 2px 14px;
-  }
-  .studio-shell .global-search input {
-    background: transparent;
-    min-height: 44px;
-  }
-  .studio-shell .ws-preset-card {
+  /* Workspace Customization inside Settings */
+  .ms-pushed-body .ws-preset-card {
     border-radius: 18px;
     border: 1px solid var(--line);
     background: var(--surface-2);
-    padding: 14px 16px;
+    padding: 13px 15px;
   }
-  .studio-shell .ws-preset-card.active {
+  .ms-pushed-body .ws-preset-card.active {
     border-color: var(--solid);
     box-shadow: inset 0 0 0 1px var(--solid);
   }
-  .studio-shell .ws-module-grid {
+  .ms-pushed-body .ws-module-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
-  .studio-shell .ws-module-row {
+  .ms-pushed-body .ws-module-row {
     border: 0;
     border-radius: 16px;
     background: var(--surface-2);
     padding: 8px 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
-  .studio-shell .ws-switch {
+  .ms-pushed-body .ws-switch {
     border: 0;
     border-radius: 12px;
     background: var(--surface);
     min-height: 36px;
     height: 36px;
-    font-size: 13.5px;
+    font-size: 14px;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 12px;
   }
-  .studio-shell .ws-alias-input {
+  .ms-pushed-body .ws-switch > :last-child {
+    margin-left: auto;
+  }
+  .ms-pushed-body .ws-alias-input {
     background: var(--surface);
     min-height: 36px;
     height: 36px;
     font-size: 14px;
     padding: 0 12px;
+    width: 100%;
+  }
+  .ms-pushed-body .session-card,
+  .ms-pushed-body .capture-box,
+  .ms-pushed-body .activity-list > button.selected {
+    border: 0;
+    border-radius: 18px;
+    background: var(--surface-2);
   }
 
-  /* ───────────── Storage Boxes & Habits & Achievements Tiles on Mobile ───────────── */
-  .studio-shell .storage-search-input {
+  /* Storage, Habits, Achievements */
+  .ms-pushed-body .storage-search-input {
     background: var(--surface);
     border: 0;
-    border-radius: 16px;
-    min-height: 44px;
-    padding: 0 16px;
+    border-radius: 14px;
+    min-height: 42px;
+    padding: 0 14px;
     font-size: 15px;
   }
-  .studio-shell .storage-wall,
-  .studio-shell .storage-open {
-    padding: 16px;
+  .ms-pushed-body .storage-wall,
+  .ms-pushed-body .storage-open {
+    padding: 15px;
   }
-  .studio-shell .storage-chest,
-  .studio-shell .storage-starter-btn {
-    border-radius: 18px;
+  .ms-pushed-body .storage-chest,
+  .ms-pushed-body .storage-starter-btn {
+    border-radius: 16px;
     border: 0;
     background: var(--surface-2);
-    padding: 12px 14px;
+    padding: 11px 13px;
   }
-  .studio-shell .storage-chest.selected {
+  .ms-pushed-body .storage-chest.selected {
     background: var(--surface-3);
     box-shadow: inset 0 0 0 1.5px var(--solid);
   }
-  .studio-shell .storage-chest-meta strong {
+  .ms-pushed-body .storage-chest-meta strong {
     font-size: 15px;
     font-weight: 600;
   }
-  .studio-shell .storage-chest-meta small {
+  .ms-pushed-body .storage-chest-meta small {
     font-size: 12px;
   }
-  .studio-shell .storage-mc-slot {
-    border-radius: 16px;
+  .ms-pushed-body .storage-mc-slot {
+    border-radius: 14px;
     border: 0;
     background: var(--surface-2);
-    padding: 10px 8px;
+    padding: 9px 7px;
   }
-  .studio-shell .storage-mc-slot.selected {
+  .ms-pushed-body .storage-mc-slot.selected {
     background: var(--surface-3);
     box-shadow: inset 0 0 0 1.5px var(--solid);
   }
-  .studio-shell .storage-icon-cell,
-  .studio-shell .storage-icon-option,
-  .studio-shell .storage-hairline-icon {
-    border-radius: 12px;
+  .ms-pushed-body .storage-icon-cell,
+  .ms-pushed-body .storage-icon-option,
+  .ms-pushed-body .storage-hairline-icon {
+    border-radius: 11px;
     min-height: 0;
     padding: 0;
   }
-  .studio-shell .storage-link-btn {
+  .ms-pushed-body .storage-link-btn {
     background: transparent;
     padding: 0;
     min-height: 0;
     border-radius: 0;
   }
-  .studio-shell .habit-ring {
+  .ms-pushed-body .habit-ring {
     --size: 22px;
   }
-  .studio-shell .habit-name strong {
+  .ms-pushed-body .habit-name strong {
     font-size: 15px;
     font-weight: 500;
   }
-  .studio-shell .habit-controls button {
+  .ms-pushed-body .habit-controls button {
     min-height: 30px;
     height: 30px;
     padding: 0 11px;
     font-size: 13px;
   }
-  .studio-shell .habit-controls input {
+  .ms-pushed-body .habit-controls input {
     min-height: 30px;
     height: 30px;
     padding: 0 6px;
     font-size: 13px;
     border-radius: 10px;
   }
-  .studio-shell .habit-calendar button {
+  .ms-pushed-body .habit-calendar button {
     border-radius: 10px;
-    min-height: 36px;
-    height: 36px;
+    min-height: 34px;
+    height: 34px;
     padding: 4px 5px;
     border: 0;
     background: var(--surface-2);
   }
-  .studio-shell .shortcut-grid > div > button:first-child {
-    border-radius: 20px;
-    border: 0;
-    background: var(--surface);
-    padding: 16px;
-  }
-  .studio-shell .ach-card,
-  .studio-shell .ach-node {
+  .ms-pushed-body .ach-card,
+  .ms-pushed-body .ach-node {
     border-radius: 20px;
     border: 0;
     background: var(--surface);
   }
 
-  /* ───────────── Finance & Treasury Polish ───────────── */
-  .studio-shell .finance-summary {
-    padding: 18px;
-    gap: 16px;
-  }
-  .studio-shell .budget-bar {
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.09);
-  }
-  .studio-shell .treasury-hero {
-    padding: 18px;
-    gap: 12px;
-  }
-  .studio-shell .amount {
-    font-family: var(--font);
-    font-weight: 600;
-    font-size: 15px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ───────────── Bottom-Sheet Modals (iOS .sheet Feel) ───────────── */
-  .studio-shell .modal-backdrop {
+  /* Bottom-Sheet Modals (iOS .sheet Feel) */
+  .ms-pushed-body .modal-backdrop {
     align-items: end;
     justify-items: stretch;
     padding: 0;
   }
-  .studio-shell .modal {
+  .ms-pushed-body .modal {
     width: 100%;
     max-width: none;
     max-height: 88dvh;
@@ -805,70 +603,14 @@
     border-radius: 26px 26px 0 0;
     background: var(--surface);
     padding-bottom: calc(16px + var(--inset-bottom));
-    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.65);
   }
-  .studio-shell .modal > header {
+  .ms-pushed-body .modal > header {
     border-bottom: 0;
     padding: 18px 20px 6px;
   }
-  .studio-shell .modal > header h2 {
+  .ms-pushed-body .modal > header h2 {
     font-size: 17px;
     font-weight: 600;
-  }
-
-  /* ───────────── Floating Frosted Obsidian Bottom Dock ───────────── */
-  .studio-shell .mobile-dock {
-    position: fixed;
-    left: 16px;
-    right: 16px;
-    bottom: calc(10px + var(--inset-bottom));
-    z-index: 30;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px;
-    padding: 5px;
-    border-radius: 28px;
-    background: rgba(22, 22, 22, 0.88);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7);
-  }
-  :root[data-theme="light"] .studio-shell .mobile-dock {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(0, 0, 0, 0.08);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
-  }
-  .studio-shell .mobile-dock button {
-    flex-direction: column;
-    gap: 2px;
-    min-height: 50px;
-    height: 50px;
-    padding: 4px 0;
-    border: 0;
-    border-radius: 22px;
-    background: transparent;
-    color: var(--text-3);
-  }
-  .studio-shell .mobile-dock button.active {
-    background: rgba(255, 255, 255, 0.11);
-    color: var(--text);
-  }
-  :root[data-theme="light"] .studio-shell .mobile-dock button.active {
-    background: rgba(0, 0, 0, 0.07);
-  }
-  .studio-shell .mobile-dock small {
-    font-size: 10.5px;
-    font-weight: 500;
-    color: inherit;
-    line-height: 1.1;
-  }
-  .studio-shell .floating-timer {
-    bottom: calc(78px + var(--inset-bottom));
-    right: 16px;
-    border-radius: 999px;
-    border: 1px solid var(--line-2);
-    background: var(--surface);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   }
 }

@@ -12,6 +12,11 @@ import { usePreference } from "./ui/shared.tsx";
 import { Pairing } from "./ui/Pairing.tsx";
 import { syncAndroidTheme } from "./ui/android-bridge.ts";
 import { useWorkspaceConfig } from "./features/workspace-config.ts";
+const MobileStudio = React.lazy(() =>
+  import("./features/MobileStudio.tsx").then((m) => ({
+    default: m.MobileStudio,
+  })),
+);
 const Home = React.lazy(() =>
   import("./features/Home.tsx").then((m) => ({ default: m.Home })),
 );
@@ -72,7 +77,24 @@ const Settings = React.lazy(() =>
 );
 import "./ui/theme.css";
 import "./ui/mobile-ink.css";
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 760px)").matches
+      : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 760px)");
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
 function App() {
+  const isMobile = useIsMobile();
   const initial = feature(location.pathname.slice(1)).key;
   const [active, setActive] = useState<FeatureKey>(initial);
   const [savedTabs, setTabs] = usePreference<FeatureKey[]>("open-tabs", [
@@ -188,6 +210,7 @@ function App() {
     return () => media.removeEventListener("change", apply);
   }, [theme]);
   useEffect(() => {
+    if (isMobile) return;
     window.__selfOSHandleBack = () => {
       if (mobileMenu) {
         setMobileMenu(false);
@@ -211,11 +234,11 @@ function App() {
     return () => {
       delete window.__selfOSHandleBack;
     };
-  }, [mobileMenu, picker, active]);
-  function screen(key: FeatureKey) {
+  }, [isMobile, mobileMenu, picker, active]);
+  function screen(key: FeatureKey, nav: typeof navigate = navigate) {
     switch (key) {
       case "home":
-        return <Home navigate={navigate} />;
+        return <Home navigate={nav} />;
       case "practice":
         return <Practice eventRequest={practiceRequest} />;
       case "tasks":
@@ -231,9 +254,9 @@ function App() {
       case "treasury":
         return <Treasury />;
       case "chronicle":
-        return <Journal kind="chronicle" onOpenMemoir={() => navigate("memoir")} />;
+        return <Journal kind="chronicle" onOpenMemoir={() => nav("memoir")} />;
       case "memoir":
-        return <Memoir onOpenChronicle={() => navigate("chronicle")} />;
+        return <Memoir onOpenChronicle={() => nav("chronicle")} />;
       case "storage":
         return <Storage />;
       case "raw":
@@ -244,7 +267,7 @@ function App() {
             onConsumeFocus={() => setJournalFocus(undefined)}
             onOpenTarget={(target) => {
               setJournalFocus(target);
-              navigate(target.kind === "idea" ? "ideas" : "raw");
+              nav(target.kind === "idea" ? "ideas" : "raw");
             }}
           />
         );
@@ -256,12 +279,12 @@ function App() {
             onConsumeFocus={() => setJournalFocus(undefined)}
             onOpenTarget={(target) => {
               setJournalFocus(target);
-              navigate(target.kind === "idea" ? "ideas" : "raw");
+              nav(target.kind === "idea" ? "ideas" : "raw");
             }}
           />
         );
       case "reading":
-        return <ReadingList openEvent={(id) => { setPracticeRequest({ id }); navigate("practice"); }} />;
+        return <ReadingList openEvent={(id) => { setPracticeRequest({ id }); nav("practice"); }} />;
       case "thoughts":
         return <Documents kind="thought" />;
       case "monthly":
@@ -275,9 +298,9 @@ function App() {
       case "checklists":
         return <Checklists />;
       case "departments":
-        return <Departments navigate={navigate} />;
+        return <Departments navigate={nav} />;
       case "discover":
-        return <Discover navigate={navigate} />;
+        return <Discover navigate={nav} />;
       case "settings":
         return <Settings theme={theme} setTheme={setTheme} />;
     }
@@ -318,6 +341,26 @@ function App() {
       </button>
     </div>
   );
+
+  if (isMobile) {
+    return (
+      <>
+        {syncState === "unauthorized" && <Pairing />}
+        <React.Suspense fallback={<div className="quiet-empty">正在打开…</div>}>
+          <MobileStudio
+            initialFeature={active}
+            renderScreen={(key, nav) => screen(key, nav)}
+          />
+        </React.Suspense>
+        {error && (
+          <div className="toast" role="alert">
+            <span>{error}</span>
+            <button onClick={() => setError("")}>关闭</button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className={"studio-shell" + (sidebarCollapsed ? " sidebar-collapsed" : "")}>
