@@ -71,6 +71,7 @@ const Settings = React.lazy(() =>
   import("./features/Workspace.tsx").then((m) => ({ default: m.Settings })),
 );
 import "./ui/theme.css";
+import "./ui/mobile-ink.css";
 function App() {
   const initial = feature(location.pathname.slice(1)).key;
   const [active, setActive] = useState<FeatureKey>(initial);
@@ -460,13 +461,22 @@ function App() {
               <Icon name="menu" />
             </button>
             <button
-              className="web-back-btn"
+              className={
+                "web-back-btn" +
+                (history.current.length === 0 ? " hidden-mobile" : "")
+              }
               aria-label="返回上一标签"
               onClick={stepBack}
             >
               <Icon name="back" />
             </button>
-            <span className="mobile-page-title">{ws.labelOf(active)}</span>
+            <span
+              className={
+                "mobile-page-title" + (active === "home" ? " hidden-home" : "")
+              }
+            >
+              {ws.labelOf(active)}
+            </span>
             <div className="workspace-tabs">
               {tabs.map((key) => (
                 <div

@@ -29,7 +29,13 @@ export function syncAndroidTheme(theme: "dark" | "light"): void {
   if (typeof document !== "undefined") {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute("content", theme === "light" ? "#f3f2ee" : "#181818");
+      const mobileDark =
+        typeof window !== "undefined" &&
+        (isAndroidApp() || window.matchMedia("(max-width: 760px)").matches);
+      meta.setAttribute(
+        "content",
+        theme === "light" ? "#f3f2ee" : mobileDark ? "#000000" : "#181818",
+      );
     }
   }
   try {
