@@ -8,6 +8,7 @@ import {
   type AnyEntity as Entity,
 } from "../data/entities.ts";
 import { Heading, Empty, str, perform, usePreference } from "../ui/shared.tsx";
+import { useMobileDetail } from "../ui/mobile-detail.ts";
 import {
   ItemVisual,
   StorageIconPickerModal,
@@ -508,6 +509,7 @@ export function Storage() {
       setSubFilterId("all");
     }
     setQuery("");
+    mobileDetail.openDetail();
   }
 
   function takeOut(item: Entity) {
@@ -603,6 +605,7 @@ export function Storage() {
     const id = crypto.randomUUID();
     await put("storageBox", { zone, name, icon, location }, { id });
     setSelectedRootId(id);
+    mobileDetail.openDetail();
   }
 
   function setItemIcon(item: Entity, nextIcon: string | null) {
@@ -726,6 +729,10 @@ export function Storage() {
     );
   }
 
+  const mobileDetail = useMobileDetail(
+    activeRoot ? str(activeRoot, "name") : "储物箱",
+  );
+
   const effectiveQuickTarget =
     subFilterId !== "all"
       ? boxById.get(subFilterId)
@@ -734,47 +741,51 @@ export function Storage() {
         : activeRoot ?? undefined;
 
   return (
-    <div className="storage-page">
-      <Heading
-        eyebrow="STORAGE · CHESTS & INVENTORY"
-        title="储物箱"
-        description="像 MC 箱子一样记录每件东西的位置——支持箱内再分区域，秒搜精确定位到每一层。"
-      >
-        <button
-          type="button"
-          className="primary"
-          onClick={() => setBoxModal({ mode: "create" })}
-        >
-          ＋ 新建箱子
-        </button>
-      </Heading>
-
-      {/* Instant Spotlight Search */}
-      <div className="storage-search-bar">
-        <input
-          ref={searchRef}
-          className="storage-search-input"
-          placeholder="找什么？搜物品名、别名、备注或箱子/分区（如：充电宝、耳机、前小袋）…"
-          aria-label="搜索储物箱物品"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button
-            type="button"
-            className="muted"
-            onClick={() => {
-              setQuery("");
-              searchRef.current?.focus();
-            }}
+    <div className={"storage-page" + (mobileDetail.detailOpen ? " mobile-detail-open" : "")}>
+      {mobileDetail.showList && (
+        <>
+          <Heading
+            eyebrow="STORAGE · CHESTS & INVENTORY"
+            title="储物箱"
+            description="像 MC 箱子一样记录每件东西的位置——支持箱内再分区域，秒搜精确定位到每一层。"
           >
-            清空
-          </button>
-        )}
-      </div>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setBoxModal({ mode: "create" })}
+            >
+              ＋ 新建箱子
+            </button>
+          </Heading>
+
+          {/* Instant Spotlight Search */}
+          <div className="storage-search-bar">
+            <input
+              ref={searchRef}
+              className="storage-search-input"
+              placeholder="找什么？搜物品名、别名、备注或箱子/分区（如：充电宝、耳机、前小袋）…"
+              aria-label="搜索储物箱物品"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button
+                type="button"
+                className="muted"
+                onClick={() => {
+                  setQuery("");
+                  searchRef.current?.focus();
+                }}
+              >
+                清空
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Instant Search Results */}
-      {needle && (
+      {mobileDetail.showList && needle && (
         <section className="storage-search-results" aria-label="查找结果">
           <div className="storage-section-head">
             <strong>找到 {searchHits.length} 件相关物品</strong>
@@ -879,7 +890,7 @@ export function Storage() {
       )}
 
       {/* Out-of-box Reminder Strip */}
-      {outItems.length > 0 && (
+      {mobileDetail.showList && outItems.length > 0 && (
         <section className="storage-out-strip" aria-label="已取出未归位物品">
           <div className="storage-out-head">
             <strong>在外未归位 · {outItems.length} 件</strong>
@@ -989,6 +1000,7 @@ export function Storage() {
       ) : (
         <div className="storage-workbench">
           {/* Left: Top-level Chest Wall */}
+          {mobileDetail.showList && (
           <section className="storage-wall" aria-label="储物箱列表">
             <div className="storage-zone-bar" role="tablist" aria-label="场景筛选">
               <button
@@ -1052,6 +1064,7 @@ export function Storage() {
                           onClick={() => {
                             setSelectedRootId(box.id);
                             setSubFilterId("all");
+                            mobileDetail.openDetail();
                           }}
                           onDragOver={(e) => {
                             if (!dragItemId) return;
@@ -1135,8 +1148,10 @@ export function Storage() {
               ))}
             </div>
           </section>
+          )}
 
           {/* Right: Open Chest View with Compartments */}
+          {mobileDetail.showDetail && (
           <section className="storage-inspector" aria-label="开箱视图">
             {activeRoot ? (
               <>
@@ -1520,6 +1535,7 @@ export function Storage() {
               </div>
             )}
           </section>
+          )}
         </div>
       )}
 

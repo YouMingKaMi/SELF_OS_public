@@ -5,6 +5,7 @@ import { documentMarkdownParts, documentsMarkdown } from "./document-export.ts";
 import { downloadFile } from "../ui/download.ts";
 import Markdown from "react-markdown";
 import { Icon } from "../ui/Icon.tsx";
+import { useMobileDetail } from "../ui/mobile-detail.ts";
 import {
   useDocumentDraft,
   writeDocumentDraft,
@@ -699,6 +700,7 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
     setSelected(e.id);
     setEditing(false);
     setNewMode(false);
+    mobileDetail.openDetail();
   }
   function create() {
     if (!readDocumentDraft(kind + ":new"))
@@ -711,6 +713,7 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
       }, null);
     setNewMode(true);
     setEditing(true);
+    mobileDetail.openDetail();
   }
   function edit() {
     if (!current) return;
@@ -743,6 +746,15 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
   }
   const title =
     kind === "thought" ? "个人思考" : kind === "monthly" ? "月报" : "资料笔记";
+  const mobileDetail = useMobileDetail(
+    editing
+      ? newMode
+        ? kind === "monthly"
+          ? "写月报"
+          : "新建文章"
+        : "编辑文章"
+      : str(current, "title", title),
+  );
   async function exportMarkdown() {
     const day = today();
     setExporting(true);
@@ -764,6 +776,7 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
   }
   return (
     <>
+      {mobileDetail.showList && (
       <Heading
         eyebrow="READ · THINK · KEEP"
         title={title}
@@ -800,7 +813,9 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
           ＋ {kind === "monthly" ? "写月报" : "新建文章"}
         </button>
       </Heading>
+      )}
       <div className="columns reader documents">
+        {mobileDetail.showList && (
         <Panel
           className="document-index"
           title={kind === "monthly" ? "往期月报" : "全部文章"}
@@ -850,6 +865,8 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
             ))}
           </div>
         </Panel>
+        )}
+        {mobileDetail.showDetail && (
         <Panel
           className="document-paper"
           title={editing ? "编辑文章" : str(current, "title", "选择一篇文章")}
@@ -1024,6 +1041,7 @@ export function Documents({ kind }: { kind: "note" | "thought" | "monthly" }) {
             </div>
           )}
         </Panel>
+        )}
       </div>
     </>
   );

@@ -26,6 +26,7 @@ import {
   daysInMonth,
 } from "../ui/shared.tsx";
 import { habitDone, habitRule, habitScheduled, habitTarget, habitWeekdays, latestHabitLogs } from "./habit-model.ts";
+import { useMobileDetail } from "../ui/mobile-detail.ts";
 export function HabitRow({
   habit,
   day,
@@ -273,8 +274,12 @@ export function Habits() {
           ? "已停用"
           : plan;
   };
+  const mobileDetail = useMobileDetail(
+    habit ? str(habit, "name") : "月度统计",
+  );
   return (
     <>
+      {mobileDetail.showList && (
       <Heading
         eyebrow="SMALL THINGS, OVER TIME"
         title="习惯记录库"
@@ -287,7 +292,9 @@ export function Habits() {
           ＋ 添加习惯
         </button>
       </Heading>
+      )}
       <div className="columns habits">
+        {mobileDetail.showList && (
         <Panel
           title="记录与计划"
           aside={
@@ -309,8 +316,10 @@ export function Habits() {
                     !(event.target as HTMLElement).closest(
                       "button,input,select,textarea",
                     )
-                  )
+                  ) {
                     setSelected(e.id);
+                    mobileDetail.openDetail();
+                  }
                 }}
               >
                 <HabitRow habit={e} day={day} all={entities} />
@@ -318,7 +327,14 @@ export function Habits() {
                   <span className="pill">{scheduleText(e)}</span>
                   {e.data.showHome ? <span className="pill">首页</span> : null}
                   <span className="row-tools">
-                    <button onClick={() => setSelected(e.id)}>统计</button>
+                    <button
+                      onClick={() => {
+                        setSelected(e.id);
+                        mobileDetail.openDetail();
+                      }}
+                    >
+                      统计
+                    </button>
                     <button onClick={() => setEditing(e)}>编辑计划</button>
                     <button
                       onClick={() =>
@@ -345,6 +361,8 @@ export function Habits() {
             ))}
           </div>
         </Panel>
+        )}
+        {mobileDetail.showDetail && (
         <Panel
           title={habit ? str(habit, "name") + " · 本月" : "月度统计"}
           aside={<Month value={month} onChange={setMonth} />}
@@ -409,6 +427,7 @@ export function Habits() {
             <ItemMatrix items={checklistItems} days={days} logs={logs} />
           )}
         </Panel>
+        )}
       </div>
       {editing !== undefined && (
         <div className="modal-backdrop">

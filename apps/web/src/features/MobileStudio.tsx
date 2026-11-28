@@ -41,6 +41,7 @@ import {
   today,
   usePreference,
 } from "../ui/shared.tsx";
+import { useActiveMobileSubView } from "../ui/mobile-detail.ts";
 
 type MobileTab = "today" | "shortcuts" | "departments" | "review" | "search";
 type MobileRoute =
@@ -223,6 +224,7 @@ export function MobileStudio({
   const [creatingDept, setCreatingDept] = useState(false);
 
   const top = stack.at(-1);
+  const subView = useActiveMobileSubView();
 
   const navigate: Navigate = (key) => {
     if (key === "home") {
@@ -273,6 +275,10 @@ export function MobileStudio({
         setCreatingDept(false);
         return true;
       }
+      if (subView) {
+        subView.onBack();
+        return true;
+      }
       if (stack.length > 0) {
         setStack((prev) => prev.slice(0, -1));
         return true;
@@ -286,7 +292,7 @@ export function MobileStudio({
     return () => {
       delete window.__selfOSHandleBack;
     };
-  }, [capture, captureMenu, arranging, editingShortcuts, creatingDept, stack.length, tab]);
+  }, [capture, captureMenu, arranging, editingShortcuts, creatingDept, subView, stack.length, tab]);
 
   const pushedTitle =
     top?.kind === "settings"
@@ -331,13 +337,17 @@ export function MobileStudio({
       <header className="ms-navbar">
         <div className="ms-nav-left">
           {top && (
-            <button type="button" className="ms-nav-back" onClick={pop}>
+            <button
+              type="button"
+              className="ms-nav-back"
+              onClick={() => (subView ? subView.onBack() : pop())}
+            >
               <Icon name="chevron-left" size={16} />
-              <span>{backLabel}</span>
+              <span>{subView ? pushedTitle : backLabel}</span>
             </button>
           )}
         </div>
-        {top && <div className="ms-nav-title">{pushedTitle}</div>}
+        {top && <div className="ms-nav-title">{subView ? subView.title : pushedTitle}</div>}
         <div className="ms-nav-right">
           {!top && tab === "today" && (
             <>

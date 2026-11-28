@@ -2,11 +2,10 @@
  * SELF OS · Mobile Ink visual language (<= 760px / Android APK)
  *
  * Pure OLED black tokens matching iPhone CouncilStudio (Theme.swift `Ink`)
- * plus compact, borderless styling scoped to `.ms-pushed-body` (secondary
- * feature screens pushed inside MobileStudio) so:
- *  - MobileStudio's 5 root tabs stay 100% isolated from desktop CSS
- *  - Every pushed feature (Tasks, Finance, Storage, Habits, Settings, etc.)
- *    renders with iPhone compactness, 22px #121212 cards, and 15px rows
+ * plus 360px-safe, borderless, compact styling scoped to `.ms-pushed-body`
+ * (secondary feature screens pushed inside MobileStudio):
+ *  - Zero horizontal overflow down to 360px Android viewports
+ *  - Zero desktop master-detail vertical bloat (paired with useMobileDetail)
  *  - Desktop / macOS (> 760px) remains 100% untouched
  */
 
@@ -102,27 +101,35 @@
     padding: 24px 20px;
   }
 
-  /* ───────────── Compact Pushed Feature Screens (.ms-pushed-body) ───────────── */
+  /* ───────────── Compact Pushed Feature Container (360px-Safe) ───────────── */
+  .ms-pushed-body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
   .ms-pushed-body .columns,
   .ms-pushed-body .columns.finance,
   .ms-pushed-body .columns.practice,
   .ms-pushed-body .columns.writing,
   .ms-pushed-body .columns.tasks,
   .ms-pushed-body .columns.habits,
-  .ms-pushed-body .columns.treasury {
+  .ms-pushed-body .columns.treasury,
+  .ms-pushed-body .columns.reader,
+  .ms-pushed-body .columns.metrics {
     display: flex;
     flex-direction: column;
     gap: 12px;
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;
+    min-width: 0;
     overflow: visible;
   }
   .ms-pushed-body .columns > * {
     overflow: visible;
     min-height: 0;
+    min-width: 0;
   }
 
-  /* Action row inside pushed screens: neat single-line horizontal chips */
+  /* Single-row horizontally scrollable action pills */
   .ms-pushed-body .heading-actions {
     display: flex;
     align-items: center;
@@ -142,10 +149,12 @@
     flex: none;
   }
 
-  /* Inputs, selects, textareas */
+  /* Form controls — never overflow narrow viewports */
   .ms-pushed-body input,
   .ms-pushed-body textarea,
   .ms-pushed-body select {
+    max-width: 100%;
+    min-width: 0;
     font-size: 15px;
     background: var(--surface-2);
     border: 0;
@@ -173,6 +182,16 @@
     border-radius: 6px;
     border: 1.5px solid var(--line-3);
     background: transparent;
+    flex: none;
+  }
+  .ms-pushed-body .record-form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ms-pushed-body .record-form input:not([type="checkbox"]),
+  .ms-pushed-body .record-form select,
+  .ms-pushed-body .record-form textarea {
+    width: 100%;
   }
 
   /* Pill controls & segmented bars */
@@ -259,6 +278,7 @@
   .ms-pushed-body .stepper > button {
     background: transparent;
     min-height: 30px;
+    height: 30px;
     width: 30px;
     padding: 0;
     color: var(--text-2);
@@ -268,17 +288,24 @@
     font-weight: 600;
   }
 
-  /* Obsidian Ink Cards (22px continuous radius, #121212, no borders, compact pad) */
+  /* ───────────── Obsidian Ink Cards (Borderless, 22px Radius) ───────────── */
   .ms-pushed-body .panel,
   .ms-pushed-body .finance-summary,
   .ms-pushed-body .treasury-hero,
   .ms-pushed-body .storage-wall,
-  .ms-pushed-body .storage-open,
+  .ms-pushed-body .storage-inspector,
   .ms-pushed-body .storage-out-strip,
-  .ms-pushed-body .storage-search-results {
+  .ms-pushed-body .storage-search-results,
+  .ms-pushed-body .freedom-hero,
+  .ms-pushed-body .ach-overview-strip,
+  .ms-pushed-body .memoir-sidebar,
+  .ms-pushed-body .memoir-detail-pane,
+  .ms-pushed-body .day-card {
     background: var(--surface);
     border: 0;
     border-radius: 22px;
+    min-width: 0;
+    max-width: 100%;
   }
   .ms-pushed-body .panel > header {
     border-bottom: 0;
@@ -300,8 +327,18 @@
   }
   .ms-pushed-body .panel > header .segmented {
     width: 100%;
+    flex-wrap: nowrap;
     justify-content: space-between;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ms-pushed-body .panel > header .segmented::-webkit-scrollbar {
+    display: none;
+  }
+  .ms-pushed-body .panel > header .segmented button {
+    flex: 1 0 auto;
+    padding: 0 8px;
+    font-size: 12.5px;
   }
   .ms-pushed-body .panel > header select {
     min-height: 32px;
@@ -319,6 +356,7 @@
   .ms-pushed-body .panel-content {
     padding: 10px 16px 16px;
     gap: 10px;
+    min-width: 0;
   }
 
   /* Tabular Figures & Compact Stat Strips */
@@ -372,7 +410,7 @@
     color: var(--text);
   }
 
-  /* Dense Lists, Tasks, Ledger, Settings Rows */
+  /* Dense Lists & Common Rows */
   .ms-pushed-body .dense-list > * {
     min-height: 44px;
     padding: 7px 0;
@@ -398,32 +436,6 @@
     font-size: 12.5px;
     color: var(--text-3);
   }
-  .ms-pushed-body .task-row .check {
-    width: 22px;
-    height: 22px;
-    min-height: 22px;
-    padding: 0;
-    border: 1.8px solid var(--line-3);
-    background: transparent;
-  }
-  .ms-pushed-body .task-row .check.checked {
-    background: var(--solid);
-    border-color: var(--solid);
-    color: var(--solid-text);
-  }
-  .ms-pushed-body .task-content {
-    background: transparent;
-    border-radius: 0;
-    min-height: 38px;
-    height: auto;
-    padding: 4px 0;
-    font-size: 15px;
-    font-weight: 400;
-    color: var(--text);
-    white-space: normal;
-    text-align: left;
-    justify-content: flex-start;
-  }
   .ms-pushed-body .settings-line {
     min-height: 46px;
     font-size: 14.5px;
@@ -435,6 +447,7 @@
     color: var(--text);
   }
   .ms-pushed-body .amount {
+    min-width: 64px;
     font-family: var(--font);
     font-weight: 600;
     font-size: 15px;
@@ -446,12 +459,755 @@
     background: rgba(255, 255, 255, 0.09);
   }
 
-  /* Workspace Customization inside Settings */
+  /* ───────────── 1. Achievements (Zero Right-Edge Clipping on 360px!) ───────────── */
+  .ms-pushed-body .ach-overview-strip {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+  .ms-pushed-body .ach-overview-stats {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+  .ms-pushed-body .ach-group-head-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+  }
+  .ms-pushed-body .ach-group-head h2 {
+    white-space: nowrap;
+    font-size: 16px;
+  }
+  .ms-pushed-body .ach-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ms-pushed-body .ach-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 76px;
+    padding: 12px 14px;
+    gap: 12px;
+    border: 0;
+    border-radius: 20px;
+    background: var(--surface);
+    justify-content: flex-start;
+    align-items: center;
+    white-space: normal;
+    overflow: hidden;
+  }
+  .ms-pushed-body .ach-card.done {
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .ach-icon-box {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .ach-card-body {
+    height: auto;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+    width: 0;
+  }
+  .ms-pushed-body .ach-card-row1 {
+    width: 100%;
+    min-width: 0;
+    gap: 6px;
+  }
+  .ms-pushed-body .ach-card-title {
+    font-size: 15px;
+    flex: 1;
+    min-width: 0;
+  }
+  .ms-pushed-body .ach-card-tag {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ms-pushed-body .ach-card-row2 {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .ms-pushed-body .ach-filter-popover {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: calc(16px + var(--inset-bottom));
+    width: auto;
+    max-height: 75dvh;
+    overflow-y: auto;
+    border: 0;
+    border-radius: 24px;
+    background: var(--surface-2);
+    box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.72);
+  }
+  .ms-pushed-body .ach-icon-btn {
+    min-height: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 10px;
+  }
+  .ms-pushed-body .ach-tree-board-card {
+    border: 0;
+    border-radius: 20px;
+  }
+
+  /* ───────────── 2. Freedom (Zero Date Overflow on 360px!) ───────────── */
+  .ms-pushed-body .freedom {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .ms-pushed-body .freedom-hero {
+    padding: 18px 16px 16px;
+  }
+  .ms-pushed-body .freedom-hero > strong {
+    font-size: 38px;
+  }
+  .ms-pushed-body .freedom-settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ms-pushed-body .freedom-settings label {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .ms-pushed-body .freedom-settings input:not([type="checkbox"]) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .ms-pushed-body .freedom-roles > div {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--line);
+  }
+  .ms-pushed-body .freedom-roles > div:last-child {
+    border-bottom: 0;
+  }
+  .ms-pushed-body .freedom-roles .segmented {
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .freedom-roles .segmented button {
+    min-height: 26px;
+    height: 26px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+  .ms-pushed-body .freedom-lights {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .ms-pushed-body .freedom-trend-dates {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ms-pushed-body .freedom-trend-dates label {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .ms-pushed-body .freedom-trend-dates input {
+    max-width: 185px;
+  }
+
+  /* ───────────── 3. Tasks (Perfect Circular Checks & Non-Overlapping Composer!) ───────────── */
+  .ms-pushed-body .task-page {
+    padding: 0 0 18px;
+  }
+  .ms-pushed-body .task-page-head {
+    margin-bottom: 10px;
+  }
+  .ms-pushed-body .task-page-title h1 {
+    font-size: 22px;
+  }
+  .ms-pushed-body .task-nav {
+    border-bottom: 0;
+    padding-block: 0 4px;
+    gap: 8px;
+  }
+  .ms-pushed-body .task-primary-views {
+    background: var(--surface);
+    padding: 3px;
+    border-radius: 999px;
+    gap: 2px;
+  }
+  .ms-pushed-body .task-primary-views button {
+    height: 32px;
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-2);
+  }
+  .ms-pushed-body .task-primary-views button[aria-current] {
+    background: var(--solid);
+    color: var(--solid-text);
+    font-weight: 600;
+  }
+  .ms-pushed-body .task-page .task-control {
+    border: 0;
+    background: var(--surface);
+    min-height: 34px;
+    height: 34px;
+    padding: 0 11px;
+    font-size: 13px;
+  }
+  .ms-pushed-body .task-search {
+    border: 0;
+    background: var(--surface);
+    border-radius: 14px;
+    width: 100%;
+    margin: 0;
+    height: 40px;
+    padding: 0 12px;
+  }
+  .ms-pushed-body .task-search .search {
+    background: transparent;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+  }
+  /* Clean 2-row composer so Schedule pill and + button NEVER collide on 360px */
+  .ms-pushed-body .task-capture {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 8px;
+  }
+  .ms-pushed-body .task-capture > input {
+    flex: 1 1 100%;
+    width: 100%;
+    min-height: 42px;
+    border: 0;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 8px 14px;
+  }
+  .ms-pushed-body .task-capture .task-popover {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ms-pushed-body .task-capture .task-schedule-control .task-control {
+    width: 100%;
+    max-width: none;
+    height: 38px;
+    min-height: 38px;
+    justify-content: flex-start;
+    border: 0;
+    background: var(--surface-2);
+    border-radius: 999px;
+    padding: 0 14px;
+  }
+  .ms-pushed-body .task-capture .task-add-button {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--solid);
+    color: var(--solid-text);
+  }
+  .ms-pushed-body .task-track {
+    border: 0;
+    border-radius: 20px;
+    background: var(--surface);
+  }
+  .ms-pushed-body .task-group h3 {
+    background: transparent;
+    padding: 10px 4px 6px;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+  .ms-pushed-body .task-page .task-row .check,
+  .ms-pushed-body .task-row .check {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    max-height: 22px;
+    padding: 0;
+    border-radius: 50%;
+    flex: none;
+    border: 1.8px solid var(--task-ready);
+    background: transparent;
+  }
+  .ms-pushed-body .task-page .task-row .check.checked,
+  .ms-pushed-body .task-row .check.checked {
+    background: var(--solid);
+    border-color: var(--solid);
+    color: var(--solid-text);
+  }
+  .ms-pushed-body .task-page .task-row .detail-arrow {
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0;
+    background: transparent;
+    color: var(--text-3);
+  }
+  .ms-pushed-body .task-content {
+    background: transparent;
+    border-radius: 0;
+    min-height: 38px;
+    height: auto;
+    padding: 6px 6px 6px 12px;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text);
+    white-space: normal;
+    text-align: left;
+    justify-content: center;
+  }
+  .ms-pushed-body .task-calendar button {
+    min-height: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 10px;
+    background: transparent;
+  }
+  .ms-pushed-body .task-detail-layer {
+    align-items: end;
+    justify-items: stretch;
+  }
+  .ms-pushed-body .task-detail-layer .detail-panel {
+    margin: 0;
+    width: 100%;
+    max-height: 86dvh;
+    border: 0;
+    border-radius: 26px 26px 0 0;
+    padding-bottom: calc(16px + var(--inset-bottom));
+  }
+
+  /* ───────────── 4. Habits (Clean Checklist Pills, Zero White Outline, Push Detail) ───────────── */
+  .ms-pushed-body .habit-section {
+    padding: 12px 2px;
+    gap: 8px;
+    border-bottom: 0.5px solid var(--line);
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .ms-pushed-body .habit-section:last-child {
+    border-bottom: 0;
+  }
+  .ms-pushed-body .habit-line {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .ms-pushed-body .habit-ring {
+    --size: 22px;
+  }
+  .ms-pushed-body .habit-name {
+    min-width: 112px;
+  }
+  .ms-pushed-body .habit-name strong {
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .ms-pushed-body .habit-controls {
+    max-width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .ms-pushed-body .habit-controls button {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 12px;
+    font-size: 13px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .ms-pushed-body .habit-controls button.checked-button {
+    background: var(--solid);
+    color: var(--solid-text);
+    font-weight: 600;
+  }
+  .ms-pushed-body .habit-controls input {
+    width: 48px;
+    min-height: 30px;
+    height: 30px;
+    padding: 0 4px;
+    text-align: center;
+    font-size: 13px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .ms-pushed-body .habit-section-heading {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-left: 30px;
+    align-items: center;
+  }
+  .ms-pushed-body .habit-section-heading .pill {
+    height: 22px;
+    padding: 0 8px;
+    font-size: 11px;
+    border: 0;
+    background: var(--surface-2);
+    color: var(--text-3);
+  }
+  .ms-pushed-body .habit-section-heading .row-tools {
+    opacity: 1;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .ms-pushed-body .habit-section-heading .row-tools button {
+    min-height: 26px;
+    height: 26px;
+    padding: 0 9px;
+    font-size: 12px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-2);
+  }
+  .ms-pushed-body .habit-calendar button {
+    border-radius: 10px;
+    min-height: 34px;
+    height: 34px;
+    padding: 4px 5px;
+    border: 0;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .item-matrix {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .ms-pushed-body .item-matrix-grid {
+    grid-template-columns: 44px repeat(var(--days), minmax(0, 1fr)) 34px;
+    gap: 4px 2px;
+  }
+
+  /* ───────────── 5. Storage (Push Into Box Detail + Clean Cards) ───────────── */
+  .ms-pushed-body .storage-search-input {
+    background: var(--surface);
+    border: 0;
+    border-radius: 14px;
+    min-height: 42px;
+    padding: 0 14px;
+    font-size: 15px;
+  }
+  .ms-pushed-body .storage-wall,
+  .ms-pushed-body .storage-inspector {
+    padding: 15px;
+  }
+  .ms-pushed-body .storage-zone-bar button {
+    min-height: 32px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+  .ms-pushed-body .storage-zone-bar button.active {
+    background: var(--solid);
+    color: var(--solid-text);
+    font-weight: 600;
+  }
+  .ms-pushed-body .storage-zone-bar button.active small {
+    color: inherit;
+    opacity: 0.65;
+  }
+  .ms-pushed-body .storage-chest,
+  .ms-pushed-body .storage-starter-btn {
+    width: 100%;
+    white-space: normal;
+    text-align: left;
+    justify-content: flex-start;
+    border-radius: 18px;
+    border: 0;
+    background: var(--surface-2);
+    padding: 12px 14px;
+  }
+  .ms-pushed-body .storage-chest.selected {
+    background: var(--surface-2);
+    box-shadow: none;
+  }
+  .ms-pushed-body .storage-chest.selected .storage-chest-icon {
+    background: var(--surface-3);
+    color: var(--text);
+  }
+  .ms-pushed-body .storage-chest-meta strong {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .ms-pushed-body .storage-chest-meta small {
+    font-size: 12px;
+  }
+  .ms-pushed-body .storage-inspector-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .ms-pushed-body .storage-quick-add {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ms-pushed-body .storage-quick-add input {
+    flex: 1 1 170px;
+    min-width: 0;
+  }
+  .ms-pushed-body .storage-mc-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .ms-pushed-body .storage-mc-slot {
+    width: 100%;
+    height: auto;
+    white-space: normal;
+    border-radius: 14px;
+    border: 0;
+    background: var(--surface-2);
+    padding: 9px 7px;
+  }
+  .ms-pushed-body .storage-mc-slot.selected {
+    background: var(--surface-3);
+    box-shadow: inset 0 0 0 1.5px var(--solid);
+  }
+  .ms-pushed-body .storage-icon-cell,
+  .ms-pushed-body .storage-icon-option,
+  .ms-pushed-body .storage-hairline-icon {
+    border-radius: 11px;
+    min-height: 0;
+    padding: 0;
+  }
+  .ms-pushed-body .storage-link-btn {
+    background: transparent;
+    padding: 0;
+    min-height: 0;
+    border-radius: 0;
+  }
+
+  /* ───────────── 6. Documents (Monthly / Notes / Thoughts), Memoir & Checklists ───────────── */
+  .ms-pushed-body .article-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ms-pushed-body .article-list > button {
+    width: 100%;
+    height: auto;
+    min-height: 54px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--surface-2);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    text-align: left;
+    white-space: normal;
+  }
+  .ms-pushed-body .article-list > button.selected {
+    background: var(--surface-2);
+    box-shadow: none;
+  }
+  .ms-pushed-body .article-list > button strong {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .ms-pushed-body .article-list > button p {
+    font-size: 13px;
+    color: var(--text-3);
+    line-height: 1.45;
+    margin: 0;
+  }
+  .ms-pushed-body .markdown-editor {
+    min-height: 300px;
+    border-radius: 16px;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .checklist-item {
+    width: 100%;
+    height: auto;
+    min-height: 46px;
+    padding: 10px 4px;
+    border-radius: 0;
+    background: transparent;
+    white-space: normal;
+    text-align: left;
+    justify-content: flex-start;
+  }
+  .ms-pushed-body .memoir-sidebar,
+  .ms-pushed-body .memoir-detail-pane {
+    padding: 14px;
+  }
+  .ms-pushed-body .memoir-card {
+    width: 100%;
+    height: auto;
+    padding: 12px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--surface-2);
+    align-items: stretch;
+    white-space: normal;
+    text-align: left;
+  }
+  .ms-pushed-body .memoir-card-top {
+    width: 100%;
+  }
+  .ms-pushed-body .memoir-card.selected {
+    border: 0;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .memoir-approx-input {
+    width: 100%;
+  }
+  .ms-pushed-body .memoir-capture-periods button.active,
+  .ms-pushed-body .memoir-filter-tabs button.active,
+  .ms-pushed-body .memoir-period-pills button.active {
+    background: var(--solid);
+    color: var(--solid-text);
+    font-weight: 600;
+  }
+  .ms-pushed-body .memoir-filter-tabs button.active small {
+    color: inherit;
+    opacity: 0.65;
+  }
+
+  /* ───────────── 7. Metrics, ImportantDays, Treasury, Finance, Journal, Practice, Reading ───────────── */
+  .ms-pushed-body .metric-row {
+    grid-template-columns: minmax(0, 1fr) 74px auto;
+    gap: 8px;
+    padding: 8px 2px;
+  }
+  .ms-pushed-body .metric-row .spark {
+    display: none;
+  }
+  .ms-pushed-body .metric-row.selected {
+    background: transparent;
+  }
+  .ms-pushed-body .metric-row input {
+    width: 100%;
+    min-height: 34px;
+    padding: 4px 8px;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .day-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ms-pushed-body .day-count {
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    min-height: 0;
+    margin: 14px 0 12px;
+    justify-content: flex-start;
+  }
+  .ms-pushed-body .date-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-pushed-body .calendar-days button {
+    min-height: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    background: transparent;
+  }
+  .ms-pushed-body .asset-tree button {
+    width: 100%;
+    white-space: normal;
+    border-radius: 14px;
+  }
+  .ms-pushed-body .asset-tree button.selected {
+    background: transparent;
+  }
+  .ms-pushed-body .asset-search {
+    min-width: 0;
+    width: 100%;
+  }
+  .ms-pushed-body .flow > div {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .ms-pushed-body .flow .when {
+    width: auto;
+  }
+  .ms-pushed-body .flow .row-tools {
+    opacity: 1;
+  }
+  .ms-pushed-body .hero-refresh {
+    min-height: 24px;
+    height: 24px;
+    padding: 0 9px;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .ledger .day-block {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .ms-pushed-body .category-bars > button {
+    grid-template-columns: 64px minmax(0, 1fr) 74px;
+    height: auto;
+    min-height: 36px;
+  }
+  .ms-pushed-body .long-list > div {
+    border: 0;
+    border-radius: 18px;
+    background: var(--surface-2);
+  }
+  .ms-pushed-body .journal-review .day-block {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .ms-pushed-body .journal-row {
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 4px 10px 14px;
+  }
+  .ms-pushed-body .journal-row .row-tools {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 4px;
+    margin-top: 2px;
+    opacity: 1;
+    pointer-events: auto;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .ms-pushed-body .journal-row .row-tools button {
+    min-height: 26px;
+    padding: 2px 7px;
+    font-size: 12.5px;
+  }
+  .ms-pushed-body .reading-toolbar input {
+    width: 100%;
+  }
+  .ms-pushed-body .session-card,
+  .ms-pushed-body .capture-box,
+  .ms-pushed-body .activity-list > button.selected {
+    border: 0;
+    border-radius: 18px;
+    background: var(--surface-2);
+  }
+
+  /* ───────────── 8. Settings Workspace Customization ───────────── */
   .ms-pushed-body .ws-preset-card {
     border-radius: 18px;
     border: 1px solid var(--line);
     background: var(--surface-2);
     padding: 13px 15px;
+    width: 100%;
+    white-space: normal;
+    text-align: left;
   }
   .ms-pushed-body .ws-preset-card.active {
     border-color: var(--solid);
@@ -492,104 +1248,8 @@
     padding: 0 12px;
     width: 100%;
   }
-  .ms-pushed-body .session-card,
-  .ms-pushed-body .capture-box,
-  .ms-pushed-body .activity-list > button.selected {
-    border: 0;
-    border-radius: 18px;
-    background: var(--surface-2);
-  }
 
-  /* Storage, Habits, Achievements */
-  .ms-pushed-body .storage-search-input {
-    background: var(--surface);
-    border: 0;
-    border-radius: 14px;
-    min-height: 42px;
-    padding: 0 14px;
-    font-size: 15px;
-  }
-  .ms-pushed-body .storage-wall,
-  .ms-pushed-body .storage-open {
-    padding: 15px;
-  }
-  .ms-pushed-body .storage-chest,
-  .ms-pushed-body .storage-starter-btn {
-    border-radius: 16px;
-    border: 0;
-    background: var(--surface-2);
-    padding: 11px 13px;
-  }
-  .ms-pushed-body .storage-chest.selected {
-    background: var(--surface-3);
-    box-shadow: inset 0 0 0 1.5px var(--solid);
-  }
-  .ms-pushed-body .storage-chest-meta strong {
-    font-size: 15px;
-    font-weight: 600;
-  }
-  .ms-pushed-body .storage-chest-meta small {
-    font-size: 12px;
-  }
-  .ms-pushed-body .storage-mc-slot {
-    border-radius: 14px;
-    border: 0;
-    background: var(--surface-2);
-    padding: 9px 7px;
-  }
-  .ms-pushed-body .storage-mc-slot.selected {
-    background: var(--surface-3);
-    box-shadow: inset 0 0 0 1.5px var(--solid);
-  }
-  .ms-pushed-body .storage-icon-cell,
-  .ms-pushed-body .storage-icon-option,
-  .ms-pushed-body .storage-hairline-icon {
-    border-radius: 11px;
-    min-height: 0;
-    padding: 0;
-  }
-  .ms-pushed-body .storage-link-btn {
-    background: transparent;
-    padding: 0;
-    min-height: 0;
-    border-radius: 0;
-  }
-  .ms-pushed-body .habit-ring {
-    --size: 22px;
-  }
-  .ms-pushed-body .habit-name strong {
-    font-size: 15px;
-    font-weight: 500;
-  }
-  .ms-pushed-body .habit-controls button {
-    min-height: 30px;
-    height: 30px;
-    padding: 0 11px;
-    font-size: 13px;
-  }
-  .ms-pushed-body .habit-controls input {
-    min-height: 30px;
-    height: 30px;
-    padding: 0 6px;
-    font-size: 13px;
-    border-radius: 10px;
-  }
-  .ms-pushed-body .habit-calendar button {
-    border-radius: 10px;
-    min-height: 34px;
-    height: 34px;
-    padding: 4px 5px;
-    border: 0;
-    background: var(--surface-2);
-  }
-  .ms-pushed-body .ach-card,
-  .ms-pushed-body .ach-node {
-    border-radius: 20px;
-    border: 0;
-    background: var(--surface);
-  }
-
-  /* Bottom-Sheet Modals (iOS .sheet Feel) */
+  /* ───────────── 9. Bottom-Sheet Modals (iOS .sheet Feel) ───────────── */
   .ms-pushed-body .modal-backdrop {
     align-items: end;
     justify-items: stretch;

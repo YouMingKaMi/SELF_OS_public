@@ -28,6 +28,7 @@ import {
   perform,
   daysInMonth,
 } from "../ui/shared.tsx";
+import { useMobileDetail } from "../ui/mobile-detail.ts";
 /** 14-day sparkline. Missing days are gaps, never zeros. */
 function Spark({
   values,
@@ -128,8 +129,12 @@ export function Metrics() {
   const average = values.length
     ? values.reduce((a, b) => a + b, 0) / values.length
     : null;
+  const mobileDetail = useMobileDetail(
+    metric ? str(metric, "name") : "统计趋势",
+  );
   return (
     <>
+      {mobileDetail.showList && (
       <Heading
         eyebrow="DAILY SIGNALS"
         title="每日指标"
@@ -145,7 +150,9 @@ export function Metrics() {
           ＋ 自定义指标
         </button>
       </Heading>
+      )}
       <div className="columns metrics">
+        {mobileDetail.showList && (
         <Panel
           title="当日记录"
           aside={<DayPicker label="记录日期" value={day} onChange={setDay} />}
@@ -165,7 +172,10 @@ export function Metrics() {
                 >
                   <button
                     className="row-main"
-                    onClick={() => setSelected(m.id)}
+                    onClick={() => {
+                      setSelected(m.id);
+                      mobileDetail.openDetail();
+                    }}
                   >
                     <strong>{str(m, "name")}</strong>
                     <small>
@@ -212,6 +222,8 @@ export function Metrics() {
             输入后离开即保存；右侧小图是最近 14 天，空白表示没有记录。
           </p>
         </Panel>
+        )}
+        {mobileDetail.showDetail && (
         <Panel
           title={str(metric, "name", "统计")}
           aside={
@@ -287,6 +299,7 @@ export function Metrics() {
             </div>
           </div>
         </Panel>
+        )}
       </div>
       {form && (
         <div className="modal-backdrop">
@@ -718,8 +731,12 @@ export function Checklists() {
     if (!checked.delete(id)) checked.add(id);
     return saveChecks(checked);
   }
+  const mobileDetail = useMobileDetail(
+    current ? str(current, "name") : "准备清单",
+  );
   return (
     <>
+      {mobileDetail.showList && (
       <Heading
         eyebrow="READY TO GO"
         title="准备清单"
@@ -735,14 +752,19 @@ export function Checklists() {
           ＋ 新场景
         </button>
       </Heading>
+      )}
       <div className="columns reader checklists">
+        {mobileDetail.showList && (
         <Panel title="场景">
           <div className="article-list">
             {templates.map((e) => (
               <button
                 key={e.id}
                 className={current?.id === e.id ? "selected" : ""}
-                onClick={() => setSelected(e.id)}
+                onClick={() => {
+                  setSelected(e.id);
+                  mobileDetail.openDetail();
+                }}
               >
                 <strong>{str(e, "name")}</strong>
                 <small>{arr(e, "items").length} 项</small>
@@ -761,6 +783,8 @@ export function Checklists() {
             ))}
           </div>
         </Panel>
+        )}
+        {mobileDetail.showDetail && (
         <Panel
           title={
             current
@@ -817,6 +841,7 @@ export function Checklists() {
             <Empty text="创建出门、洗澡或睡前清单" />
           )}
         </Panel>
+        )}
       </div>
       {form && (
         <div className="modal-backdrop">
@@ -830,6 +855,7 @@ export function Checklists() {
               onSaved={(id) => {
                 setSelected(id);
                 setForm(false);
+                mobileDetail.openDetail();
               }}
               onCancel={() => setForm(false)}
             />

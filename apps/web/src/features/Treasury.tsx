@@ -3,6 +3,7 @@ import "./treasury.css";
 import { useEntities, put, putKey, remove, type AnyEntity as Entity } from "../data/entities.ts";
 import { useQuotes, searchQuotes, fetchQuotes } from "../data/quotes.ts";
 import { Heading, Panel, Empty, RecordForm, Stats, Chart, str, perform } from "../ui/shared.tsx";
+import { useMobileDetail } from "../ui/mobile-detail.ts";
 import { money } from "./finance-model.ts";
 import { treasury, treasuryTrend, formatDecimal } from "../../../../modules/treasury/index.ts";
 import type { AssetKind, Quote, QuoteMatch } from "../../../../packages/contracts/quotes.ts";
@@ -167,6 +168,12 @@ export function Treasury() {
   const selectedAsset = sel.kind === "asset" ? assets.find((a) => a.id === sel.id) : undefined;
   const selectedWallet = sel.kind === "wallet" ? wallets.find((w) => w.id === sel.id) : undefined;
 
+  const mobileDetail = useMobileDetail(scope.name);
+  const selectScope = (next: Selection) => {
+    setSel(next);
+    mobileDetail.openDetail();
+  };
+
   const row = (key: string, active: boolean, onClick: () => void, title: React.ReactNode, meta: React.ReactNode, value: string) => (
     <button key={key} className={"asset-wallet" + (active ? " selected" : "")} onClick={onClick}>
       <span className="row-main">
@@ -179,7 +186,7 @@ export function Treasury() {
   const groupHeader = (key: Group, count: string, unit: Unit = CNY) => (
     <button
       className={"asset-category" + (sel.kind === "group" && sel.key === key ? " selected" : "")}
-      onClick={() => setSel({ kind: "group", key })}
+      onClick={() => selectScope({ kind: "group", key })}
     >
       <span className="row-main">
         <strong>{groupNames[key]}</strong>
@@ -195,6 +202,7 @@ export function Treasury() {
 
   return (
     <>
+      {mobileDetail.showList && (
       <Heading
         eyebrow="TREASURY · YOUR RESOURCES"
         title="国库"
@@ -206,9 +214,11 @@ export function Treasury() {
           ＋ 添加标的
         </button>
       </Heading>
+      )}
       <div className="columns treasury">
+        {mobileDetail.showList && (
         <Panel className="flush asset-tree" title="资产结构">
-          <button className={"asset-root" + (sel.kind === "all" ? " selected" : "")} onClick={() => setSel({ kind: "all" })}>
+          <button className={"asset-root" + (sel.kind === "all" ? " selected" : "")} onClick={() => selectScope({ kind: "all" })}>
             <span>全部资产 · 折合人民币</span>
             <strong>{money(report.total)}</strong>
           </button>
@@ -223,7 +233,7 @@ export function Treasury() {
                   return row(
                     a.id,
                     sel.kind === "asset" && sel.id === a.id,
-                    () => setSel({ kind: "asset", id: a.id }),
+                    () => selectScope({ kind: "asset", id: a.id }),
                     <>
                       {str(a, "name")} <em className="ticker">{str(a, "symbol")}</em>
                     </>,
@@ -256,7 +266,7 @@ export function Treasury() {
                   return row(
                     w.id,
                     sel.kind === "wallet" && sel.id === w.id,
-                    () => setSel({ kind: "wallet", id: w.id }),
+                    () => selectScope({ kind: "wallet", id: w.id }),
                     str(w, "name"),
                     last ? `${day(last)} 更新` : "还没有记录",
                     show(report.wallets[w.id]?.value),
@@ -272,7 +282,7 @@ export function Treasury() {
               return row(
                 w.id,
                 sel.kind === "wallet" && sel.id === w.id,
-                () => setSel({ kind: "wallet", id: w.id }),
+                () => selectScope({ kind: "wallet", id: w.id }),
                 str(w, "name"),
                 held.length ? held.map((a) => str(a, "symbol") || str(a, "name")).join(" · ") : "暂无持仓",
                 show(report.wallets[w.id]?.value, unitOfAll(held)),
@@ -280,6 +290,8 @@ export function Treasury() {
             })}
           </section>
         </Panel>
+        )}
+        {mobileDetail.showDetail && (
         <div className="stack">
           <section className="treasury-hero">
             <div>
@@ -475,6 +487,7 @@ export function Treasury() {
             </div>
           </Panel>
         </div>
+        )}
       </div>
 
       {modal && (

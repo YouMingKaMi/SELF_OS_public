@@ -9,6 +9,7 @@ import {
 } from "../data/entities.ts";
 import { Heading, Empty, str, perform } from "../ui/shared.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { useMobileDetail } from "../ui/mobile-detail.ts";
 
 export type MemoirPeriod =
   | "high_school"
@@ -154,15 +155,20 @@ export function Memoir({
       if (periodFilter !== "all" && periodFilter !== draftPeriod) {
         setPeriodFilter("all");
       }
+      mobileDetail.openDetail();
     } finally {
       setCreating(false);
     }
   }
 
   const totalCount = entities.filter((e) => !e.deleted).length;
+  const mobileDetail = useMobileDetail(
+    active ? str(active, "title") : "回忆详情",
+  );
 
   return (
     <div className="memoir-page">
+      {mobileDetail.showList && (
       <Heading
         eyebrow="MEMOIR · BEFORE UNIVERSITY"
         title="回忆录"
@@ -188,9 +194,11 @@ export function Memoir({
           ＋ 记一段回忆
         </button>
       </Heading>
+      )}
 
       <div className="memoir-layout">
         {/* Left: Quick capture + Timeline Index */}
+        {mobileDetail.showList && (
         <section className="memoir-sidebar" aria-label="回忆目录">
           <form className="memoir-capture" onSubmit={(e) => void handleQuickAdd(e)}>
             <div className="memoir-capture-periods" role="radiogroup" aria-label="选择阶段">
@@ -296,7 +304,10 @@ export function Memoir({
                             key={item.id}
                             type="button"
                             className={"memoir-card" + (isSelected ? " selected" : "")}
-                            onClick={() => setSelectedId(item.id)}
+                            onClick={() => {
+                              setSelectedId(item.id);
+                              mobileDetail.openDetail();
+                            }}
                           >
                             <div className="memoir-card-top">
                               <strong className="memoir-card-title">
@@ -323,8 +334,10 @@ export function Memoir({
             )}
           </div>
         </section>
+        )}
 
         {/* Right: Detail Reader / Editor */}
+        {mobileDetail.showDetail && (
         <section className="memoir-detail-pane" aria-label="回忆详情">
           {active ? (
             <MemoirDetailEditor
@@ -333,6 +346,7 @@ export function Memoir({
               onDeleted={() => {
                 const rest = items.filter((i) => i.id !== active.id);
                 setSelectedId(rest[0]?.id ?? null);
+                mobileDetail.closeDetail();
               }}
             />
           ) : (
@@ -355,6 +369,7 @@ export function Memoir({
             </div>
           )}
         </section>
+        )}
       </div>
     </div>
   );
