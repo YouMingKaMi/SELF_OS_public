@@ -1,0 +1,468 @@
+/*
+ * SELF OS · MobileTasks (1:1 port of iPhone CouncilStudio Tasks.swift)
+ * Scoped strictly to `.mt-*` classes; pure OLED black + #121212 InkCards, 360px safe.
+ */
+
+.mt-section-warn .mk-section-label span {
+  color: var(--warn);
+}
+
+.mt-task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 0;
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.mt-task-row.unlocked {
+  background: rgba(110, 224, 152, 0.1);
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  width: calc(100% + 16px);
+}
+
+.mt-task-ring {
+  padding-top: 1px;
+  flex: none;
+}
+
+.mt-task-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mt-task-body:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mt-task-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.38;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.mt-task-title.done {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.mt-task-title.dropped {
+  color: var(--text-3);
+}
+
+.mt-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-task-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-task-meta-item.warn {
+  color: var(--warn);
+}
+
+.mt-task-meta-item.live {
+  color: var(--live);
+}
+
+.mt-task-meta-item.danger {
+  color: var(--danger);
+}
+
+/* Compact date filter bar for Open ("待完成") view */
+.mt-day-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.mt-date-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-date-trigger.active {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+}
+
+.mt-date-trigger input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Folder subpage header & tools */
+.mt-breadcrumb {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-folder-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mt-link-hint {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+/* Folder list view with subtle dependency rail */
+.mt-rail-wrap {
+  position: relative;
+}
+
+.mt-rail-wrap.has-rail {
+  padding-left: 14px;
+}
+
+.mt-rail-svg {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Mobile OLED Dependency Graph (TaskMap 1:1 port) */
+.mt-graph-viewport {
+  width: 100%;
+  max-height: 440px;
+  overflow: auto;
+  border-radius: 18px;
+  background: var(--bg);
+  -webkit-overflow-scrolling: touch;
+}
+
+.mt-graph-space {
+  position: relative;
+}
+
+.mt-graph-board {
+  position: relative;
+  transform-origin: top left;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+:root[data-theme="light"] .mt-graph-board {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.14) 1px, transparent 1px);
+}
+
+.mt-graph-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mt-graph-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.mt-graph-node:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.mt-graph-node.ready {
+  background: rgba(110, 224, 152, 0.13);
+  border-color: rgba(110, 224, 152, 0.36);
+}
+
+.mt-graph-node.done {
+  opacity: 0.65;
+}
+
+.mt-graph-node.source {
+  border-color: var(--live);
+  box-shadow: 0 0 0 1.5px var(--live);
+}
+
+.mt-graph-node:disabled {
+  opacity: 0.35;
+}
+
+.mt-graph-node-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.mt-graph-node.done .mt-graph-node-title {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
+.mt-graph-node-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mt-graph-node-meta.live {
+  color: var(--live);
+}
+
+.mt-graph-node-meta.warn {
+  color: var(--warn);
+}
+
+.mt-graph-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Folder picker & TaskSheet helpers */
+.mt-folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 0;
+}
+
+.mt-folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.mt-folder-btn.active {
+  font-weight: 600;
+}
+
+.mt-folder-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mt-folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-folder-count {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.mt-folder-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-3);
+  flex: none;
+}
+
+.mt-folder-edit:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.mt-prereq-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-bottom: 0.5px solid var(--line);
+}
+
+.mt-prereq-row:last-child {
+  border-bottom: 0;
+}
+
+.mt-prereq-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.mt-prereq-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-prereq-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-2);
+  flex: none;
+}
+
+.mt-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mt-sheet-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 0 4px;
+  line-height: 1.45;
+}
+
+.mt-sheet-hint.warn {
+  color: var(--warn);
+}
+
+.mt-conflict-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(245, 166, 35, 0.1);
+}
+
+.mt-conflict-box strong {
+  font-size: 14px;
+  color: var(--warn);
+}
+
+.mt-conflict-box p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.mt-conflict-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mt-seg-5 .mk-seg-btn {
+  padding: 0 4px;
+  font-size: 12.5px;
+}

@@ -1,0 +1,416 @@
+/*
+ * SELF OS · MobileTreasury (1:1 port of iPhone CouncilStudio Treasury.swift)
+ * All classes scoped to `.mt-*` + MobileKit `.mk-*`. Strictly 360px safe, zero desktop CSS.
+ */
+
+.mt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mt-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  min-width: 0;
+}
+
+.mt-card-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-card-meta {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.mt-hero-eyebrow {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.mt-hero-subval {
+  font-size: 13px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  margin-top: -2px;
+}
+
+.mt-change-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.mt-up {
+  color: var(--live);
+}
+
+.mt-down {
+  color: var(--danger);
+}
+
+.mt-muted {
+  color: var(--text-3);
+}
+
+.mt-group-sum {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.mt-group-sum strong {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.mt-group-sum small {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.mt-asset-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  flex: none;
+  overflow: hidden;
+}
+
+.mt-sub-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-root .mt-list button.mk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  height: auto;
+  font-weight: 400;
+}
+
+.mk-root .mt-list button.mk-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mk-root button.mt-holding-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  width: 100%;
+  min-height: 0;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  height: auto;
+  white-space: normal;
+  font-weight: 400;
+}
+
+.mk-root button.mt-holding-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mt-holding-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mt-holding-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-holding-val {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  flex: none;
+}
+
+.mt-holding-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-root .mt-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.mk-root .mt-quick-actions button.mk-pill {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.mk-root .mt-quick-actions button.mk-pill.solid {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+}
+
+.mt-foot-note {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+  padding: 0 6px 4px;
+}
+
+.mt-big-amount-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.mt-big-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mt-sign-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  flex: none;
+}
+
+.mt-sign-btn.plus {
+  color: var(--live);
+}
+
+.mt-sign-btn.minus {
+  color: var(--danger);
+}
+
+.mt-big-amount-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 0;
+  height: auto;
+}
+
+.mt-big-amount-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.mt-big-amount-hint {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mt-search-bar .mk-field-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-search-bar .mk-pill {
+  flex: none;
+  height: 44px;
+}
+
+.mt-search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 0.5px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  height: auto;
+  white-space: normal;
+}
+
+.mt-search-result:last-child {
+  border-bottom: 0;
+}
+
+.mt-search-result:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+.mt-form-error {
+  font-size: 13px;
+  color: var(--danger);
+  padding: 0 4px;
+}
+
+.mt-warn-note {
+  font-size: 12.5px;
+  color: var(--warn);
+  padding: 0 4px;
+}
+
+.mt-spin svg {
+  animation: mt-rotate 0.8s linear infinite;
+}
+
+@keyframes mt-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mk-root button.mt-add-row-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 8px 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  height: auto;
+  align-self: flex-start;
+}
+
+.mk-root button.mt-add-row-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+
+.mt-datetime-input {
+  text-align: right;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  max-width: 184px;
+}
+
+.mt-danger-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.mt-confirm-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}

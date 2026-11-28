@@ -1,0 +1,629 @@
+/*
+ * SELF OS · Mobile Practice (1:1 port of iPhone CouncilStudio Practice.swift)
+ * Scoped exclusively to `.mp-*` classes. Pure OLED Ink, zero desktop rules, 360px safe.
+ */
+
+/* ───────────── Live Timer & Idle Hero ───────────── */
+.mp-live-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.mp-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex: none;
+}
+.mp-live-dot.active {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px rgba(247, 186, 77, 0.22);
+  animation: mp-pulse 1.8s ease-in-out infinite;
+}
+@keyframes mp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.86);
+  }
+}
+.mp-live-domain {
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.mp-hero-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.28;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.mp-hero-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.mp-live-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.mp-live-clock {
+  flex: 1;
+  min-width: 0;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mp-live-clock.paused {
+  color: var(--text-2);
+}
+.mp-live-clock .timer-digits {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+.mp-live-btns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.mp-circle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  flex: none;
+  transition: transform 0.12s ease, opacity 0.15s ease;
+}
+.mp-circle-btn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+.mp-circle-btn:disabled {
+  opacity: 0.35;
+}
+.mp-circle-btn.subtle {
+  width: 44px;
+  height: 44px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.mp-circle-btn.subtle:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mp-circle-btn.play {
+  width: 56px;
+  height: 56px;
+  background: var(--solid);
+  color: var(--solid-text);
+}
+.mp-circle-btn.play:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  border-color: transparent;
+}
+.mp-circle-btn.mini {
+  width: 32px;
+  height: 32px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.mp-circle-btn.mini:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: transparent;
+}
+
+.mp-idle-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+.mp-idle-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* ───────────── Status Dot & Badges ───────────── */
+.mp-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  margin-top: 6px;
+}
+.mp-status-dot.active {
+  background: var(--text);
+}
+.mp-status-dot.resolved {
+  background: var(--live);
+}
+.mp-status-dot.pending {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.6px var(--text-2);
+}
+.mp-status-dot.discarded {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.6px var(--text-4);
+}
+
+/* ───────────── Activity Rows ───────────── */
+.mp-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  width: 100%;
+  min-width: 0;
+}
+.mp-activity-hit {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  white-space: normal;
+  height: auto;
+}
+.mp-activity-hit:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mp-activity-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mp-activity-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mp-activity-name.selected {
+  font-weight: 600;
+}
+.mp-active-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--solid);
+  color: var(--solid-text);
+  flex: none;
+}
+.mp-activity-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.mp-activity-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+/* ───────────── Collapsible Disclosure Row ───────────── */
+.mp-disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+  height: auto;
+}
+.mp-disclosure:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+
+/* ───────────── Events & Problems List Rows ───────────── */
+.mp-item-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  height: auto;
+  min-width: 0;
+}
+.mp-item-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mp-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mp-item-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.38;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.mp-item-title.muted {
+  color: var(--text-3);
+}
+.mp-item-title.strike {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.mp-item-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.mp-item-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.mp-item-right .mono {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ───────────── Progress Timeline Rows ───────────── */
+.mp-log-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+  width: 100%;
+  min-width: 0;
+}
+.mp-log-date {
+  width: 34px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.mp-log-date strong {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--text);
+}
+.mp-log-date small {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.mp-log-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mp-log-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mp-log-place {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ───────────── Solution Tree (Problem SubPage) ───────────── */
+.mp-sol-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 0;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+}
+.mp-sol-branch {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.mp-sol-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-2);
+}
+.mp-sol-dot-btn {
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.mp-sol-dot-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.mp-sol-dot-btn .mp-status-dot {
+  margin-top: 0;
+}
+.mp-sol-hit {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  white-space: normal;
+  height: auto;
+}
+.mp-sol-hit:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mp-sol-reason {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+  word-break: break-word;
+}
+
+/* ───────────── Detail Notes & Action Bars ───────────── */
+.mp-note-body {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mp-source-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.mp-source-box span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-source-link {
+  flex: none;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 12.5px;
+}
+.mp-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mp-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.mp-card-head-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mp-card-head-meta {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+/* ───────────── Session Rows & Stats ───────────── */
+.mp-session-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  height: auto;
+  min-width: 0;
+}
+.mp-session-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mp-session-row.cancelled {
+  opacity: 0.45;
+}
+.mp-session-day {
+  width: 44px;
+  flex: none;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.mp-session-val {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mp-breakdown-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.mp-breakdown-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.mp-breakdown-top span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-breakdown-top strong {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mp-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.mp-more-btn {
+  width: 100%;
+  padding: 12px 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  height: auto;
+}
+.mp-more-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+.mp-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

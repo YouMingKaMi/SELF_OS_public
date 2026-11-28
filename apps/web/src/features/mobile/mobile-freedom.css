@@ -1,0 +1,489 @@
+/*
+ * SELF OS · MobileFreedom (1:1 port of iPhone CouncilStudio Freedom.swift)
+ * All classes scoped to `.mf-*` + MobileKit `.mk-*`.
+ * Strictly 360px safe: ZERO horizontal overflow, single-column settings sheet.
+ */
+
+.mf-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mf-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.mf-card-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-hero-line {
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.mf-hero-line strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mf-hero-muted {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.mf-meter-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.mf-meter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-note {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.55;
+  padding: 0 6px;
+}
+
+/* ───────────── Life Grid (100% card-fit Canvas, zero horizontal overflow) ───────────── */
+.mf-grid-frame {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mf-grid-scroll {
+  width: 100%;
+  max-width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: 10px;
+}
+
+.mf-grid-canvas {
+  display: block;
+  width: 100%;
+}
+
+.mf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.mf-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.mf-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.mf-dot.gold {
+  background: #f0b94a;
+}
+
+.mf-dot.blue {
+  background: #5b92f0;
+}
+
+.mf-dot.volatile {
+  background: #a78bda;
+}
+
+.mf-dot.none {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+:root[data-theme="light"] .mf-dot.none {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.mf-dot.past {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="light"] .mf-dot.past {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ───────────── Today & Gaps ───────────── */
+.mf-delta-text {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-delta-text.up {
+  color: var(--live);
+}
+
+.mf-delta-text.down {
+  color: var(--danger);
+}
+
+.mf-delta-text.flat {
+  color: var(--text-2);
+}
+
+.mf-gap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.mf-gap-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.mf-gap-row span {
+  color: var(--text-2);
+}
+
+.mf-gap-row strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-gap-row strong.done {
+  color: var(--live);
+}
+
+/* ───────────── What-If Sliders & Inputs (Strictly single-column) ───────────── */
+.mf-sim-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.mf-slider-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  width: 100%;
+}
+
+.mf-slider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mf-slider-head span {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.mk-root input.mf-slider-num {
+  width: 104px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-root input.mf-slider-num:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.mk-root input.mf-range {
+  width: 100%;
+  min-height: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  accent-color: var(--solid);
+  cursor: pointer;
+}
+
+.mk-root input.mk-field-input {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.mk-root .mk-form-group input.mf-date-input {
+  min-height: 30px;
+  height: 30px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  max-width: 164px;
+}
+
+.mf-sim-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+
+.mf-preview-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+
+/* ───────────── Asset Roles Compact 3-Way Toggle (360px safe) ───────────── */
+.mf-role-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.mf-role-group-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 6px 0 2px;
+}
+
+.mf-role-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--line);
+  width: 100%;
+  min-width: 0;
+}
+
+.mf-role-row:last-child {
+  border-bottom: 0;
+}
+
+.mf-role-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mf-role-name {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mf-role-val {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-role-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  flex: none;
+}
+
+.mk-root button.mf-role-pill {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mk-root button.mf-role-pill:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+
+.mk-root button.mf-role-pill.active,
+.mk-root button.mf-role-pill.active:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+}
+
+.mk-root button.mf-cta-btn {
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--solid);
+  color: var(--solid-text);
+  font-size: 14px;
+  font-weight: 600;
+  justify-content: center;
+}
+
+/* ───────────── Settings Sheet Controls (Single-Column, Never Clips) ───────────── */
+.mf-date-input {
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  max-width: 164px;
+}
+
+.mf-age-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.mf-step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mf-step-btn:hover:not(:disabled) {
+  background: var(--line-3);
+  border-color: transparent;
+}
+
+.mf-age-input {
+  width: 54px;
+  height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-age-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.mf-age-unit {
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+
+.mf-sheet-note {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.55;
+  padding: 0 4px;
+}
+
+.mf-since-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.mf-reset-link {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 11.5px;
+  height: 26px;
+}
+
+.mf-reset-link:hover:not(:disabled) {
+  background: var(--line-3);
+  border-color: transparent;
+}
+
+.mf-cta-btn {
+  width: 100%;
+  justify-content: center;
+}

@@ -255,6 +255,101 @@ const paths: Record<string, React.ReactNode> = {
   ),
   check: <path d="m4 12 5 5L20 6" />,
   edit: <path d="m15 5 4 4M4 20l1-5L16 4a2.8 2.8 0 0 1 4 4L9 19Z" />,
+  "arrow-up": <path d="M12 19V5m-6 6 6-6 6 6" />,
+  minus: <path d="M5 12h14" />,
+  trash: (
+    <>
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M10 11v6M14 11v6" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M7 3v4M17 3v4M3 10h18" />
+    </>
+  ),
+  sparkles: (
+    <>
+      <path d="m12 3 1.8 4.8L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.7Z" />
+      <path d="M18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8Z" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 1 0-5.7l2.5-2.5a4 4 0 0 1 5.7 5.7l-1.4 1.4" />
+      <path d="M14 10a4 4 0 0 1 0 5.7l-2.5 2.5a4 4 0 0 1-5.7-5.7l1.4-1.4" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 4v12m-5-5 5 5 5-5M4 20h16" />
+    </>
+  ),
+  filter: <path d="M4 6h16M7 12h10M10 18h4" />,
+  eye: (
+    <>
+      <path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="2.6" />
+    </>
+  ),
+  "eye-off": (
+    <>
+      <path d="M3 3l18 18M10.6 10.6a2.5 2.5 0 0 0 3.5 3.5" />
+      <path d="M9.5 5.3A10.7 10.7 0 0 1 12 5c6.2 0 10 7 10 7a16.8 16.8 0 0 1-3.4 4.1M6.3 6.5A16.7 16.7 0 0 0 2 12s3.8 7 10 7c1.4 0 2.7-.3 3.9-.8" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
+  "arrow-left-right": <path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M20 13.5 13.5 20a2 2 0 0 1-2.8 0L4 13.3V4h9.3L20 10.7a2 2 0 0 1 0 2.8Z" />
+      <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
+  alert: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v5M12 16.5h.01" />
+    </>
+  ),
+  undo: (
+    <>
+      <path d="M9 7H4v5" />
+      <path d="M4 12a8 8 0 1 1 2.3 5.7" />
+    </>
+  ),
+  pin: <path d="M12 17v5M8 4h8l-1 6 3 3H6l3-3Z" />,
+  "chevron-down": <path d="m6 9 6 6 6-6" />,
+  "chevron-up": <path d="m6 15 6-6 6 6" />,
+  tree: (
+    <>
+      <circle cx="12" cy="5" r="2.2" />
+      <circle cx="6" cy="19" r="2.2" />
+      <circle cx="18" cy="19" r="2.2" />
+      <path d="M12 7.2V12m0 0-6 4.8m6-4.8 6 4.8" />
+    </>
+  ),
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
 };
 
 /** Shared local line icons keep navigation legible without platform font glyphs. */

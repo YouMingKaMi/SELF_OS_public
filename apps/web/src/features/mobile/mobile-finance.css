@@ -1,0 +1,262 @@
+/* MobileFinance — 1:1 iPhone CouncilStudio Finance.swift */
+
+.mf-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mf-basis-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  flex: none;
+}
+.mf-basis-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mf-budget-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.mf-budget-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: visible;
+}
+.mf-budget-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text);
+}
+.mf-budget-fill.over {
+  background: var(--danger);
+}
+.mf-budget-pace {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--text-3);
+  transform: translateX(-1px);
+}
+.mf-budget-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ledger Day Section Header (Finance.swift lines 215-222) */
+.mf-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 6px 2px;
+}
+.mf-day-head-left {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.mf-day-head-left strong {
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.mf-day-head-left small {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.mf-day-head-sum {
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Expense Row */
+.mf-badge {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 0.75px solid var(--line-2);
+  white-space: nowrap;
+}
+.mf-amount {
+  font-size: 15.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+}
+.mf-amount.refund {
+  color: var(--live);
+}
+
+/* Spread Category Row */
+.mf-spread-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 7px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+  height: auto;
+}
+.mf-spread-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mf-spread-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+.mf-spread-top span {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+.mf-spread-top strong {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Long-term Row */
+.mf-long-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+  height: auto;
+}
+.mf-long-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mf-long-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mf-long-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mf-long-name strong {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mf-long-name.ended strong {
+  color: var(--text-2);
+}
+.mf-long-pill {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  flex: none;
+}
+.mf-long-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.mf-long-rates {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.mf-long-rates b {
+  font-weight: 600;
+  color: var(--text-2);
+}
+.mf-long-rates b.now {
+  color: var(--text);
+}
+.mf-long-rates span:last-child {
+  margin-left: auto;
+}
+
+/* ExpenseSheet Big Amount Hero */
+.mf-sheet-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 2px;
+}
+.mf-sheet-yen {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-3);
+  line-height: 1;
+}
+.mf-sheet-amount-input {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 46px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  padding: 0;
+}
+.mf-sheet-amount-input:focus {
+  outline: none;
+  box-shadow: none;
+}

@@ -1,0 +1,417 @@
+/*
+ * SELF OS · MobileStorage (1:1 port of iPhone CouncilStudio Storage.swift)
+ * Scoped strictly to `.mst-*` classes; pure OLED black + #121212 InkCards, 360px safe.
+ */
+
+.mst-warn-section .mk-section-label span {
+  color: var(--warn);
+}
+
+/* Box row icon badge */
+.mst-box-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex: none;
+}
+
+/* Item row icon badge */
+.mst-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex: none;
+}
+
+.mst-item-icon.out {
+  color: var(--warn);
+  background: rgba(245, 166, 35, 0.12);
+}
+
+.mst-qty {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  margin-left: 5px;
+}
+
+.mst-title-line {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.mst-title-line .mk-row-title {
+  flex: 0 1 auto;
+}
+
+.mst-title-out {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+/* Box Detail: location & path meta */
+.mst-detail-meta {
+  font-size: 12.5px;
+  color: var(--text-3);
+  padding: 0 6px;
+  line-height: 1.4;
+}
+
+/* Sub-boxes / compartments horizontal strip inside Box Detail */
+.mst-sub-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+  width: 100%;
+}
+
+.mst-sub-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.mst-sub-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
+}
+
+.mst-sub-chip:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+
+.mst-sub-chip-count {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mst-sub-chip-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px dashed var(--line-3);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
+}
+
+.mst-sub-chip-add:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--line-3);
+  color: var(--text-2);
+}
+
+/* 3-column squircle item grid (360px safe) */
+.mst-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  width: 100%;
+}
+
+.mst-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 94px;
+  padding: 14px 8px 11px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  min-width: 0;
+}
+
+.mst-tile:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+
+.mst-tile:active {
+  transform: scale(0.97);
+}
+
+.mst-tile.out {
+  border-color: rgba(245, 166, 35, 0.5);
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.mst-tile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  color: var(--text-2);
+}
+
+.mst-tile.out .mst-tile-icon {
+  color: var(--warn);
+}
+
+.mst-tile-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text);
+  width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.mst-tile.out .mst-tile-name {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.mst-tile-qty {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mst-tile-badge {
+  position: absolute;
+  top: 6px;
+  left: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--warn);
+  line-height: 1;
+}
+
+.mst-tile-dot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+/* Empty onboarding starter cards */
+.mst-onboarding-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mst-onboarding-sub {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.mst-starter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mst-starter-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  height: auto;
+}
+
+.mst-starter-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+
+/* ItemSheet quick actions & stepper */
+.mst-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.mst-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 0.5px solid var(--line);
+}
+
+.mst-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  color: var(--text);
+  flex: none;
+}
+
+.mst-qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mst-qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text);
+  flex: none;
+}
+
+.mst-qty-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+
+.mst-qty-val {
+  min-width: 32px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* 4-column icon grid inside BoxSheet & ItemIconPickerSheet */
+.mst-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.mst-icon-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 4px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  height: auto;
+  min-width: 0;
+}
+
+.mst-icon-opt:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.mst-icon-opt.active,
+.mst-icon-opt.active:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  border-color: transparent;
+}
+
+.mst-icon-opt span {
+  font-size: 11px;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Move box sheet rows */
+.mst-move-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  height: auto;
+}
+
+.mst-move-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mst-move-row:disabled {
+  opacity: 0.45;
+}
+
+.mst-move-branch {
+  font-size: 13px;
+  color: var(--text-3);
+  flex: none;
+}
+
+.mst-sheet-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 0 4px;
+  line-height: 1.45;
+}

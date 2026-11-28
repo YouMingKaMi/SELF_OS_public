@@ -1,0 +1,1112 @@
+/*
+ * SELF OS · Mobile Ink Primitive Kit (1:1 port of iPhone CouncilStudio Theme.swift)
+ *
+ * Pure OLED black (#000000), lifted #121212 cards (24px continuous radius, 18px pad, zero borders),
+ * subtle 0.5px hairlines, ultra-minimalist rows without inline button clutter,
+ * native iOS segmented controls, 28-day DayStrip, MonthBar, bottom glass Composer,
+ * and clean bottom sheets / action sheets.
+ *
+ * All rules are scoped to `.mk-*` so desktop (> 760px) is 100% untouched.
+ */
+
+/* ───────────── Reset desktop button/input defaults inside MobileKit ───────────── */
+.mk-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.mk-root.has-composer {
+  padding-bottom: 76px;
+}
+.mk-root *,
+.mk-sheet-backdrop *,
+.mk-action-backdrop * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* ───────────── Cards (Theme.swift Card: #121212, 24px radius, 18px pad, zero border) ───────────── */
+.mk-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  background: var(--surface);
+  width: 100%;
+  min-width: 0;
+}
+.mk-card.compact {
+  padding: 4px 18px;
+  gap: 0;
+}
+.mk-card.tight {
+  padding: 16px;
+  gap: 10px;
+}
+.mk-card.raised {
+  background: var(--surface-2);
+}
+
+/* ───────────── Section Label & Hairlines ───────────── */
+.mk-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.mk-section-label small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.mk-hairline {
+  height: 0.5px;
+  background: var(--line);
+  width: 100%;
+  flex: none;
+}
+.mk-hairline.inset-34 {
+  margin-left: 34px;
+  width: calc(100% - 34px);
+}
+.mk-hairline.inset-44 {
+  margin-left: 44px;
+  width: calc(100% - 44px);
+}
+
+/* ───────────── Figures & StatRow (Theme.swift Figure + StatRow) ───────────── */
+.mk-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mk-figure-num {
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-figure-num.md {
+  font-size: 28px;
+}
+.mk-figure-num.sm {
+  font-size: 22px;
+}
+.mk-figure-cap {
+  font-size: 13px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-stat-row {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.mk-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.mk-stat-cell small {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-stat-cell strong {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-stat-cell strong.warn {
+  color: var(--warn);
+}
+.mk-stat-cell strong.danger {
+  color: var(--danger);
+}
+.mk-stat-cell strong.live {
+  color: var(--live);
+}
+
+/* ───────────── Meter (Theme.swift Meter: 4px rounded track) ───────────── */
+.mk-meter {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.mk-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text);
+  transition: width 0.2s ease;
+}
+.mk-meter-fill.danger {
+  background: var(--danger);
+}
+.mk-meter-fill.live {
+  background: var(--live);
+}
+.mk-meter-fill.warn {
+  background: var(--warn);
+}
+
+/* ───────────── Ring (Theme.swift Ring: circular check / progress ring) ───────────── */
+.mk-ring-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  flex: none;
+}
+.mk-ring-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mk-ring-btn:active {
+  transform: scale(0.92);
+}
+.mk-ring-svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* ───────────── Segmented Control (iOS native segmented picker) ───────────── */
+.mk-segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface);
+  width: 100%;
+}
+.mk-segmented.on-card {
+  background: var(--surface-2);
+}
+.mk-seg-btn {
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-seg-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+.mk-seg-btn.active,
+.mk-seg-btn.active:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+  border-color: transparent;
+}
+
+/* ───────────── ChipBar & FlowChips (Theme.swift ChipBar + FlowChips) ───────────── */
+.mk-chip-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+  width: 100%;
+}
+.mk-chip-bar::-webkit-scrollbar {
+  display: none;
+}
+.mk-flow-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+.mk-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 400;
+  white-space: nowrap;
+  flex: none;
+}
+.mk-chip.sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.mk-chip:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text);
+}
+.mk-chip.active,
+.mk-chip.active:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+  border-color: transparent;
+}
+.mk-chip-count {
+  font-size: 11.5px;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────── Pill Buttons (Theme.swift PillStyle) ───────────── */
+.mk-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mk-pill.sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.mk-pill.lg {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.mk-pill.full {
+  width: 100%;
+}
+.mk-pill:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mk-pill.solid,
+.mk-pill.solid:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+  border-color: transparent;
+}
+.mk-pill.danger,
+.mk-pill.danger:hover:not(:disabled) {
+  background: rgba(255, 110, 110, 0.14);
+  color: var(--danger);
+  border-color: transparent;
+}
+.mk-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: auto;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+}
+.mk-text-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+.mk-text-btn.accent {
+  color: var(--text);
+}
+.mk-text-btn.danger {
+  color: var(--danger);
+}
+
+/* ───────────── MonthBar (Theme.swift MonthBar) ───────────── */
+.mk-month-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px;
+  width: 100%;
+}
+.mk-month-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  flex: none;
+}
+.mk-month-nav:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+  color: var(--text);
+}
+.mk-month-title {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 0 4px;
+}
+.mk-month-today {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.mk-month-today:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text);
+}
+
+/* ───────────── DayStrip (Theme.swift DayStrip — 28-day pill bar + date jump) ───────────── */
+.mk-day-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.mk-day-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mk-day-date-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mk-day-date-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.mk-day-date-btn input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.mk-day-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.mk-day-pills::-webkit-scrollbar {
+  display: none;
+}
+.mk-day-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 42px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-2);
+  flex: none;
+}
+.mk-day-pill:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.mk-day-pill.active,
+.mk-day-pill.active:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  border-color: transparent;
+}
+.mk-day-pill small {
+  font-size: 10px;
+  color: inherit;
+  opacity: 0.65;
+  line-height: 1;
+}
+.mk-day-pill strong {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.mk-day-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--live);
+}
+.mk-day-pill.active .mk-day-dot {
+  background: var(--solid-text);
+  opacity: 0.5;
+}
+
+/* ───────────── Standard Minimalist List Row ───────────── */
+.mk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  height: auto;
+}
+.mk-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mk-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.mk-row-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-row-title.clamp-1 {
+  white-space: nowrap;
+}
+.mk-row-title.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.mk-row-sub {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.35;
+}
+.mk-row-sub.warn {
+  color: var(--warn);
+}
+.mk-row-sub.danger {
+  color: var(--danger);
+}
+.mk-row-sub.live {
+  color: var(--live);
+}
+.mk-row-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--text-2);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.mk-row-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mk-row-chevron {
+  color: var(--text-4);
+  display: inline-flex;
+}
+
+/* ───────────── Search Input (compact iOS) ───────────── */
+.mk-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  width: 100%;
+}
+.mk-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14.5px;
+  padding: 0;
+}
+.mk-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.mk-search-clear {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: none;
+}
+
+/* ───────────── Pinned Bottom Glass Composer (Theme.swift Composer) ───────────── */
+.mk-composer-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  padding: 10px 14px calc(12px + var(--inset-bottom));
+  background: linear-gradient(180deg, transparent 0%, var(--bg) 32%);
+  pointer-events: none;
+}
+.mk-composer {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border-radius: 26px;
+  background: rgba(28, 28, 28, 0.9);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 0.75px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="light"] .mk-composer {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.09);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.1);
+}
+.mk-composer-input {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  min-height: 32px;
+  max-height: 112px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.4;
+  resize: none;
+}
+.mk-composer-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.mk-composer-send {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--solid);
+  color: var(--solid-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: none;
+}
+.mk-composer-send:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  border-color: transparent;
+}
+.mk-composer-send:disabled {
+  opacity: 0.25;
+}
+
+/* ───────────── Empty State ───────────── */
+.mk-empty {
+  font-size: 13.5px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 24px 12px;
+  line-height: 1.5;
+}
+
+/* ───────────── Native iOS Bottom Sheet (Form / Detail Modal) ───────────── */
+.mk-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.mk-sheet {
+  width: 100%;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 28px 28px 0 0;
+  overflow: hidden;
+  box-shadow: 0 -10px 42px rgba(0, 0, 0, 0.72);
+}
+.mk-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  margin: 8px auto 0;
+  flex: none;
+}
+:root[data-theme="light"] .mk-sheet-handle {
+  background: rgba(0, 0, 0, 0.15);
+}
+.mk-sheet-header {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 72px;
+  align-items: center;
+  padding: 10px 16px 12px;
+  border-bottom: 0.5px solid var(--line);
+  flex: none;
+}
+.mk-sheet-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-sheet-left {
+  justify-self: start;
+}
+.mk-sheet-right {
+  justify-self: end;
+}
+.mk-sheet-nav-btn {
+  height: 32px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 400;
+}
+.mk-sheet-nav-btn.primary {
+  color: var(--text);
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+}
+.mk-sheet-nav-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mk-sheet-nav-btn:disabled {
+  opacity: 0.3;
+}
+.mk-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 16px calc(24px + var(--inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* iOS Grouped Form Rows inside Sheet */
+.mk-form-group {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.mk-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--line);
+}
+.mk-form-row:last-child {
+  border-bottom: 0;
+}
+.mk-form-row.col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.mk-form-label {
+  font-size: 14.5px;
+  color: var(--text-2);
+  flex: none;
+}
+.mk-form-input,
+.mk-form-select,
+.mk-form-textarea {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  padding: 2px 0;
+  height: auto;
+}
+.mk-form-input.right {
+  text-align: right;
+}
+.mk-form-select {
+  text-align: right;
+  text-align-last: right;
+  padding-right: 18px;
+  background-position: right 2px center, right 6px center;
+}
+.mk-form-textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.mk-form-input:focus,
+.mk-form-select:focus,
+.mk-form-textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Standalone filled input inside sheet */
+.mk-field-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 15px;
+}
+.mk-field-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* Real iOS Switch */
+.mk-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 46px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  padding: 2px;
+  background: var(--surface-3);
+  transition: background 0.18s;
+  flex: none;
+}
+.mk-switch:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--surface-3);
+}
+.mk-switch.on,
+.mk-switch.on:hover:not(:disabled) {
+  background: var(--live);
+}
+.mk-switch-thumb {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transform: translateX(0);
+  transition: transform 0.18s;
+}
+.mk-switch.on .mk-switch-thumb {
+  transform: translateX(18px);
+}
+
+/* ───────────── Native iOS Action Sheet (confirmationDialog / Context Menu) ───────────── */
+.mk-action-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px 12px calc(12px + var(--inset-bottom));
+}
+.mk-action-stack {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mk-action-group {
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.mk-action-title {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-3);
+  border-bottom: 0.5px solid var(--line);
+}
+.mk-action-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 0.5px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 400;
+}
+.mk-action-item:last-child {
+  border-bottom: 0;
+}
+.mk-action-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+.mk-action-item.danger {
+  color: var(--danger);
+}
+.mk-action-item.active {
+  font-weight: 600;
+}
+.mk-action-cancel {
+  width: 100%;
+  height: 52px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+.mk-action-cancel:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+
+/* ───────────── Floating Undo / Status Toast ───────────── */
+.mk-undo-toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(82px + var(--inset-bottom));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
+}
+.mk-undo-toast button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--solid);
+  color: var(--solid-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ───────────── Crisp Ink Charts (360px safe, SwiftUI Charts style) ───────────── */
+.mk-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.mk-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.mk-chart-head strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mk-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+/* ───────────── Navbar Action Buttons (Portal into .ms-nav-right) ───────────── */
+.mk-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  flex: none;
+}
+.mk-nav-icon:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.mk-nav-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  flex: none;
+}
+.mk-nav-text.solid,
+.mk-nav-text.solid:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+  border-color: transparent;
+}

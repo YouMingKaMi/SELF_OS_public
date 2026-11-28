@@ -17,7 +17,8 @@ import {
 import { useTasks, enqueue, taskBlockers, type Task } from "../data/tasks.ts";
 import { features, type FeatureKey, type Navigate } from "../navigation.ts";
 import { scheduleLabel } from "../scheduling.ts";
-import { HabitRow } from "./Habits.tsx";
+import { MobileHabitLine, MobileHabits } from "./mobile/MobileHabits.tsx";
+import { MobileNavProvider, useMobileNavState } from "./mobile/MobileKit.tsx";
 import {
   habitRule,
   habitScheduled,
@@ -41,7 +42,62 @@ import {
   today,
   usePreference,
 } from "../ui/shared.tsx";
-import { useActiveMobileSubView } from "../ui/mobile-detail.ts";
+
+const MobileFinance = React.lazy(() =>
+  import("./mobile/MobileFinance.tsx").then((m) => ({ default: m.MobileFinance })),
+);
+const MobileTasks = React.lazy(() =>
+  import("./mobile/MobileTasks.tsx").then((m) => ({ default: m.MobileTasks })),
+);
+const MobileStorage = React.lazy(() =>
+  import("./mobile/MobileStorage.tsx").then((m) => ({ default: m.MobileStorage })),
+);
+const MobilePractice = React.lazy(() =>
+  import("./mobile/MobilePractice.tsx").then((m) => ({ default: m.MobilePractice })),
+);
+const MobileAchievements = React.lazy(() =>
+  import("./mobile/MobileAchievements.tsx").then((m) => ({
+    default: m.MobileAchievements,
+  })),
+);
+const MobileTreasury = React.lazy(() =>
+  import("./mobile/MobileTreasury.tsx").then((m) => ({ default: m.MobileTreasury })),
+);
+const MobileFreedom = React.lazy(() =>
+  import("./mobile/MobileFreedom.tsx").then((m) => ({ default: m.MobileFreedom })),
+);
+const MobileJournal = React.lazy(() =>
+  import("./mobile/MobileJournal.tsx").then((m) => ({ default: m.MobileJournal })),
+);
+const MobileDocuments = React.lazy(() =>
+  import("./mobile/MobileDocuments.tsx").then((m) => ({
+    default: m.MobileDocuments,
+  })),
+);
+const MobileMemoir = React.lazy(() =>
+  import("./mobile/MobileMemoir.tsx").then((m) => ({ default: m.MobileMemoir })),
+);
+const MobileImportantDays = React.lazy(() =>
+  import("./mobile/MobileLife.tsx").then((m) => ({
+    default: m.MobileImportantDays,
+  })),
+);
+const MobileMetrics = React.lazy(() =>
+  import("./mobile/MobileLife.tsx").then((m) => ({ default: m.MobileMetrics })),
+);
+const MobileChecklists = React.lazy(() =>
+  import("./mobile/MobileLife.tsx").then((m) => ({ default: m.MobileChecklists })),
+);
+const MobileReadingList = React.lazy(() =>
+  import("./mobile/MobileReadingList.tsx").then((m) => ({
+    default: m.MobileReadingList,
+  })),
+);
+const MobileSettings = React.lazy(() =>
+  import("./mobile/MobileSettings.tsx").then((m) => ({
+    default: m.MobileSettings,
+  })),
+);
 
 type MobileTab = "today" | "shortcuts" | "departments" | "review" | "search";
 type MobileRoute =
@@ -189,13 +245,40 @@ function parsePositiveMinor(input: string): string | null {
 
 export function MobileStudio({
   initialFeature,
-  renderScreen,
+  theme,
+  setTheme,
 }: {
   initialFeature: FeatureKey;
-  renderScreen: (key: FeatureKey, navigate: Navigate) => React.ReactNode;
+  theme: string;
+  setTheme: (next: string) => void;
+}) {
+  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
+  return (
+    <MobileNavProvider portalEl={toolbarEl}>
+      <MobileStudioInner
+        initialFeature={initialFeature}
+        theme={theme}
+        setTheme={setTheme}
+        setToolbarEl={setToolbarEl}
+      />
+    </MobileNavProvider>
+  );
+}
+
+function MobileStudioInner({
+  initialFeature,
+  theme,
+  setTheme,
+  setToolbarEl,
+}: {
+  initialFeature: FeatureKey;
+  theme: string;
+  setTheme: (next: string) => void;
+  setToolbarEl: (el: HTMLDivElement | null) => void;
 }) {
   const ws = useWorkspaceConfig();
-  const { state: syncState, message: syncMsg } = useSyncStatus();
+  const navCtx = useMobileNavState();
+  const { state: syncState } = useSyncStatus();
   const conflicts = usePending().filter(
     (p) => p.state === "conflict" || p.state === "error",
   );
@@ -217,6 +300,7 @@ export function MobileStudio({
     return [{ kind: "feature", key: initialFeature }];
   });
 
+  const [practiceRequest, setPracticeRequest] = useState<{ id: string }>();
   const [captureMenu, setCaptureMenu] = useState(false);
   const [capture, setCapture] = useState<QuickCaptureKind | null>(null);
   const [arranging, setArranging] = useState(false);
@@ -224,7 +308,7 @@ export function MobileStudio({
   const [creatingDept, setCreatingDept] = useState(false);
 
   const top = stack.at(-1);
-  const subView = useActiveMobileSubView();
+  const activeSub = navCtx?.subPages.at(-1) ?? null;
 
   const navigate: Navigate = (key) => {
     if (key === "home") {
@@ -255,6 +339,7 @@ export function MobileStudio({
 
   useEffect(() => {
     window.__selfOSHandleBack = () => {
+      if (navCtx?.consumeBack()) return true;
       if (capture) {
         setCapture(null);
         return true;
@@ -275,10 +360,6 @@ export function MobileStudio({
         setCreatingDept(false);
         return true;
       }
-      if (subView) {
-        subView.onBack();
-        return true;
-      }
       if (stack.length > 0) {
         setStack((prev) => prev.slice(0, -1));
         return true;
@@ -292,7 +373,7 @@ export function MobileStudio({
     return () => {
       delete window.__selfOSHandleBack;
     };
-  }, [capture, captureMenu, arranging, editingShortcuts, creatingDept, subView, stack.length, tab]);
+  }, [navCtx, capture, captureMenu, arranging, editingShortcuts, creatingDept, stack.length, tab]);
 
   const pushedTitle =
     top?.kind === "settings"
@@ -332,6 +413,75 @@ export function MobileStudio({
           ? "同步中"
           : "已同步";
 
+  function renderMobileFeature(key: FeatureKey) {
+    switch (key) {
+      case "habits":
+        return <MobileHabits />;
+      case "expenses":
+        return <MobileFinance />;
+      case "tasks":
+        return <MobileTasks />;
+      case "storage":
+        return <MobileStorage />;
+      case "practice":
+        return <MobilePractice eventRequest={practiceRequest} />;
+      case "achievements":
+        return <MobileAchievements />;
+      case "treasury":
+        return <MobileTreasury />;
+      case "freedom":
+        return <MobileFreedom />;
+      case "chronicle":
+        return (
+          <MobileJournal
+            kind="chronicle"
+            onOpenMemoir={() => navigate("memoir")}
+          />
+        );
+      case "raw":
+        return (
+          <MobileJournal
+            kind="raw"
+            onOpenTarget={(t) => navigate(t.kind === "idea" ? "ideas" : "raw")}
+          />
+        );
+      case "ideas":
+        return (
+          <MobileJournal
+            kind="idea"
+            onOpenTarget={(t) => navigate(t.kind === "idea" ? "ideas" : "raw")}
+          />
+        );
+      case "monthly":
+        return <MobileDocuments kind="monthly" />;
+      case "notes":
+        return <MobileDocuments kind="note" />;
+      case "thoughts":
+        return <MobileDocuments kind="thought" />;
+      case "memoir":
+        return <MobileMemoir onOpenChronicle={() => navigate("chronicle")} />;
+      case "days":
+        return <MobileImportantDays />;
+      case "metrics":
+        return <MobileMetrics />;
+      case "checklists":
+        return <MobileChecklists />;
+      case "reading":
+        return (
+          <MobileReadingList
+            openEvent={(id) => {
+              setPracticeRequest({ id });
+              navigate("practice");
+            }}
+          />
+        );
+      case "settings":
+        return <MobileSettings theme={theme} setTheme={setTheme} />;
+      default:
+        return null;
+    }
+  }
+
   return (
     <div className="ms-shell">
       <header className="ms-navbar">
@@ -340,14 +490,14 @@ export function MobileStudio({
             <button
               type="button"
               className="ms-nav-back"
-              onClick={() => (subView ? subView.onBack() : pop())}
+              onClick={() => (activeSub ? activeSub.onBackRef.current() : pop())}
             >
               <Icon name="chevron-left" size={16} />
-              <span>{subView ? pushedTitle : backLabel}</span>
+              <span>{activeSub ? (activeSub.backLabel ?? pushedTitle) : backLabel}</span>
             </button>
           )}
         </div>
-        {top && <div className="ms-nav-title">{subView ? subView.title : pushedTitle}</div>}
+        {top && <div className="ms-nav-title">{activeSub ? activeSub.title : pushedTitle}</div>}
         <div className="ms-nav-right">
           {!top && tab === "today" && (
             <>
@@ -388,17 +538,7 @@ export function MobileStudio({
               <Icon name="gear" size={17} />
             </button>
           )}
-          {top && (
-            <button
-              type="button"
-              className="ms-nav-icon-btn"
-              aria-label="同步"
-              title={syncMsg}
-              onClick={() => void synchronize()}
-            >
-              <Icon name="sync" size={16} />
-            </button>
-          )}
+          {top && <div className="ms-nav-portal" ref={setToolbarEl} />}
         </div>
       </header>
 
@@ -410,9 +550,9 @@ export function MobileStudio({
               onOpenFeature={(key) => setStack((prev) => [...prev, { kind: "feature", key }])}
             />
           ) : (
-            <div className="ms-pushed-body">
+            <div className="ms-pushed-body" key={top.kind === "settings" ? "settings" : top.key}>
               <React.Suspense fallback={<div className="ms-empty-note">正在打开…</div>}>
-                {renderScreen(top.kind === "settings" ? "settings" : top.key, navigate)}
+                {renderMobileFeature(top.kind === "settings" ? "settings" : top.key)}
               </React.Suspense>
             </div>
           )
@@ -1150,9 +1290,7 @@ function MobileTodayScreen({
                 {homeHabits.map((h, idx) => (
                   <React.Fragment key={h.id}>
                     {idx > 0 && <div className="ms-hairline inset-36" />}
-                    <div className="ms-habit-row-wrap">
-                      <HabitRow habit={h} day={day} all={entities} />
-                    </div>
+                    <MobileHabitLine habit={h} day={day} all={entities} />
                   </React.Fragment>
                 ))}
               </div>

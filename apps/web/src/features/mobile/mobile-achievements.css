@@ -1,0 +1,555 @@
+/*
+ * SELF OS · Mobile Achievements (1:1 port of iPhone CouncilStudio Achievements.swift)
+ * Scoped exclusively to `.ma-*` classes. Pure OLED Ink, zero desktop rules, 360px safe.
+ */
+
+/* ───────────── Hero Summary ───────────── */
+.ma-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ma-hero-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ma-hero-pct {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.ma-hero-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ma-hero-big {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ma-hero-unit {
+  font-size: 13.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────── Active Filter Indicator ───────────── */
+.ma-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  min-width: 0;
+}
+.ma-filter-bar span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ma-nav-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ma-nav-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  pointer-events: none;
+}
+
+/* ───────────── 40x40 Monochrome Emblem Tile ───────────── */
+.ma-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex: none;
+}
+.ma-tile.done {
+  background: var(--solid);
+  color: var(--solid-text);
+}
+.ma-tile.lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+.ma-tile.sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+/* ───────────── 360px-Safe Achievement Row ───────────── */
+.ma-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  height: auto;
+  min-width: 0;
+}
+.ma-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.ma-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ma-row-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.ma-row-title.pending {
+  opacity: 0.88;
+}
+.ma-row-desc {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ma-row-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 1px;
+}
+.ma-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--surface-2);
+  padding: 2px 7px;
+  border-radius: 6px;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: none;
+}
+.ma-meta-text {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ma-meta-text.done {
+  color: var(--text-2);
+}
+.ma-row-meter {
+  margin-top: 3px;
+  width: 100%;
+}
+.ma-row-chev {
+  flex: none;
+  color: var(--text-4);
+  margin-top: 12px;
+  display: inline-flex;
+}
+
+/* ───────────── Vertical Progression Tree Mode (360px Safe) ───────────── */
+.ma-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.ma-tree-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ma-tree-count {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.ma-tree-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+.ma-tier {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.ma-tier-rail {
+  width: 18px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ma-tier-line {
+  width: 1.5px;
+  flex: 1;
+  min-height: 10px;
+  background: var(--line-2);
+}
+.ma-tier-line.hidden {
+  background: transparent;
+}
+.ma-tier-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1.5px var(--text-3);
+}
+.ma-tier-dot.done {
+  background: var(--solid);
+  box-shadow: none;
+}
+.ma-tier-dot.partial {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+.ma-tier-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 0 12px;
+}
+.ma-tier:last-child .ma-tier-body {
+  padding-bottom: 2px;
+}
+.ma-tier-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+.ma-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  height: auto;
+  min-width: 0;
+}
+.ma-tree-node:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.ma-tree-node-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ma-tree-node-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.ma-tree-node-meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────── Detail Sheet Blocks ───────────── */
+.ma-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--surface-2);
+  width: 100%;
+  min-width: 0;
+}
+.ma-detail-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.ma-detail-head-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ma-detail-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ma-detail-pill {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--surface-3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ma-detail-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+  word-break: break-word;
+}
+.ma-detail-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+  word-break: break-word;
+}
+.ma-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.ma-toggle-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ma-toggle-copy strong {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ma-toggle-copy small {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.35;
+}
+.ma-prog-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ma-prog-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.ma-prog-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+.ma-prog-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ───────────── Detail Ladder Steps ───────────── */
+.ma-ladder-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  height: auto;
+  min-width: 0;
+}
+.ma-ladder-step:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.ma-ladder-idx {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+  width: 18px;
+}
+.ma-ladder-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ma-ladder-title.current {
+  font-weight: 700;
+  color: var(--text);
+}
+.ma-ladder-status {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────── Icon Picker Grid (Editor Sheet) ───────────── */
+.ma-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.ma-icon-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-3);
+  height: auto;
+}
+.ma-icon-opt:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.ma-icon-opt-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-2);
+}
+.ma-icon-opt.active .ma-icon-opt-box {
+  background: var(--solid);
+  color: var(--solid-text);
+}
+.ma-icon-opt small {
+  font-size: 10px;
+  color: inherit;
+  line-height: 1;
+}
+
+/* ───────────── Filter & Category Sheet ───────────── */
+.ma-sheet-sec-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 0 2px;
+}
+.ma-cat-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--line);
+}
+.ma-cat-manage-row:last-child {
+  border-bottom: 0;
+}
+.ma-cat-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}

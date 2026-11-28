@@ -1,0 +1,447 @@
+/*
+ * Scoped helper styles for MobileLife, MobileReadingList, and MobileSettings.
+ * Built strictly on top of MobileKit (.mk-*) design tokens.
+ * Pure OLED black (#000000) + #121212 cards, zero borders, 360px overflow-safe.
+ */
+
+/* ───────────── Important Days Hero & Countdown ───────────── */
+.mfx-hero-card {
+  gap: 6px;
+  cursor: pointer;
+}
+.mfx-hero-eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mfx-hero-title {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mfx-hero-count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0;
+}
+.mfx-hero-num {
+  font-size: 54px;
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.mfx-hero-num.today {
+  font-size: 40px;
+  color: var(--warn);
+}
+.mfx-hero-unit {
+  font-size: 15px;
+  color: var(--text-2);
+}
+.mfx-hero-meta {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.mfx-hero-note {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+.mfx-countdown {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mfx-countdown strong {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--text);
+}
+.mfx-countdown strong.warn {
+  color: var(--warn);
+}
+.mfx-countdown strong.muted {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.mfx-countdown span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ───────────── Metrics Row & Input ───────────── */
+.mfx-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 0;
+  min-width: 0;
+}
+.mfx-metric-hit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.mfx-metric-hit:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mfx-metric-spark {
+  flex: none;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+}
+.mfx-metric-input {
+  width: 58px;
+  height: 36px;
+  flex: none;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.mfx-metric-input::-webkit-outer-spin-button,
+.mfx-metric-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.mfx-metric-input:focus {
+  outline: none;
+  background: var(--surface-3);
+}
+.mfx-metric-input::placeholder {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.mfx-metric-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-4);
+  flex: none;
+}
+.mfx-metric-chevron:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+
+/* ───────────── Compact iOS Stepper ───────────── */
+.mfx-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  flex: none;
+}
+.mfx-stepper button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+}
+.mfx-stepper button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
+}
+.mfx-stepper button:disabled {
+  opacity: 0.3;
+}
+.mfx-stepper span {
+  min-width: 40px;
+  padding: 0 4px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* ───────────── Checklist & Reading Row Helpers ───────────── */
+.mfx-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  min-width: 0;
+}
+.mfx-check-row:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mfx-check-row.top {
+  align-items: flex-start;
+}
+.mfx-strike {
+  color: var(--text-3) !important;
+  text-decoration: line-through;
+}
+.mfx-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+.mfx-progress-nums {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.mfx-progress-nums strong {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--text);
+}
+.mfx-progress-nums span {
+  font-size: 15px;
+  color: var(--text-3);
+}
+
+/* ───────────── Action Strip & Pills ───────────── */
+.mfx-action-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+.mfx-link-pill {
+  text-decoration: none;
+}
+
+/* ───────────── Status Dots, Badges, Footnotes, Quotes ───────────── */
+.mfx-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex: none;
+}
+.mfx-dot.live {
+  background: var(--live);
+}
+.mfx-dot.warn {
+  background: var(--warn);
+}
+.mfx-dot.danger {
+  background: var(--danger);
+}
+
+.mfx-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.mfx-badge.warn {
+  background: rgba(245, 185, 76, 0.16);
+  color: var(--warn);
+}
+.mfx-badge.live {
+  background: rgba(74, 222, 128, 0.14);
+  color: var(--live);
+}
+
+.mfx-footnote {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+  padding: 0 6px;
+  margin: 0;
+}
+.mfx-error {
+  font-size: 12.5px;
+  color: var(--warn);
+  line-height: 1.4;
+  padding: 0 4px;
+  margin: 0;
+}
+
+.mfx-quote {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mfx-quote-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+/* ───────────── Workspace / Settings Row Controls ───────────── */
+.mfx-ws-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 0;
+  min-width: 0;
+}
+.mfx-ws-leading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.mfx-ws-leading:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+.mfx-ws-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  color: var(--text-2);
+  flex: none;
+}
+.mfx-ws-icon.off {
+  color: var(--text-3);
+  opacity: 0.65;
+}
+.mfx-ws-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.mfx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex: none;
+}
+.mfx-icon-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text);
+}
+.mfx-icon-btn.danger {
+  color: var(--danger);
+}
+
+.mfx-preset-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface);
+}
+.mfx-preset-desc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mfx-preset-desc-head strong {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mfx-preset-desc-head small {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.mfx-preset-desc p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+@keyframes mfx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.mfx-spin {
+  display: inline-flex;
+  animation: mfx-spin 0.9s linear infinite;
+}

@@ -349,7 +349,8 @@ function App() {
         <React.Suspense fallback={<div className="quiet-empty">正在打开…</div>}>
           <MobileStudio
             initialFeature={active}
-            renderScreen={(key, nav) => screen(key, nav)}
+            theme={theme}
+            setTheme={setTheme}
           />
         </React.Suspense>
         {error && (

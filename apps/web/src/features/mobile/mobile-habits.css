@@ -1,0 +1,298 @@
+/* MobileHabits — 1:1 iPhone CouncilStudio Habits.swift */
+
+.mh-line {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mh-line-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+.mh-line-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mh-line-title {
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mh-line-cap {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+/* Quantity unified capsule stepper (- val +) */
+.mh-stepper {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  flex: none;
+  overflow: hidden;
+}
+.mh-step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+.mh-step-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mh-step-val {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mh-step-val:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+
+/* Checklist horizontal chips indented below ring */
+.mh-check-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-left: 36px;
+  padding-bottom: 2px;
+}
+.mh-check-strip::-webkit-scrollbar {
+  display: none;
+}
+.mh-check-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 29px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 400;
+  white-space: nowrap;
+  flex: none;
+}
+.mh-check-pill:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.mh-check-pill.on,
+.mh-check-pill.on:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+  border-color: transparent;
+}
+
+/* MonthCard header & 7-column calendar heat grid */
+.mh-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mh-card-head-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mh-card-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex: none;
+}
+.mh-card-more:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+
+.mh-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  width: 100%;
+}
+.mh-cal-wday {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+  padding-bottom: 2px;
+}
+.mh-cal-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme="light"] .mh-cal-cell {
+  background: rgba(0, 0, 0, 0.045);
+}
+.mh-cal-cell:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--surface-2);
+}
+.mh-cal-cell.recorded,
+.mh-cal-cell.recorded:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text);
+}
+:root[data-theme="light"] .mh-cal-cell.recorded,
+:root[data-theme="light"] .mh-cal-cell.recorded:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.14);
+}
+.mh-cal-cell.done,
+.mh-cal-cell.done:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  font-weight: 600;
+}
+.mh-cal-cell.selected {
+  box-shadow: 0 0 0 1.5px var(--text-2);
+}
+
+/* Checklist ItemMatrix (Habits.swift lines 293-326) */
+.mh-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.mh-matrix-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.mh-matrix-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mh-matrix-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mh-matrix-head strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.mh-matrix-head span {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.mh-matrix-head b {
+  font-size: 13px;
+  color: var(--text);
+}
+.mh-matrix-bars {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  width: 100%;
+}
+.mh-matrix-seg {
+  height: 11px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="light"] .mh-matrix-seg {
+  background: rgba(0, 0, 0, 0.08);
+}
+.mh-matrix-seg.on {
+  background: var(--text);
+}
+.mh-matrix-seg.future {
+  opacity: 0.38;
+}
+
+/* Weekday circle buttons in HabitPlanSheet */
+.mh-wdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+.mh-wday-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.mh-wday-btn.on,
+.mh-wday-btn.on:hover:not(:disabled) {
+  background: var(--solid);
+  color: var(--solid-text);
+  border-color: transparent;
+}

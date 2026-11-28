@@ -38,6 +38,11 @@
 .ms-nav-right {
   justify-content: flex-end;
 }
+.ms-nav-portal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .ms-nav-title {
   font-size: 16px;
   font-weight: 600;
