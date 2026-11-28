@@ -9,12 +9,15 @@ import type {
 } from "../../../../packages/contracts/entities.ts";
 import type { Pending } from "./db.ts";
 import { pendingSnapshot, readAll, snapshot, subscribe } from "./store.ts";
-import { enqueue, statusSnapshot, type SyncStatus } from "./sync.ts";
+import { enqueue, statusSnapshot, type SyncState as WorkspaceSyncState, type SyncStatus as WorkspaceSyncStatus } from "./sync.ts";
 import { fieldPatch } from "../../../../packages/contracts/edit.ts";
 import { useDatedEntities } from "./dated-entities.ts";
 
 export type { AnyEntity, Data, Entity, EntityData, EntityType, Pending };
 export { useDatedEntities };
+export { isLocalMode } from "./local-mode.ts";
+export { importWorkspaceBackup, parseWorkspaceImport } from "./import.ts";
+export type { ImportResult, ImportStrategy, ParsedWorkspaceBackup } from "./import.ts";
 export {
   enqueueTogether,
   transferJournalText,
@@ -24,7 +27,9 @@ export {
   synchronize,
   pairDevice,
 } from "./sync.ts";
-export type { SyncState, SyncStatus } from "./sync.ts";
+export type { WorkspaceSyncState, WorkspaceSyncStatus };
+export type SyncState = Exclude<WorkspaceSyncState, "local">;
+export type SyncStatus = { state: SyncState; message: string };
 
 const combined = new Map<string, { parts: AnyEntity[][]; all: AnyEntity[] }>();
 /**
@@ -66,11 +71,16 @@ export function usePending(): Pending[] {
     pendingSnapshot,
   );
 }
-export function useSyncStatus(): SyncStatus {
-  return useSyncExternalStore(
+// Existing views exhaustively handle the server states. Local-aware views opt in to the full status.
+const localStatusForExistingViews: SyncStatus = { state: "synced", message: "仅本机" };
+export function useSyncStatus(): SyncStatus;
+export function useSyncStatus(includeLocal: true): WorkspaceSyncStatus;
+export function useSyncStatus(includeLocal?: true): WorkspaceSyncStatus {
+  const status = useSyncExternalStore(
     (listener) => subscribe(["status"], listener),
     statusSnapshot,
   );
+  return !includeLocal && status.state === "local" ? localStatusForExistingViews : status;
 }
 
 /**

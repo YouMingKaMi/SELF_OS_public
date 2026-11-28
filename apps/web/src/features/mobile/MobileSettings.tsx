@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { stringifyAliasMap } from "../../../../../modules/workspace/index.ts";
 import {
+  importWorkspaceBackup,
+  isLocalMode,
+  parseWorkspaceImport,
   put,
   saveEdit,
   settle,
@@ -11,8 +14,10 @@ import {
   useSyncStatus,
   type AnyEntity as Entity,
   type Data,
+  type ImportStrategy,
+  type ParsedWorkspaceBackup,
   type Pending,
-  type SyncState,
+  type WorkspaceSyncState,
 } from "../../data/entities.ts";
 import {
   readWorkspaceOverview,
@@ -99,11 +104,13 @@ const PRESET_TITLES: Record<string, string> = {
   custom: "自定义",
 };
 
-function syncPresentation(state: SyncState, message: string): {
+function syncPresentation(state: WorkspaceSyncState, message: string): {
   label: string;
   tone: "live" | "warn" | "danger";
 } {
   switch (state) {
+    case "local":
+      return { label: "仅本机模式", tone: "live" };
     case "synced":
       return { label: "已同步", tone: "live" };
     case "connecting":
@@ -155,12 +162,22 @@ export function MobileSettings({
 }) {
   const ws = useWorkspaceConfig();
   const pending = usePending();
-  const syncStatus = useSyncStatus();
+  const syncStatus = useSyncStatus(true);
+  const localMode = isLocalMode() || syncStatus.state === "local";
 
   const [subPage, setSubPage] = useState<SubPage>(null);
   const [syncingNow, setSyncingNow] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportNote, setExportNote] = useState("");
+  const [importNote, setImportNote] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importCandidate, setImportCandidate] =
+    useState<ParsedWorkspaceBackup | null>(null);
+  const [importStrategy, setImportStrategy] =
+    useState<ImportStrategy>("merge");
+  const [importingNow, setImportingNow] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [overview, setOverview] = useState<WorkspaceOverview>({
     live: 0,
     deleted: 0,
@@ -243,6 +260,48 @@ export function MobileSettings({
     }
   }
 
+  async function handlePickImportFile(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImportError("");
+    setImportNote("");
+    try {
+      const text = await file.text();
+      const parsed = parseWorkspaceImport(text);
+      setImportCandidate(parsed);
+      setImportStrategy("merge");
+    } catch (error) {
+      setImportError(
+        error instanceof Error ? error.message : "无法读取该备份文件",
+      );
+    }
+  }
+
+  async function executeImport() {
+    if (!importCandidate || importingNow) return;
+    setImportingNow(true);
+    setImportError("");
+    try {
+      const strategy: ImportStrategy = localMode ? importStrategy : "merge";
+      const res = await importWorkspaceBackup(importCandidate, strategy);
+      setImportCandidate(null);
+      setImportNote(
+        res.mode === "local"
+          ? `恢复完成：新增 ${res.imported} 条，更新 ${res.updated} 条${res.skipped > 0 ? `，跳过 ${res.skipped} 条` : ""}`
+          : `已加入同步队列：新增 ${res.imported} 条，更新 ${res.updated} 条${res.skipped > 0 ? `，跳过 ${res.skipped} 条` : ""}`,
+      );
+    } catch (error) {
+      setImportError(
+        error instanceof Error ? error.message : "导入失败，请稍后重试",
+      );
+    } finally {
+      setImportingNow(false);
+    }
+  }
+
   if (subPage === "workspace") {
     return (
       <WorkspaceSubPage
@@ -279,31 +338,45 @@ export function MobileSettings({
 
   return (
     <InkScreen>
-      {/* 1. 同步与连接 */}
-      <InkSectionLabel title="同步与连接" />
+      {/* 1. 运行模式与同步 */}
+      <InkSectionLabel title={localMode ? "运行模式" : "同步与连接"} />
       <InkCard variant="compact">
-        <button
-          type="button"
-          className="mk-row"
-          onClick={() => void handleSyncTap()}
-        >
-          <div className="mk-row-main">
-            <div className="mk-row-title">
-              {syncingNow ? "同步中…" : syncInfo.label}
+        {localMode ? (
+          <div className="mk-row">
+            <div className="mk-row-main">
+              <div className="mk-row-title">仅本机模式</div>
+              <div className="mk-row-sub">
+                数据保存在手机本地，无需服务器 · 建议定期导出备份
+              </div>
             </div>
-            <div className="mk-row-sub">
-              {pending.length > 0
-                ? `${syncStatus.message} · 待同步 ${pending.length} 条`
-                : "轻触立即与服务器同步"}
+            <div className="mk-row-right">
+              <span className="mfx-dot live" />
             </div>
           </div>
-          <div className="mk-row-right">
-            <span className={`mfx-dot ${syncInfo.tone}`} />
-            <span className={syncingNow ? "mfx-spin" : ""}>
-              <Icon name="sync" size={16} />
-            </span>
-          </div>
-        </button>
+        ) : (
+          <button
+            type="button"
+            className="mk-row"
+            onClick={() => void handleSyncTap()}
+          >
+            <div className="mk-row-main">
+              <div className="mk-row-title">
+                {syncingNow ? "同步中…" : syncInfo.label}
+              </div>
+              <div className="mk-row-sub">
+                {pending.length > 0
+                  ? `${syncStatus.message} · 待同步 ${pending.length} 条`
+                  : "轻触立即与服务器同步"}
+              </div>
+            </div>
+            <div className="mk-row-right">
+              <span className={`mfx-dot ${syncInfo.tone}`} />
+              <span className={syncingNow ? "mfx-spin" : ""}>
+                <Icon name="sync" size={16} />
+              </span>
+            </div>
+          </button>
+        )}
 
         {android && (
           <>
@@ -314,8 +387,14 @@ export function MobileSettings({
               onClick={() => openAndroidEndpointSettings()}
             >
               <div className="mk-row-main">
-                <div className="mk-row-title">服务器连接设置</div>
-                <div className="mk-row-sub">配置服务地址与设备配对</div>
+                <div className="mk-row-title">
+                  {localMode ? "连接我的服务器" : "模式与服务器设置"}
+                </div>
+                <div className="mk-row-sub">
+                  {localMode
+                    ? "未来自建服务器时，先导出备份再连接并导入迁移"
+                    : "切换仅本机模式、修改服务地址与配对"}
+                </div>
               </div>
               <div className="mk-row-right">
                 <span className="mk-row-chevron">
@@ -417,7 +496,7 @@ export function MobileSettings({
       </InkCard>
 
       {/* 4. 数据 */}
-      <InkSectionLabel title="数据" />
+      <InkSectionLabel title="数据与备份" />
       <InkCard variant="compact">
         <button
           type="button"
@@ -443,6 +522,41 @@ export function MobileSettings({
         <button
           type="button"
           className="mk-row"
+          disabled={importingNow}
+          onClick={() => importInputRef.current?.click()}
+        >
+          <div className="mk-row-main">
+            <div className="mk-row-title">
+              {importingNow ? "正在导入备份…" : "导入备份恢复 (JSON)"}
+            </div>
+            <div
+              className={
+                "mk-row-sub" + (importError ? " danger" : importNote ? " live" : "")
+              }
+            >
+              {importError ||
+                importNote ||
+                "从 SELF OS 备份文件恢复或合并数据"}
+            </div>
+          </div>
+          <div className="mk-row-right">
+            <Icon name="upload" size={17} />
+          </div>
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          aria-label="选择备份 JSON 文件"
+          style={{ display: "none" }}
+          onChange={(e) => void handlePickImportFile(e)}
+        />
+
+        <InkHairline />
+
+        <button
+          type="button"
+          className="mk-row"
           onClick={() => setSubPage("trash")}
         >
           <div className="mk-row-main">
@@ -461,8 +575,118 @@ export function MobileSettings({
       </InkCard>
 
       <p className="mfx-footnote">
-        模块开关与名称定制会自动同步到 Mac、Web 与手机；外观主题保存在当前设备。
+        {localMode
+          ? "当前为仅本机模式，所有数据均保存在这台设备中；卸载软件或更换手机前请先导出 JSON 备份。"
+          : "模块开关与名称定制会自动同步到 Mac、Web 与手机；外观主题保存在当前设备。"}
       </p>
+
+      <InkSheet
+        open={importCandidate !== null}
+        title="导入备份"
+        onClose={() => {
+          if (!importingNow) setImportCandidate(null);
+        }}
+        rightLabel={importingNow ? "导入中…" : "确认导入"}
+        rightDisabled={importingNow}
+        onRight={() => {
+          if (localMode && importStrategy === "replace") {
+            setConfirmReplace(true);
+          } else {
+            void executeImport();
+          }
+        }}
+      >
+        {importCandidate && (
+          <>
+            <div className="mk-form-group">
+              <div className="mk-form-row">
+                <span className="mk-form-label">导出时间</span>
+                <span style={{ fontSize: 14, color: "var(--text)" }}>
+                  {importCandidate.exportedAt.slice(0, 16).replace("T", " ")}
+                </span>
+              </div>
+              <div className="mk-form-row">
+                <span className="mk-form-label">有效记录</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+                  {importCandidate.liveCount} 条
+                </span>
+              </div>
+              {importCandidate.deletedCount > 0 && (
+                <div className="mk-form-row">
+                  <span className="mk-form-label">回收站记录</span>
+                  <span style={{ fontSize: 14, color: "var(--text-2)" }}>
+                    {importCandidate.deletedCount} 条
+                  </span>
+                </div>
+              )}
+              {importCandidate.skippedInvalid > 0 && (
+                <div className="mk-form-row">
+                  <span className="mk-form-label">已跳过无效条目</span>
+                  <span style={{ fontSize: 14, color: "var(--warn)" }}>
+                    {importCandidate.skippedInvalid} 条
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {Object.keys(importCandidate.byType).length > 0 && (
+              <div className="mk-flow-chips">
+                {Object.entries(importCandidate.byType)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 10)
+                  .map(([type, count]) => (
+                    <span key={type} className="mk-chip sm">
+                      {KIND_LABELS[type] ?? type} {count}
+                    </span>
+                  ))}
+              </div>
+            )}
+
+            {localMode ? (
+              <>
+                <div className="mk-section-label">导入方式</div>
+                <InkSegmented
+                  onCard
+                  value={importStrategy}
+                  onChange={setImportStrategy}
+                  options={[
+                    { value: "merge", label: "合并导入" },
+                    { value: "replace", label: "覆盖恢复" },
+                  ]}
+                />
+                <p className="mfx-footnote" style={{ marginTop: 0 }}>
+                  {importStrategy === "merge"
+                    ? "保留本机已有记录，补齐缺失条目，并按更新时间保留较新版本。"
+                    : "清空本机当前全部记录，完全还原为这份备份文件里的状态（建议先导出当前数据）。"}
+                </p>
+              </>
+            ) : (
+              <p className="mfx-footnote" style={{ marginTop: 0 }}>
+                当前已连接服务器，将自动以「合并导入」方式按依赖顺序写入并同步到其他设备，不会清空服务器已有数据。
+              </p>
+            )}
+
+            {importError && (
+              <div style={{ color: "var(--danger)", fontSize: 13 }}>
+                {importError}
+              </div>
+            )}
+          </>
+        )}
+      </InkSheet>
+
+      <InkActionSheet
+        open={confirmReplace}
+        title="确认清空本机当前全部记录并完全覆盖为所选备份？此操作不可撤销。"
+        onClose={() => setConfirmReplace(false)}
+        items={[
+          {
+            label: "确认覆盖恢复",
+            danger: true,
+            onClick: () => void executeImport(),
+          },
+        ]}
+      />
     </InkScreen>
   );
 }

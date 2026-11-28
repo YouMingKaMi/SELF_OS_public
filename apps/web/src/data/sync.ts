@@ -10,13 +10,15 @@ import type {
 import { hasFieldConflict } from "../../../../packages/contracts/edit.ts";
 import type { BatchReceipt } from "../../../../packages/contracts/command-batch.ts";
 import type { SyncScope } from "../../../../packages/contracts/snapshot.ts";
-import { claimWrite, makeBatch, queueBatch, saveBatchResult, settleBatch, type LocalWrite } from "./command-batch.ts";
+import { claimWrite, commitLocalWrites, makeBatch, queueBatch, saveBatchResult, settleBatch, type LocalWrite } from "./command-batch.ts";
 import { database, project, type Pending } from "./db.ts";
 import { checkSyncScope, prepareSync, requireKnownType, ScopeChanged, UpgradeRequired } from "./recovery.ts";
 import { apply, emit, ready, type Change } from "./store.ts";
 import { planJournalTransfer, type TextSelection } from "./journal-transfer.ts";
+import { isLocalMode } from "./local-mode.ts";
 
 export type SyncState =
+  | "local"
   | "connecting"
   | "synced"
   | "offline"
@@ -26,6 +28,7 @@ export type SyncState =
   | "attention";
 export type SyncStatus = { state: SyncState; message: string };
 const messages: Record<SyncState, string> = {
+  local: "仅本机",
   connecting: "正在同步",
   synced: "已同步",
   offline: "离线 · 已保存到本机",
@@ -55,6 +58,10 @@ export async function enqueue(
   data?: Data,
   editBase?: Data,
 ) {
+  if (isLocalMode()) {
+    await commitLocalWrites([{ type, id, action, data, editBase }]);
+    return id;
+  }
   const db = await database;
   const tx = db.transaction(["confirmed", "pending", "meta"], "readwrite");
   const earlier = (
@@ -321,6 +328,10 @@ async function pull(device: string, scope?: SyncScope) {
 let running: Promise<void> | undefined;
 let again = false;
 export function synchronize(): Promise<void> {
+  if (isLocalMode()) {
+    setStatus("local");
+    return Promise.resolve();
+  }
   if (running) {
     again = true;
     return running;
@@ -378,6 +389,7 @@ export function synchronize(): Promise<void> {
 
 /** Exchange a one-time pairing code for this browser's session. The credential stays in an HttpOnly cookie. */
 export async function pairDevice(code: string): Promise<string | null> {
+  if (isLocalMode()) return "仅本机模式无需配对";
   let response: Response;
   try {
     response = await fetch("/v1/pair", {
@@ -432,6 +444,10 @@ function connectEvents() {
 
 let started = false;
 export function startSync() {
+  if (isLocalMode()) {
+    setStatus("local");
+    return;
+  }
   if (started) return;
   started = true;
   void synchronize().then(() => {

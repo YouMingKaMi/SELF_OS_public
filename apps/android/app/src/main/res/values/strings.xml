@@ -2,12 +2,15 @@
 <resources>
     <string name="app_name">SELF OS</string>
     <string name="connection_settings">连接设置</string>
-    <string name="connect_title">连接 SELF OS</string>
-    <string name="connect_description">输入你自己的 SELF OS 服务地址。</string>
+    <string name="connect_title">开始使用 SELF OS</string>
+    <string name="connect_description">已有自己的 SELF OS 服务器？输入地址后连接。</string>
     <string name="endpoint_hint">HTTPS 服务地址</string>
     <string name="endpoint_default_hint">留空恢复默认地址</string>
     <string name="endpoint_invalid">请输入有效的 HTTPS 服务地址</string>
-    <string name="connect_action">连接</string>
+    <string name="connect_action">连接我的服务器</string>
+    <string name="use_local">仅本机使用（无需服务器）</string>
+    <string name="switch_to_local">切换为仅本机使用</string>
+    <string name="use_local_after_error">先用本机模式</string>
     <string name="connection_error">无法连接 SELF OS</string>
     <string name="retry_connection">重试连接</string>
     <string name="back_again_to_exit">再按一次退出 SELF OS</string>

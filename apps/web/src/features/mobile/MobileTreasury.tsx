@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import "./mobile-treasury.css";
 import {
+  isLocalMode,
   useEntities,
   put,
   putKey,
@@ -289,6 +290,10 @@ export function MobileTreasury() {
 
   async function recordPrices() {
     if (refreshing) return;
+    if (isLocalMode()) {
+      showToast("仅本机模式暂不支持联网行情，可在标的详情手动维护参考价");
+      return;
+    }
     if (!quoteIds.length) {
       showToast("还没有绑定行情的标的");
       return;

@@ -291,6 +291,11 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M12 4v12m-5-5 5 5 5-5M4 20h16" />
     </>
   ),
+  upload: (
+    <>
+      <path d="M12 16V4m-5 5 5-5 5 5M4 20h16" />
+    </>
+  ),
   filter: <path d="M4 6h16M7 12h10M10 18h4" />,
   eye: (
     <>

@@ -2,11 +2,12 @@ import type { IDBPObjectStore, IDBPTransaction } from "idb";
 import {
   maxBatchCommands, type BatchReceipt, type CommandBatch,
 } from "../../../../packages/contracts/command-batch.ts";
-import type { Command, Data, EntityType } from "../../../../packages/contracts/entities.ts";
+import type { AnyEntity, Command, Data, EntityType } from "../../../../packages/contracts/entities.ts";
 import type { SyncScope } from "../../../../packages/contracts/snapshot.ts";
-import { hasFieldConflict } from "../../../../packages/contracts/edit.ts";
+import { applyPatch, hasFieldConflict, legacyPut } from "../../../../packages/contracts/edit.ts";
 import { database, project, type Local, type Pending } from "./db.ts";
 import { apply, type Change } from "./store.ts";
+import { isLocalMode } from "./local-mode.ts";
 
 export type LocalWrite = {
   type: EntityType;
@@ -58,10 +59,53 @@ async function append(tx: WriteTransaction, writes: LocalWrite[]) {
   return commands;
 }
 
+/** Commit device-only writes without an outbox or server cursor. */
+export async function commitLocalWrites(writes: LocalWrite[]): Promise<void> {
+  const db = await database;
+  const tx = db.transaction("confirmed", "readwrite");
+  const updated: AnyEntity[] = [];
+  const updatedAt = new Date().toISOString();
+  try {
+    for (const write of writes) {
+      const current = await tx.store.get(write.id);
+      const version = current?.version ?? 0;
+      if (write.baseVersion !== undefined && write.baseVersion !== version)
+        throw new Error("这条记录已更新，请重新打开后编辑");
+      if (write.action === "patch" && (!current || current.deleted || current.type !== write.type ||
+          (write.editBase && hasFieldConflict(write.editBase, current.data, write.data ?? {})))) {
+        if (writes.length > 1) throw new Error("这条记录已经变更，请重新打开后编辑");
+        throw new Error(!current || current.deleted
+          ? "这条记录已被移除，草稿仍保留。"
+          : "另一台设备已修改相同字段，草稿仍保留。请先对照当前版本。");
+      }
+      if (current && current.type !== write.type)
+        throw new Error("这条记录的类型与原记录不一致");
+      const data = write.action === "patch"
+        ? applyPatch(current?.data ?? {}, write.data ?? {})
+        : write.action === "put" && write.data
+          ? legacyPut(write.type, current?.data, write.data)
+          : current?.data ?? {};
+      const next = {
+        id: write.id, type: write.type, version: version + 1,
+        data, deleted: write.action === "delete", updatedAt,
+      };
+      await tx.store.put(next);
+      updated.push(next);
+    }
+    await tx.done;
+  } catch (error) {
+    try { tx.abort(); } catch { /* IndexedDB may have aborted the transaction itself. */ }
+    await tx.done.catch(() => {});
+    throw error;
+  }
+  apply({ confirmed: updated });
+}
+
 export async function queueBatch(writes: LocalWrite[]) {
   if (writes.length < 2 || writes.length > maxBatchCommands ||
       new Set(writes.map((write) => write.id.toLowerCase())).size !== writes.length)
     throw new Error("这次修改包含重复记录或记录数超限");
+  if (isLocalMode()) return commitLocalWrites(writes);
   const db = await database;
   const tx = db.transaction(["confirmed", "pending", "meta"], "readwrite");
   try {

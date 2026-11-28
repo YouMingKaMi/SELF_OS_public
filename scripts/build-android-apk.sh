@@ -12,15 +12,17 @@ fail() {
 repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
 project="$repo/apps/android"
 variant=${SELF_OS_ANDROID_VARIANT:-release}
-version=0.3.14
+version=0.3.15
 with_site_env=false
 skip_tests=false
+skip_web_build=false
 
 for argument do
     case "$argument" in
         --with-site-env) with_site_env=true ;;
         --skip-tests) skip_tests=true ;;
-        *) fail 'Usage: scripts/build-android-apk.sh [--with-site-env] [--skip-tests]' ;;
+        --skip-web-build) skip_web_build=true ;;
+        *) fail 'Usage: scripts/build-android-apk.sh [--with-site-env] [--skip-tests] [--skip-web-build]' ;;
     esac
 done
 
@@ -124,6 +126,7 @@ if [ -n "$requested" ]; then
                 if (port + 0 < 1 || port + 0 > 65535) { invalid = 1; next }
                 authority = host ":" (port + 0)
             }
+            if (host == "appassets.androidplatform.net") { invalid = 1; next }
             local_host = (host == "localhost" || host == "127.0.0.1" || host == "10.0.2.2")
             if (scheme == "") scheme = local_host ? "http" : "https"
             if (scheme != "https" && !(scheme == "http" && local_host)) { invalid = 1; next }
@@ -168,6 +171,32 @@ trap 'exit 1' HUP INT TERM
 work_tmp=$(mktemp -d "${TMPDIR:-/tmp}/self-os-android.XXXXXXXX")
 publish_tmp=$(mktemp -d "$output_dir/.self-os-android.XXXXXXXX")
 
+web_dist="$repo/apps/web/dist"
+web_assets="$work_tmp/web-assets"
+if [ "$skip_web_build" = false ]; then
+    printf '%s\n' 'Building embedded Web workspace.'
+    (
+        cd "$repo"
+        unset SELF_OS_ANDROID_STORE_PASS SELF_OS_ANDROID_KEY_PASS
+        npm run build:web
+    ) || fail 'Could not build the embedded Web workspace.'
+fi
+[ -f "$web_dist/index.html" ] || fail 'apps/web/dist/index.html is missing. Run npm run build:web first.'
+mkdir -p "$web_assets/web"
+(
+    cd "$web_dist"
+    find . -mindepth 1 -name '.*' -prune -o -type f -exec sh -ec '
+        destination=$1
+        shift
+        for source do
+            target="$destination/${source#./}"
+            mkdir -p "$(dirname -- "$target")"
+            cp -- "$source" "$target"
+        done
+    ' sh "$web_assets/web" {} +
+) || fail 'Could not stage the Web assets.'
+[ -f "$web_assets/web/index.html" ] || fail 'The staged Web workspace is missing index.html.'
+
 run_gradle() (
     cd "$project"
     # Signing passwords are used only by keytool/apksigner.
@@ -176,10 +205,10 @@ run_gradle() (
     if [ -n "$endpoint" ]; then
         # Kotlin/Gradle diagnostics can include generated BuildConfig source.
         exec ./gradlew --no-daemon --no-build-cache --no-configuration-cache --console=plain \
-            --project-cache-dir "$work_tmp/cache" "-PselfOsBuildDirectory=$work_tmp/app" "$1" >/dev/null 2>&1
+            --project-cache-dir "$work_tmp/cache" "-PselfOsBuildDirectory=$work_tmp/app" "-PselfOsAssetsDir=$web_assets" "$1" >/dev/null 2>&1
     fi
     exec ./gradlew --no-daemon --no-build-cache --no-configuration-cache --console=plain \
-        --project-cache-dir "$work_tmp/cache" "-PselfOsBuildDirectory=$work_tmp/app" "$1"
+        --project-cache-dir "$work_tmp/cache" "-PselfOsBuildDirectory=$work_tmp/app" "-PselfOsAssetsDir=$web_assets" "$1"
 )
 
 if [ "$skip_tests" = false ]; then

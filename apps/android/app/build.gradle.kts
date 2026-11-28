@@ -19,7 +19,8 @@ val defaultEndpoint = providers.environmentVariable("SELF_OS_ANDROID_BUILD_ENDPO
 require(defaultEndpoint.isEmpty() || runCatching {
     val url = URI(defaultEndpoint)
     val local = url.host?.lowercase() in setOf("127.0.0.1", "localhost", "10.0.2.2")
-    url.host != null && url.rawUserInfo == null && !url.rawAuthority.endsWith(':') &&
+    url.host != null && !url.host.equals("appassets.androidplatform.net", ignoreCase = true) &&
+        url.rawUserInfo == null && !url.rawAuthority.endsWith(':') &&
         (url.port == -1 || url.port in 1..65535) &&
         url.rawPath.isEmpty() && url.rawQuery == null && url.rawFragment == null &&
         (url.scheme.equals("https", ignoreCase = true) || url.scheme.equals("http", ignoreCase = true) && local)
@@ -37,9 +38,13 @@ android {
         applicationId = "org.personalcouncil.next.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
-        versionName = "0.3.14"
+        versionCode = 21
+        versionName = "0.3.15"
         buildConfigField("String", "DEFAULT_ENDPOINT", "\"$defaultEndpoint\"")
+    }
+
+    providers.gradleProperty("selfOsAssetsDir").orNull?.let { dir ->
+        if (file(dir).isDirectory) sourceSets["main"].assets.srcDir(file(dir))
     }
 
     buildFeatures {

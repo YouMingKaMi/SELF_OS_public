@@ -59,7 +59,7 @@ test("Android toolchain, empty endpoint default, bridge and icons match the shel
   assert.match(rootBuild, /id\("org.jetbrains.kotlin.android"\) version "2\.0\.21"/);
   assert.match(wrapper, /^distributionUrl=.*gradle-8\.11\.1-bin\.zip$/m);
   assert.match(wrapper, /^distributionSha256Sum=f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6$/m);
-  assert.match(appBuild, /compileSdk = 35\s+defaultConfig\s+\{\s+applicationId = "org\.personalcouncil\.next\.android"\s+minSdk = 26\s+targetSdk = 35\s+versionCode = 20\s+versionName = "0\.3\.14"/);
+  assert.match(appBuild, /compileSdk = 35\s+defaultConfig\s+\{\s+applicationId = "org\.personalcouncil\.next\.android"\s+minSdk = 26\s+targetSdk = 35\s+versionCode = 21\s+versionName = "0\.3\.15"/);
   assert.match(appBuild, /gradleProperty\("selfOsEndpoint"\)\)\s+\.orElse\(""\)/);
   assert.match(appBuild, /buildConfigField\("String", "DEFAULT_ENDPOINT",/);
   const activity = read(path.join(main, javaSource, "MainActivity.kt"));
@@ -73,9 +73,22 @@ test("Android toolchain, empty endpoint default, bridge and icons match the shel
     "--android-inset-top", "--android-inset-bottom", "window.__selfOSHandleBack",
   ]) assert.ok(activity.includes(setting), setting);
   assert.doesNotMatch(activity, /handler\.proceed\(|allowFileAccess\s*=\s*true|allowContentAccess\s*=\s*true/);
-  assert.equal([...activity.matchAll(/@JavascriptInterface/g)].length, 6);
+  assert.equal([...activity.matchAll(/@JavascriptInterface/g)].length, 7);
 
-  const publicHosts = new Set(["schemas.android.com", "services.gradle.org"]);
+  const core = read(path.join(main, javaSource, "SelfOSAndroidCore.kt"));
+  const bridge = read(path.join(repo, "apps/web/src/ui/android-bridge.ts"));
+  assert.match(appBuild, /gradleProperty\("selfOsAssetsDir"\)/);
+  assert.match(appBuild, /sourceSets\["main"\]\.assets\.srcDir\(file\(dir\)\)/);
+  assert.match(core, /object SelfOSAssetRouting/);
+  assert.match(activity, /WebViewAssetLoader\.Builder\(\)/);
+  assert.match(activity, /SelfOSAssetRouting\.resolveWebAsset\(request\.url\.toString\(\)\)/);
+  assert.match(activity, /isLocalMode: \(\) => native\.isLocalMode\(capability\)/);
+  assert.match(activity, /@JavascriptInterface\s+fun isLocalMode\(capability: String\): Boolean =\s+onUiThread\(capability, false\)/);
+  assert.match(activity, /connect-src 'none'; worker-src/);
+  assert.match(bridge, /isLocalMode\?: \(\) => boolean/);
+  assert.match(bridge, /function isAndroidLocalMode\(\): boolean/);
+
+  const publicHosts = new Set(["schemas.android.com", "services.gradle.org", "appassets.androidplatform.net"]);
   for (const source of [appBuild, rootBuild, wrapper, activity, read(path.join(main, javaSource, "SelfOSAndroidCore.kt")), read(script)]) {
     for (const match of source.replaceAll("\\:", ":").matchAll(/https?:\/\/([\w.-]+)/gi)) {
       assert.ok(publicHosts.has(match[1]!), "Android build sources contain a hard-coded server hostname");
@@ -130,16 +143,31 @@ while [ "$#" -gt 0 ]; do
 done
 exit 1
 `, true);
+  write("apps/web/dist/index.html", "<html>workspace</html>");
+  write("apps/web/dist/assets/bundle.js", "fixture bundle");
+  write("apps/web/dist/.private", "exclude");
+  write("apps/web/dist/assets/.hidden/notes", "exclude");
+  write("bin/npm", `#!/bin/sh
+set -eu
+[ "$*" = "run build:web" ]
+[ -f scripts/build-android-apk.sh ]
+[ -z "\${SELF_OS_ANDROID_STORE_PASS:-}" ] && [ -z "\${SELF_OS_ANDROID_KEY_PASS:-}" ]
+printf '%s\\n' build:web >> "$FIXTURE_LOG"
+`, true);
   write("bin/openssl", "#!/bin/sh\nprintf '%064d\\n' 42\n", true);
   write("apps/android/gradlew", `#!/bin/sh
 [ -z "$SELF_OS_ANDROID_STORE_PASS" ] && [ -z "$SELF_OS_ANDROID_KEY_PASS" ] || exit 1
 set -eu
 for arg do
   case "$arg" in
+    -PselfOsAssetsDir=*) assets=\${arg#*=} ;;
     -PselfOsBuildDirectory=*) dir=\${arg#*=} ;;
     testDebugUnitTest|assembleDebug|assembleRelease) task=$arg ;;
   esac
 done
+[ "$(cat "$assets/web/index.html")" = "<html>workspace</html>" ]
+[ "$(cat "$assets/web/assets/bundle.js")" = "fixture bundle" ]
+[ ! -e "$assets/web/.private" ] && [ ! -e "$assets/web/assets/.hidden" ]
 printf '%s:%s\\n' "$task" "$SELF_OS_ANDROID_BUILD_ENDPOINT" >> "$FIXTURE_LOG"
 printf '%s\\n' "$SELF_OS_ANDROID_BUILD_ENDPOINT" >&2
 case "$task" in
@@ -192,14 +220,30 @@ test("Android build syntax, default endpoint and APK verification work with offl
   const { root, log, run } = fixture(t);
   const result = run({ SELF_OS_ANDROID_VARIANT: "debug", ORG_GRADLE_PROJECT_selfOsEndpoint: "do-not-use.example.test" });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(read(log), "testDebugUnitTest:\nassembleDebug:\nverify\n");
-  const apk = path.join(root, ".build/android/SELF-OS-0.3.14-debug.apk");
+  assert.equal(read(log), "build:web\ntestDebugUnitTest:\nassembleDebug:\nverify\n");
+  const apk = path.join(root, ".build/android/SELF-OS-0.3.15-debug.apk");
   assert.equal(read(apk), "debug");
-  assert.equal(read(apk + ".sha256"), createHash("sha256").update("debug").digest("hex") + "  SELF-OS-0.3.14-debug.apk\n");
-  const rejected = run({ SELF_OS_ANDROID_VARIANT: "debug", FIXTURE_REJECT: "1" }, ["--skip-tests"]);
+  assert.equal(read(apk + ".sha256"), createHash("sha256").update("debug").digest("hex") + "  SELF-OS-0.3.15-debug.apk\n");
+  const rejected = run({ SELF_OS_ANDROID_VARIANT: "debug", FIXTURE_REJECT: "1" }, ["--skip-tests", "--skip-web-build"]);
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /signature verification failed/);
   assert.equal(read(apk), "debug");
+});
+
+test("Android build can reuse a prepared Web bundle and rejects a missing index", (t) => {
+  const { root, log, run } = fixture(t);
+  const options = { SELF_OS_ANDROID_VARIANT: "debug" };
+  const args = ["--skip-web-build", "--skip-tests"];
+  const reused = run(options, args);
+  assert.equal(reused.status, 0, reused.stderr);
+  assert.equal(read(log), "assembleDebug:\nverify\n");
+
+  fs.writeFileSync(log, "");
+  fs.unlinkSync(path.join(root, "apps/web/dist/index.html"));
+  const missing = run(options, args);
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /apps\/web\/dist\/index\.html is missing/);
+  assert.equal(read(log), "");
 });
 
 test("Android build reads site.env as data and conceals private endpoints from logs", (t) => {
@@ -211,7 +255,7 @@ test("Android build reads site.env as data and conceals private endpoints from l
   ].join("\n"));
   const result = run({ SELF_OS_ANDROID_VARIANT: "debug" }, ["--with-site-env", "--skip-tests"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(read(log), "assembleDebug:https://private-site.example.test:9443\nverify\n");
+  assert.equal(read(log), "build:web\nassembleDebug:https://private-site.example.test:9443\nverify\n");
   assert.doesNotMatch(result.stdout + result.stderr, /private-site\.example\.test/);
   assert.equal(fs.existsSync(path.join(root, "forbidden")), false);
 
@@ -222,7 +266,7 @@ test("Android build reads site.env as data and conceals private endpoints from l
   fs.writeFileSync(log, "");
   const personal = run({ SELF_OS_ANDROID_VARIANT: "debug", SELF_OS_URL: "https://private-site.example.test/path?token=discard" });
   assert.equal(personal.status, 0, personal.stderr);
-  assert.equal(read(log), "testDebugUnitTest:https://private-site.example.test\nassembleDebug:https://private-site.example.test\nverify\n");
+  assert.equal(read(log), "build:web\ntestDebugUnitTest:https://private-site.example.test\nassembleDebug:https://private-site.example.test\nverify\n");
 
   write("infra/deploy/site.env", "COUNCIL_SITE=$(touch forbidden)\n");
   const injected = run({ SELF_OS_ANDROID_VARIANT: "debug" }, ["--with-site-env"]);
@@ -236,14 +280,14 @@ test("Android release uses a private signing pair and reuses it on the next buil
   const output = path.join(root, "outputs/SELF OS.apk");
   const first = run({ SELF_OS_OUTPUT_APK: output });
   assert.equal(first.status, 0, first.stderr);
-  assert.equal(read(log), "testDebugUnitTest:\nassembleRelease:\nkeytool\nsign\nverify\n");
+  assert.equal(read(log), "build:web\ntestDebugUnitTest:\nassembleRelease:\nkeytool\nsign\nverify\n");
   assert.equal(read(output), "signed");
   const config = path.join(home, ".config/self-os");
   for (const name of ["android-release.jks", "android-release.env"]) {
     assert.equal(fs.statSync(path.join(config, name)).mode & 0o777, 0o600);
   }
   fs.writeFileSync(log, "");
-  const second = run({ SELF_OS_OUTPUT_APK: output }, ["--skip-tests"]);
+  const second = run({ SELF_OS_OUTPUT_APK: output }, ["--skip-tests", "--skip-web-build"]);
   assert.equal(second.status, 0, second.stderr);
   assert.equal(read(log), "assembleRelease:\nsign\nverify\n");
 });

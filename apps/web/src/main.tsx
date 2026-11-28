@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { features, feature, type FeatureKey } from "./navigation.ts";
 import { Icon } from "./ui/Icon.tsx";
 import {
+  isLocalMode,
   usePending,
   useSyncStatus,
   startSync,
@@ -118,7 +119,7 @@ function App() {
   const [dropBefore, setDropBefore] = useState<string | null>(null);
   const [theme, setTheme] = usePreference("theme", "dark");
   const [error, setError] = useState("");
-  const { state: syncState, message } = useSyncStatus();
+  const { state: syncState, message } = useSyncStatus(true);
   const conflicts = usePending().filter(
     (p) => p.state === "conflict" || p.state === "error",
   );
@@ -723,5 +724,5 @@ function App() {
   );
 }
 createRoot(document.getElementById("root")!).render(<App />);
-if (import.meta.env.PROD && "serviceWorker" in navigator)
+if (import.meta.env.PROD && !isLocalMode() && "serviceWorker" in navigator)
   void navigator.serviceWorker.register("/sw.js");

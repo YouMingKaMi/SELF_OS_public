@@ -44,6 +44,46 @@ data class OriginKey(val scheme: String, val host: String, val port: Int) {
     }
 }
 
+const val LOCAL_ASSET_HOST = "appassets.androidplatform.net"
+val LOCAL_ORIGIN = OriginKey("https", LOCAL_ASSET_HOST, 443)
+const val LOCAL_START_URL = "https://appassets.androidplatform.net/"
+
+enum class ShellMode { LOCAL, REMOTE }
+
+sealed interface AssetResolution {
+    data class File(val assetPath: String) : AssetResolution
+    data object SpaFallback : AssetResolution
+    data object Blocked : AssetResolution
+}
+
+object SelfOSAssetRouting {
+    fun resolveWebAsset(rawUrl: String): AssetResolution {
+        if (OriginKey.parse(rawUrl) != LOCAL_ORIGIN) return AssetResolution.Blocked
+        val path = parseUri(rawUrl)?.path ?: return AssetResolution.Blocked
+        // URI.path decodes percent escapes once. Reject residual escapes rather than decoding again.
+        if (path.any { it == '\\' || it == '%' || it.isISOControl() || it == '\uFFFD' }) return AssetResolution.Blocked
+        val segments = path.split('/')
+        if (".." in segments) return AssetResolution.Blocked
+        val normalized = segments.filter { it.isNotEmpty() && it != "." }
+        if (normalized.firstOrNull() == "v1") return AssetResolution.Blocked
+        if (normalized.isEmpty() || '.' !in normalized.last()) return AssetResolution.SpaFallback
+        return AssetResolution.File("web/" + normalized.joinToString("/"))
+    }
+
+    fun mimeTypeForAsset(assetPath: String): String =
+        when (assetPath.substringAfterLast('.', "").lowercase(Locale.ROOT)) {
+            "html" -> "text/html; charset=utf-8"
+            "js", "mjs" -> "application/javascript; charset=utf-8"
+            "css" -> "text/css; charset=utf-8"
+            "svg" -> "image/svg+xml"
+            "json", "webmanifest" -> "application/json; charset=utf-8"
+            "png" -> "image/png"
+            "ico" -> "image/x-icon"
+            "woff2" -> "font/woff2"
+            else -> "application/octet-stream"
+        }
+}
+
 object SelfOSEndpoint {
     private val explicitScheme = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://")
     private val bareAddress = Regex("^(?:\\[[0-9a-fA-F:.]+]|[a-zA-Z0-9.-]+)(?::[0-9]+)?$")
@@ -62,7 +102,7 @@ object SelfOSEndpoint {
             "$scheme://$trimmed"
         }
         val origin = OriginKey.parse(url) ?: return null
-        if (origin.scheme == "http" && origin.host !in localHosts) return null
+        if (origin.host == LOCAL_ASSET_HOST || origin.scheme == "http" && origin.host !in localHosts) return null
         return origin.toUrl()
     }
 }

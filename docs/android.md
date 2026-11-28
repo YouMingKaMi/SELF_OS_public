@@ -1,28 +1,30 @@
 # 安装与构建 Android APK
 
-> [!WARNING]
-> **早期测试版说明**：当前发布的 Android APK 属于早期尝鲜版本，**可能会出现很多问题，作者目前没有仔细去体验和研究**，请谨慎使用，遇到任何异常欢迎在仓库提 Issue 反馈。
+SELF OS 提供独立的 Android 原生安全壳（`apps/android/`，Kotlin + Android WebView，支持 Android 8.0+ / API 26–35），内置完整构建的 19 个核心移动端页面，支持 **「仅本机使用（无需服务器）」与「连接我的服务器」二合一**：
 
-SELF OS 提供独立的 Android 原生安全壳（`apps/android/`，Kotlin + Android WebView，支持 Android 8.0+ / API 26–35），复用已部署的响应式 Web 工作区，完整覆盖全部 19 个核心模块与跨端工作区定制，并在原生层补齐：
+- **零服务器开箱即用（仅本机模式）**：无需购买或部署服务器，首次打开选择「仅本机使用（无需服务器）」即可通过 APK 内置资源离线运行，全部数据持久化在手机本地 IndexedDB，零外部网络请求，并支持随时导出完整 JSON 备份或从备份文件恢复（合并导入 / 覆盖恢复）。
+- **随时切服与平滑迁移**：首次打开也可直接选择「连接我的服务器」填入自己的 HTTPS 站点地址；随时可在「设置 → Android 模式与服务器」或长按桌面应用图标「模式与连接设置」在仅本机与服务器模式之间无损切换。日后购买服务器时，只需在仅本机模式导出 JSON 备份，切换至服务器配对后执行「导入备份恢复（合并导入）」即可迁移全部历史记录。
+- **同源安全边界**：全局禁用明文 HTTP（仅允许 `127.0.0.1` / `localhost` / `10.0.2.2` 本机调试），本地模式通过虚拟安全源隔离拦截一切外部子请求与 `/v1/*` 请求，外链通过系统浏览器打开，原生桥按源限定且仅顶层同源文档可调用。
+- **手机端原生体验**：Edge-to-Edge 状态栏与手势条安全区自动适配、深色/浅色系统栏联动、系统返回手势（先收起弹窗/回退页面历史，首页双击退出）、系统文件选择器（支持导入 JSON 备份）与 Android SAF 流式文件导出、HttpOnly 配对会话持久化。
 
-- **首次连接引导与随时切服**：默认通用版 APK 不内嵌任何服务器地址，安装打开后填入自己的 HTTPS 站点地址即可使用；随时可在「设置 → Android 服务器 → 连接设置」或长按桌面应用图标「连接设置」修改。
-- **同源安全边界**：全局禁用明文 HTTP（仅允许 `127.0.0.1` / `localhost` / `10.0.2.2` 本机调试），外链通过系统浏览器打开，原生桥按源限定且仅顶层同源文档可调用。
-- **手机端原生体验**：Edge-to-Edge 状态栏与手势条安全区自动适配、深色/浅色系统栏联动、系统返回手势（先收起弹窗/回退页面历史，首页双击退出）、系统文件选择器（支持导入 JSON）与 Android SAF 流式文件导出、HttpOnly 配对会话持久化。
-
-## 直接下载预编译 APK（推荐尝鲜）
+## 直接下载预编译 APK（推荐）
 
 前往本仓库的 [GitHub Releases](https://github.com/YouMingKaMi/SELF_OS_public/releases) 下载最新的 `SELF-OS-*-release.apk`（及同目录 `.sha256` 校验文件）：
 
 - 该通用安装包**不包含任何个人服务器地址或隐私信息**；
-- 首次打开后填入你自己的 SELF OS HTTPS 地址，并按服务端配对流程输入一次性连接码即可使用。
+- 没有服务器的用户，首次打开直接点 **「仅本机使用（无需服务器）」** 即可离线记录，建议定期在「设置 → 数据管理」导出 JSON 备份；
+- 已有自建服务器的用户，首次打开选择 **「连接我的服务器」** 填入自己的 SELF OS HTTPS 地址并输入一次性连接码即可同步使用。
 
 ## 自行构建签名 APK
 
-需要 **JDK 17 或 21** 与 **Android SDK（Platform 35 + Build Tools 35.0.0）**。
+需要 **Node.js 20+**、**JDK 17 或 21** 与 **Android SDK（Platform 35 + Build Tools 35.0.0）**。
 
 ```bash
-# 构建通用版正式签名 APK（默认不预填服务器地址，输出至 .build/android/SELF-OS-0.3.14-release.apk）
+# 构建二合一通用版正式签名 APK（自动构建 Web 并内置进 APK，默认不预填服务器地址，输出至 .build/android/SELF-OS-0.3.15-release.apk）
 sh scripts/build-android-apk.sh
+
+# 若 apps/web/dist 已最新，可跳过重复构建 Web：
+sh scripts/build-android-apk.sh --skip-web-build
 
 # 如需构建 Debug 包
 SELF_OS_ANDROID_VARIANT=debug sh scripts/build-android-apk.sh
@@ -42,4 +44,4 @@ sh scripts/build-android-apk.sh --with-site-env
 
 ## 安装到手机
 
-将 `.build/android/SELF-OS-0.3.14-release.apk` 传到 Android 手机点击安装（允许安装未知来源应用），或连接电脑通过 `adb install -r .build/android/SELF-OS-0.3.14-release.apk` 覆盖安装。打开后输入服务器地址，并按服务器配对流程生成一次性连接码完成配对即可离线同步使用。
+将 `.build/android/SELF-OS-0.3.15-release.apk` 传到 Android 手机点击安装（允许安装未知来源应用），或连接电脑通过 `adb install -r .build/android/SELF-OS-0.3.15-release.apk` 覆盖安装。打开后按需选择「仅本机使用（无需服务器）」直接离线使用，或选择「连接我的服务器」并完成一次性连接码配对。

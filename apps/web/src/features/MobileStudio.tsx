@@ -278,7 +278,7 @@ function MobileStudioInner({
 }) {
   const ws = useWorkspaceConfig();
   const navCtx = useMobileNavState();
-  const { state: syncState } = useSyncStatus();
+  const { state: syncState } = useSyncStatus(true);
   const conflicts = usePending().filter(
     (p) => p.state === "conflict" || p.state === "error",
   );
@@ -405,13 +405,15 @@ function MobileStudioInner({
     syncState === "unreachable" ||
     syncState === "attention";
   const syncLabel =
-    conflicts.length > 0 || syncState === "attention"
-      ? "待处理"
-      : syncState === "offline" || syncState === "unreachable"
-        ? "离线"
-        : syncState === "connecting"
-          ? "同步中"
-          : "已同步";
+    syncState === "local"
+      ? "仅本机"
+      : conflicts.length > 0 || syncState === "attention"
+        ? "待处理"
+        : syncState === "offline" || syncState === "unreachable"
+          ? "离线"
+          : syncState === "connecting"
+            ? "同步中"
+            : "已同步";
 
   function renderMobileFeature(key: FeatureKey) {
     switch (key) {
@@ -560,7 +562,11 @@ function MobileStudioInner({
           <MobileTodayScreen
             syncLabel={syncLabel}
             showAttention={showAttention}
-            onSync={() => void synchronize()}
+            onSync={() =>
+              syncState === "local"
+                ? setStack([{ kind: "settings" }])
+                : void synchronize()
+            }
             onOpenFeature={(key) => setStack([{ kind: "feature", key }])}
             onCapture={(kind) => setCapture(kind)}
             arranging={arranging}

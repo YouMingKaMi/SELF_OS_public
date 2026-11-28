@@ -1,6 +1,7 @@
 export interface SelfOSAndroidBridge {
   setTheme?: (theme: "dark" | "light") => void;
   openEndpointSettings?: () => void;
+  isLocalMode?: () => boolean;
   beginExport?: (filename: string, mimeType: string) => string;
   appendExport?: (id: string, chunk: string) => boolean;
   finishExport?: (id: string) => boolean;
@@ -23,6 +24,10 @@ function bridge(): SelfOSAndroidBridge | undefined {
 
 export function isAndroidApp(): boolean {
   return Boolean(bridge());
+}
+
+export function isAndroidLocalMode(): boolean {
+  return bridge()?.isLocalMode?.() === true;
 }
 
 export function syncAndroidTheme(theme: "dark" | "light"): void {

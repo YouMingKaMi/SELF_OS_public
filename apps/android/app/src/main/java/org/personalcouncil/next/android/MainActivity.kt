@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
@@ -50,6 +51,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import java.io.ByteArrayInputStream
@@ -68,6 +70,13 @@ class MainActivity : ComponentActivity() {
     private val defaultEndpoint by lazy { SelfOSEndpoint.normalize(BuildConfig.DEFAULT_ENDPOINT) }
     private val exports by lazy { exportStore(applicationContext) }
     private var endpoint: String? = null
+    private var shellMode = ShellMode.REMOTE
+    private val assetLoader by lazy {
+        WebViewAssetLoader.Builder()
+            .setDomain(LOCAL_ASSET_HOST)
+            .addPathHandler("/web/") { path -> localAssetResponse("web/$path") }
+            .build()
+    }
     private var appOrigin: OriginKey? = null
     private var webView: WebView? = null
     private var bridge: NativeBridge? = null
@@ -152,7 +161,9 @@ class MainActivity : ComponentActivity() {
         })
 
         val savedEndpoint = preferences.getString("endpoint", null)?.let(SelfOSEndpoint::normalize)
-        openEndpoint(savedEndpoint ?: defaultEndpoint, savedInstanceState?.getString("page"))
+        val savedPage = savedInstanceState?.getString("page")
+        if (preferences.getString("mode", null) == "local") openLocalMode(savedPage)
+        else openEndpoint(savedEndpoint ?: defaultEndpoint, savedPage)
         if (savedInstanceState?.getBoolean("settingsOpen") ?: (intent.action == ACTION_CONNECTION_SETTINGS)) {
             showEndpointSettings()
         }
@@ -195,13 +206,28 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openEndpoint(address: String?, page: String? = null) {
-        closeWebView()
         endpoint = address
         val origin = address?.let(OriginKey::parse)
+        openWorkspace(ShellMode.REMOTE, origin, address?.let { "$it/" }, page)
+    }
+
+    private fun openLocalMode(page: String? = null) {
+        preferences.edit().putString("mode", "local").apply()
+        openWorkspace(ShellMode.LOCAL, LOCAL_ORIGIN, LOCAL_START_URL, page)
+    }
+
+    private fun retryWorkspace() {
+        if (shellMode == ShellMode.LOCAL) openLocalMode(failedUrl)
+        else openEndpoint(endpoint, failedUrl)
+    }
+
+    private fun openWorkspace(mode: ShellMode, origin: OriginKey?, startUrl: String?, page: String?) {
+        closeWebView()
+        shellMode = mode
         appOrigin = origin
         failedUrl = null
         lastBackPress = -2_000L
-        if (address == null || origin == null) {
+        if (startUrl == null || origin == null) {
             showScreen(Screen.Onboarding)
             return
         }
@@ -210,7 +236,7 @@ class MainActivity : ComponentActivity() {
         webView = view
         view.setBackgroundColor(shellColor())
         configureWebView(view)
-        view.webViewClient = WorkspaceClient(origin)
+        view.webViewClient = WorkspaceClient(origin, mode)
         view.webChromeClient = WorkspaceChrome()
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             val sessionBridge = NativeBridge(view)
@@ -224,7 +250,7 @@ class MainActivity : ComponentActivity() {
         }
         root.addView(view, 0, matchParent())
         showScreen(Screen.Loading)
-        view.loadUrl(page?.takeIf(::isSameOrigin) ?: "$address/")
+        view.loadUrl(page?.takeIf(::isSameOrigin) ?: startUrl)
     }
 
     @Suppress("SetJavaScriptEnabled")
@@ -255,7 +281,24 @@ class MainActivity : ComponentActivity() {
         view.destroy()
     }
 
-    private inner class WorkspaceClient(private val origin: OriginKey) : WebViewClient() {
+    private fun localAssetResponse(assetPath: String): WebResourceResponse {
+        val contentType = SelfOSAssetRouting.mimeTypeForAsset(assetPath)
+        val encoding = if ("charset=" in contentType) "UTF-8" else null
+        val headers = if (contentType.startsWith("text/html")) {
+            // The APK serves the shell directly. Only bundled /assets/ workers may start.
+            mapOf("Content-Security-Policy" to "connect-src 'none'; worker-src ${LOCAL_START_URL}assets/")
+        } else emptyMap()
+        return try {
+            WebResourceResponse(contentType.substringBefore(';'), encoding, 200, "OK", headers, assets.open(assetPath))
+        } catch (_: IOException) {
+            emptyResponse(404, "Not Found")
+        }
+    }
+
+    private inner class WorkspaceClient(
+        private val origin: OriginKey,
+        private val mode: ShellMode,
+    ) : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             if (view !== webView) return true
             val url = request.url.toString()
@@ -271,6 +314,16 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+            if (mode == ShellMode.LOCAL) {
+                if (request.method != "GET") return blockedResponse()
+                val path = when (val asset = SelfOSAssetRouting.resolveWebAsset(request.url.toString())) {
+                    is AssetResolution.File -> asset.assetPath
+                    AssetResolution.SpaFallback -> "web/index.html"
+                    AssetResolution.Blocked -> return blockedResponse()
+                }
+                val assetUrl = Uri.Builder().scheme("https").authority(LOCAL_ASSET_HOST).path("/$path").build()
+                return assetLoader.shouldInterceptRequest(assetUrl) ?: emptyResponse(404, "Not Found")
+            }
             // This callback also covers cross-origin initial POST and frame requests.
             // Use the origin captured for this WebView, since this callback runs on a worker.
             return if (SelfOSSecurityPolicy.decideSubframeNavigation(origin, request.url.toString()) ==
@@ -488,6 +541,7 @@ class MainActivity : ComponentActivity() {
             const capability = '$token';
             Object.defineProperty(window, 'SelfOSAndroid', { value: Object.freeze({
                 setTheme: theme => native.setTheme(capability, theme),
+                isLocalMode: () => native.isLocalMode(capability),
                 openEndpointSettings: () => native.openEndpointSettings(capability),
                 beginExport: (name, mime) => native.beginExport(capability, name, mime),
                 appendExport: (id, chunk) => native.appendExport(capability, id, chunk),
@@ -528,6 +582,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        @JavascriptInterface
+        fun isLocalMode(capability: String): Boolean =
+            onUiThread(capability, false) { shellMode == ShellMode.LOCAL }
 
         @JavascriptInterface
         fun openEndpointSettings(capability: String) {
@@ -661,7 +719,7 @@ class MainActivity : ComponentActivity() {
         else View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         if (next == Screen.Web || next == Screen.Loading) return
 
-        val context = themedContext()
+        val context = if (next == Screen.Onboarding) ContextThemeWrapper(this, R.style.Theme_SelfOS) else themedContext()
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.START
@@ -680,6 +738,12 @@ class MainActivity : ComponentActivity() {
             ViewCompat.setAccessibilityHeading(this, true)
         })
         if (next == Screen.Onboarding) {
+            content.addView(Button(context).apply {
+                setText(R.string.use_local)
+                backgroundTintList = ColorStateList.valueOf(getColor(R.color.shell_light))
+                setTextColor(getColor(R.color.shell_dark))
+                setOnClickListener { openLocalMode() }
+            })
             content.addView(TextView(context).apply { setText(R.string.connect_description) })
             val input = endpointInput(context)
             content.addView(input)
@@ -690,11 +754,15 @@ class MainActivity : ComponentActivity() {
         } else {
             content.addView(Button(context).apply {
                 setText(R.string.retry_connection)
-                setOnClickListener { openEndpoint(endpoint, failedUrl) }
+                setOnClickListener { retryWorkspace() }
             })
             content.addView(Button(context).apply {
                 setText(R.string.connection_settings)
                 setOnClickListener { showEndpointSettings() }
+            })
+            if (shellMode == ShellMode.REMOTE) content.addView(Button(context).apply {
+                setText(R.string.use_local_after_error)
+                setOnClickListener { openLocalMode() }
             })
         }
     }
@@ -703,7 +771,7 @@ class MainActivity : ComponentActivity() {
         if (settingsDialog?.isShowing == true || isFinishing || isDestroyed) return
         val context = themedContext()
         val input = endpointInput(context).apply {
-            setHint(R.string.endpoint_default_hint)
+            if (defaultEndpoint != null) setHint(R.string.endpoint_default_hint)
             setText(preferences.getString("endpoint", null).orEmpty())
             setSelection(length())
         }
@@ -717,12 +785,15 @@ class MainActivity : ComponentActivity() {
             .setView(field)
             .setPositiveButton(R.string.connect_action, null)
             .setNegativeButton(android.R.string.cancel, null)
+            .apply {
+                if (shellMode != ShellMode.LOCAL) setNeutralButton(R.string.switch_to_local) { _, _ -> openLocalMode() }
+            }
             .create()
         settingsDialog = dialog
         dialog.setOnDismissListener { if (settingsDialog === dialog) settingsDialog = null }
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            if (saveEndpoint(input, allowDefault = true)) dialog.dismiss()
+            if (saveEndpoint(input, allowDefault = defaultEndpoint != null)) dialog.dismiss()
         }
     }
 
@@ -740,7 +811,7 @@ class MainActivity : ComponentActivity() {
             input.error = getString(R.string.endpoint_invalid)
             return false
         }
-        preferences.edit().putString("endpoint", normalized).apply()
+        preferences.edit().putString("mode", "remote").putString("endpoint", normalized).apply()
         openEndpoint(normalized ?: defaultEndpoint)
         return true
     }
@@ -830,8 +901,10 @@ class MainActivity : ComponentActivity() {
         private fun exportStore(context: Context): ExportStagingStore =
             processExports ?: ExportStagingStore(File(context.cacheDir, "android-exports")).also { processExports = it }
 
-        private fun blockedResponse() = WebResourceResponse(
-            "text/plain", "UTF-8", 403, "Forbidden", emptyMap(),
+        private fun blockedResponse() = emptyResponse(403, "Forbidden")
+
+        private fun emptyResponse(status: Int, reason: String) = WebResourceResponse(
+            "text/plain", "UTF-8", status, reason, emptyMap(),
             ByteArrayInputStream(byteArrayOf()),
         )
     }

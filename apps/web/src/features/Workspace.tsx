@@ -1,5 +1,5 @@
 import { timeSummary } from "../../../../modules/practice/index.ts";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./workspace.css";
 import { Icon } from "../ui/Icon.tsx";
 import {
@@ -9,6 +9,9 @@ import {
   type Navigate,
 } from "../navigation.ts";
 import {
+  importWorkspaceBackup,
+  isLocalMode,
+  parseWorkspaceImport,
   useEntities,
   useEverything,
   useDatedEntities,
@@ -529,9 +532,12 @@ export function Settings({
   const conflicts = pending.filter(
     (p) => p.state === "conflict" || p.state === "error",
   );
-  const { message } = useSyncStatus();
+  const { message } = useSyncStatus(true);
   const [trash, setTrash] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [backupImporting, setBackupImporting] = useState(false);
+  const [backupMsg, setBackupMsg] = useState("");
+  const backupInput = useRef<HTMLInputElement>(null);
   const [showModules, setShowModules] = useState(true);
   const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({});
   const [deptDrafts, setDeptDrafts] = useState<Record<string, string>>({});
@@ -845,9 +851,56 @@ export function Settings({
           <p className="muted-note">
             模块开关、别名与部门定制跨端自动同步；首页排版、分屏与主题保存在当前设备。
           </p>
-          <button disabled={exporting} onClick={() => perform(download())}>
-            {exporting ? "正在导出…" : "导出已下载资料"}
-          </button>
+          <div className="form-actions">
+            <button disabled={exporting} onClick={() => perform(download())}>
+              {exporting ? "正在导出…" : "导出已下载资料"}
+            </button>
+            <button
+              type="button"
+              disabled={backupImporting}
+              onClick={() => backupInput.current?.click()}
+            >
+              {backupImporting ? "正在导入…" : "导入备份 (JSON)"}
+            </button>
+          </div>
+          <input
+            ref={backupInput}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              setBackupImporting(true);
+              setBackupMsg("");
+              void file
+                .text()
+                .then((text) => {
+                  const parsed = parseWorkspaceImport(text);
+                  const confirmed = window.confirm(
+                    `将合并导入 ${parsed.liveCount} 条有效记录（导出时间：${parsed.exportedAt.slice(0, 16).replace("T", " ")}）。确认继续？`,
+                  );
+                  if (!confirmed) return null;
+                  return importWorkspaceBackup(parsed, "merge");
+                })
+                .then((res) => {
+                  if (!res) return;
+                  setBackupMsg(
+                    isLocalMode()
+                      ? `已导入 ${res.imported} 条、更新 ${res.updated} 条`
+                      : `已加入同步队列：新增 ${res.imported} 条、更新 ${res.updated} 条`,
+                  );
+                })
+                .catch((err) => {
+                  setBackupMsg(
+                    err instanceof Error ? err.message : "导入失败，请检查文件格式",
+                  );
+                })
+                .finally(() => setBackupImporting(false));
+            }}
+          />
+          {backupMsg && <p className="muted-note">{backupMsg}</p>}
         </Panel>
         <Panel
           title="资料与回收站"

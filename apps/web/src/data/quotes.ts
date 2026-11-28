@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import type { AssetKind, Quote, Quotes, QuoteMatch } from "../../../../packages/contracts/quotes.ts";
 
+import { isLocalMode } from "./local-mode.ts";
+
 const storageKey = "council-quotes";
 function remembered(): Record<string, Quote> {
   try {
@@ -20,6 +22,7 @@ function remember(quotes: Record<string, Quote>) {
 
 export async function fetchQuotes(ids: string[]): Promise<Quotes> {
   const wanted = [...new Set(ids)];
+  if (isLocalMode()) return { quotes: {}, missing: wanted };
   const batches = [];
   for (let first = 0; first < wanted.length; first += 40) {
     const batch = wanted.slice(first, first + 40);
@@ -39,6 +42,7 @@ export async function fetchQuotes(ids: string[]): Promise<Quotes> {
 }
 
 export async function searchQuotes(q: string, kind: AssetKind): Promise<QuoteMatch[]> {
+  if (isLocalMode()) throw new Error("仅本机模式暂不支持在线搜索行情，请手动填写备用价格");
   const response = await fetch(
     `/v1/quotes/search?kind=${kind}&q=${encodeURIComponent(q)}`,
     { headers: { "x-council-request": "1" }, signal: AbortSignal.timeout(12000) },
@@ -50,14 +54,15 @@ export async function searchQuotes(q: string, kind: AssetKind): Promise<QuoteMat
 /** Quotes for the given ids, refreshed every minute while mounted and visible. */
 export function useQuotes(ids: string[]) {
   const key = [...new Set(ids)].sort().join(",");
-  const [quotes, setQuotes] = useState<Record<string, Quote>>(remembered);
+  const local = isLocalMode();
+  const [quotes, setQuotes] = useState<Record<string, Quote>>(() => local ? {} : remembered());
   const [latest, setLatest] = useState<Record<string, Quote>>({});
   function accept(result: Quotes) {
     setQuotes((old) => ({ ...old, ...result.quotes }));
     setLatest(result.quotes);
   }
   useEffect(() => {
-    if (!key) return;
+    if (local || !key) return;
     let stop = false;
     const load = () => {
       if (document.hidden) return;
@@ -72,7 +77,7 @@ export function useQuotes(ids: string[]) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", load);
     };
-  }, [key]);
+  }, [key, local]);
   const statusOf = (id: string) => {
     if (!quotes[id]) return "缺报价";
     const current = latest[id];

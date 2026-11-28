@@ -19,6 +19,75 @@ class SelfOSAndroidCoreTest {
     private val app = OriginKey("https", "app.example.test", 443)
 
     @Test
+    fun localAssetRoutesOnlyTheBundledOriginAndNormalizesSpaPaths() {
+        assertEquals(OriginKey("https", LOCAL_ASSET_HOST, 443), LOCAL_ORIGIN)
+        assertEquals(LOCAL_ORIGIN, OriginKey.parse(LOCAL_START_URL))
+        for (path in listOf("", "habits", "expenses?from=settings#top", "storage/", "habits/today", "./storage")) {
+            assertEquals(path, AssetResolution.SpaFallback, SelfOSAssetRouting.resolveWebAsset(LOCAL_START_URL + path))
+        }
+        for (path in listOf("assets/index-x.js", "favicon.svg", "assets/a%20b.css", "assets/a%25b.css")) {
+            val expected = when (path) {
+                "assets/a%20b.css" -> AssetResolution.File("web/assets/a b.css")
+                "assets/a%25b.css" -> AssetResolution.Blocked
+                else -> AssetResolution.File("web/$path")
+            }
+            assertEquals(path, expected, SelfOSAssetRouting.resolveWebAsset(LOCAL_START_URL + path + "?cache=1"))
+        }
+        assertNull(SelfOSEndpoint.normalize(LOCAL_START_URL))
+    }
+
+    @Test
+    fun localAssetsBlockApiTraversalAndOtherOrigins() {
+        for (path in listOf(
+            "v1", "v1/", "v1/events", "%76%31%2fquotes", "./v1/pair", "/v1/commands",
+            "assets/../index.html", "assets/%2e%2E/index.html", "%2e%2e%2findex.html",
+            "assets\\index.js", "assets%5cindex.js", "assets/%00.js", "assets/%GG.js",
+            "assets/%252e%252e/index.html", "assets/%ff.js",
+        )) {
+            assertEquals(path, AssetResolution.Blocked, SelfOSAssetRouting.resolveWebAsset(LOCAL_START_URL + path))
+        }
+        for (url in listOf(
+            app.toUrl(), "http://$LOCAL_ASSET_HOST", "https://$LOCAL_ASSET_HOST:444",
+            "https://other.$LOCAL_ASSET_HOST", "https://name@$LOCAL_ASSET_HOST",
+        )) {
+            assertEquals(url, AssetResolution.Blocked, SelfOSAssetRouting.resolveWebAsset(url))
+        }
+    }
+
+    @Test
+    fun localAssetMimeTypesMatchTheEmbeddedFiles() {
+        val expected = mapOf(
+            "index.html" to "text/html; charset=utf-8",
+            "bundle.js" to "application/javascript; charset=utf-8",
+            "worker.MJS" to "application/javascript; charset=utf-8",
+            "styles.css" to "text/css; charset=utf-8",
+            "favicon.svg" to "image/svg+xml",
+            "backup.json" to "application/json; charset=utf-8",
+            "app.webmanifest" to "application/json; charset=utf-8",
+            "favicon.png" to "image/png",
+            "favicon.ico" to "image/x-icon",
+            "letters.woff2" to "font/woff2",
+            "binary.bin" to "application/octet-stream",
+        )
+        for ((file, mime) in expected) assertEquals(file, mime, SelfOSAssetRouting.mimeTypeForAsset("web/$file"))
+    }
+
+    @Test
+    fun localOriginUsesTheSameNavigationAndBridgeTrustRules() {
+        val local = LOCAL_START_URL + "habits"
+        val external = app.toUrl() + "/habits"
+        assertEquals(NavigationOutcome.ALLOW, SelfOSSecurityPolicy.decideMainFrameNavigation(LOCAL_ORIGIN, local, false))
+        assertEquals(NavigationOutcome.CANCEL, SelfOSSecurityPolicy.decideMainFrameNavigation(LOCAL_ORIGIN, external, false))
+        assertEquals(NavigationOutcome.OPEN_EXTERNAL(external), SelfOSSecurityPolicy.decideMainFrameNavigation(LOCAL_ORIGIN, external, true))
+        assertEquals(NavigationOutcome.ALLOW, SelfOSSecurityPolicy.decideSubframeNavigation(LOCAL_ORIGIN, local))
+        assertEquals(NavigationOutcome.CANCEL, SelfOSSecurityPolicy.decideSubframeNavigation(LOCAL_ORIGIN, external))
+        assertTrue(SelfOSSecurityPolicy.isBridgeCallerAllowed(LOCAL_ORIGIN, local))
+        assertFalse(SelfOSSecurityPolicy.isBridgeCallerAllowed(LOCAL_ORIGIN, external))
+        assertFalse(SelfOSSecurityPolicy.isBridgeCallerAllowed(app, local))
+        assertFalse(SelfOSSecurityPolicy.isBridgeCallerAllowed(LOCAL_ORIGIN, "about:blank"))
+    }
+
+    @Test
     fun originParsesOnlyUnambiguousHttpAndHttpsAuthorities() {
         assertEquals(app, OriginKey.parse("HTTPS://APP.example.test:443/route?q=1#top"))
         assertEquals(OriginKey("http", "localhost", 80), OriginKey.parse("http://localhost/"))
